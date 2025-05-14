@@ -16,7 +16,7 @@ class ReportMode(Enum):
 class SklearnDatasetName(Enum):
     IRIS = "iris"
     WINE = "wine"
-    #DIGITS = "digits" (futuramente)
+    BREAST_CANCER = "breast_cancer"
 
 class DatasetNoiseConfig(BaseModel):
     noise_level: Optional[float] = None  # Intensidade de ruído gaussiano
