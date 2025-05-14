@@ -1,29 +1,29 @@
-from models.knn_model import KNNModel
+from models.perceptron_model import PerceptronModel
 from core.experiment import Experiment
 from utils.report import report_data, ReportMode
 from datasets.factory import DatasetFactory
-from utils.types import DatasetSourceType, SklearnDatasetName,DatasetNoiseConfig
+from utils.types import DatasetSourceType, SklearnDatasetName, DatasetNoiseConfig
 from inference.pipeline.inference_pipeline import InferencePipeline
 
-def run_knn_without_inference():
-    print("\n=== KNN SEM INFERÊNCIA ===")
-
-    base_params = {"n_neighbors": 3, "weights": "uniform", "algorithm": "auto"}
-    model = KNNModel(base_params)
-    dataset = DatasetFactory.create(DatasetSourceType.SKLEARN, name=SklearnDatasetName.WINE)
+def run_perceptron_without_inference():
+    print("\n=== Perceptron SEM INFERÊNCIA ===")
+    
+    base_params = {"max_iter": 1000, "tol": 1e-3}
+    model = PerceptronModel(base_params)
+    dataset = DatasetFactory.create(DatasetSourceType.SKLEARN, name=SklearnDatasetName.DIGITS)
 
     X_train, X_test, y_train, y_test = dataset.load_data()
     
     experiment = Experiment(model, dataset)
     metrics = experiment.run(X_train, X_test, y_train, y_test)
-    
+
     report_data(metrics, mode=ReportMode.PRINT)
 
-def run_knn_with_inference():
-    print("\n=== KNN COM INFERÊNCIA (data + param + label) ===")
+def run_perceptron_with_inference():
+    print("\n=== Perceptron COM INFERÊNCIA (data + param + label) ===")
 
-    base_params = {"n_neighbors": 3, "weights": "uniform", "algorithm": "auto"}
-    dataset = DatasetFactory.create(DatasetSourceType.SKLEARN, name=SklearnDatasetName.WINE)
+    base_params = {"max_iter": 1000, "tol": 1e-3}
+    dataset = DatasetFactory.create(DatasetSourceType.SKLEARN, name=SklearnDatasetName.DIGITS)
 
     dataset_noise_config = DatasetNoiseConfig(
         noise_level=0.2,
@@ -43,15 +43,13 @@ def run_knn_with_inference():
         label_noise_fraction=0.1
     )
 
-    pipeline = InferencePipeline(
-        dataset_noise_config=dataset_noise_config
-    )
+    pipeline = InferencePipeline(dataset_noise_config=dataset_noise_config)
 
     model, param_log = pipeline.apply_param_inference(
-        model_class=KNNModel,
+        model_class=PerceptronModel,
         base_params=base_params,
         seed=42,
-        ignore_rules={"weights"}
+        ignore_rules={"tol"}
     )
 
     X_train, X_test, y_train, y_test = dataset.load_data()
@@ -64,12 +62,11 @@ def run_knn_with_inference():
     metrics = experiment.run(X_train, X_test, y_train, y_test)
 
     report_data(metrics, mode=ReportMode.PRINT)
-    report_data(param_log, mode=ReportMode.JSON, file_path='results/knn_param_log-wine.json')
-
+    report_data(param_log, mode=ReportMode.JSON, file_path='results/perceptron_param_log-digits.json')
 
 def run():
-    run_knn_without_inference()
-    run_knn_with_inference()
+    run_perceptron_without_inference()
+    run_perceptron_with_inference()
 
 if __name__ == "__main__":
     run()

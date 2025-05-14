@@ -5,7 +5,7 @@ from .perceptron_breast_cancer import run as run_perceptron
 from .gaussian_breast_cancer import run as run_gaussian
 
 def run_all():
-    print("=== Executando Todos os Experimentos com a Base IRIS ===")
+    print("=== Executando Todos os Experimentos com a Base Breast Cancer ===")
     run_knn()
     run_svm()
     run_tree()

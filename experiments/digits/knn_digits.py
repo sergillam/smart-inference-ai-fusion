@@ -10,7 +10,7 @@ def run_knn_without_inference():
 
     base_params = {"n_neighbors": 3, "weights": "uniform", "algorithm": "auto"}
     model = KNNModel(base_params)
-    dataset = DatasetFactory.create(DatasetSourceType.SKLEARN, name=SklearnDatasetName.WINE)
+    dataset = DatasetFactory.create(DatasetSourceType.SKLEARN, name=SklearnDatasetName.DIGITS)
 
     X_train, X_test, y_train, y_test = dataset.load_data()
     
@@ -23,7 +23,7 @@ def run_knn_with_inference():
     print("\n=== KNN COM INFERÊNCIA (data + param + label) ===")
 
     base_params = {"n_neighbors": 3, "weights": "uniform", "algorithm": "auto"}
-    dataset = DatasetFactory.create(DatasetSourceType.SKLEARN, name=SklearnDatasetName.WINE)
+    dataset = DatasetFactory.create(DatasetSourceType.SKLEARN, name=SklearnDatasetName.DIGITS)
 
     dataset_noise_config = DatasetNoiseConfig(
         noise_level=0.2,
@@ -64,7 +64,7 @@ def run_knn_with_inference():
     metrics = experiment.run(X_train, X_test, y_train, y_test)
 
     report_data(metrics, mode=ReportMode.PRINT)
-    report_data(param_log, mode=ReportMode.JSON, file_path='results/knn_param_log-wine.json')
+    report_data(param_log, mode=ReportMode.JSON, file_path='results/knn_param_log-digits.json')
 
 
 def run():

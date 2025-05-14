@@ -1,4 +1,4 @@
-from sklearn.datasets import load_iris, load_wine, load_breast_cancer
+from sklearn.datasets import load_iris, load_wine, load_breast_cancer, load_digits
 from sklearn.model_selection import train_test_split
 from core.base_dataset import BaseDataset
 from utils.types import SklearnDatasetName
@@ -11,7 +11,8 @@ class SklearnDatasetLoader(BaseDataset):
         self.dataset_map = {
             "iris": load_iris,
             "wine": load_wine,
-            "breast_cancer": load_breast_cancer
+            "breast_cancer": load_breast_cancer,
+            "digits": load_digits
         }
 
     def load_data(self):
