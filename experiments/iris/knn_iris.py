@@ -1,27 +1,26 @@
-# experiments/knn_iris.py
 from models.knn_model import KNNModel
-from datasets.iris_loader import IrisLoader
 from core.experiment import Experiment
 from inference.inference_engine import InferenceEngine
 from inference.param_runner import apply_param_inference
-from utils.report import report_data
+from utils.report import report_data, ReportMode
+from datasets.factory import DatasetFactory
+from utils.types import DatasetSourceType,SklearnDatasetName
 
 def run_knn_without_inference():
     print("\n=== KNN SEM INFERÊNCIA ===")
     
     base_params = {"n_neighbors": 3, "weights": "uniform", "algorithm": "auto"}
     model = KNNModel(base_params)
-    dataset = IrisLoader()
+    dataset = DatasetFactory.create(DatasetSourceType.SKLEARN, name=SklearnDatasetName.IRIS)
     experiment = Experiment(model, dataset)
     metrics = experiment.run()
-    report_data(metrics, mode='print', file_path='')
+    report_data(metrics, mode=ReportMode.PRINT)
 
 def run_knn_with_inference():
     print("\n=== KNN COM INFERÊNCIA (data + param) ===")
 
     base_params = {"n_neighbors": 3, "weights": "uniform", "algorithm": "auto"}
 
-    # ✅ Corrigido: passa model_class explicitamente
     model, param_log = apply_param_inference(
         model_class=KNNModel,
         base_params=base_params,
@@ -29,7 +28,7 @@ def run_knn_with_inference():
         ignore_rules={"weights"}
     )
 
-    dataset = IrisLoader()
+    dataset = DatasetFactory.create(DatasetSourceType.SKLEARN, name=SklearnDatasetName.IRIS)
     config = {
         'noise_level': 0.2,
         'truncate_decimals': 1,
@@ -51,8 +50,8 @@ def run_knn_with_inference():
     experiment = Experiment(model, dataset, inference=inference)
     metrics = experiment.run()
 
-    report_data(metrics, mode='print', file_path='')
-    report_data(param_log, mode='json', file_path='results/knn_param_log.json')
+    report_data(metrics, mode=ReportMode.PRINT)
+    report_data(param_log, mode=ReportMode.JSON, file_path='results/knn_param_log.json')
 
 def run():
     run_knn_without_inference()

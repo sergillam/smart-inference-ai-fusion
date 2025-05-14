@@ -1,31 +1,31 @@
-# experiments/gaussian_nb_iris.py
 from models.gaussian_model import GaussianNBModel
-from datasets.iris_loader import IrisLoader
 from core.experiment import Experiment
 from inference.inference_engine import InferenceEngine
 from inference.param_runner import apply_param_inference
-from utils.report import report_data
+from utils.report import report_data, ReportMode
+from datasets.factory import DatasetFactory
+from utils.types import DatasetSourceType,SklearnDatasetName
 
 def run_gaussian_without_inference():
     print("\n=== GaussianNB SEM INFERÊNCIA ===")
     base_params = {"var_smoothing": 1e-9}
     model = GaussianNBModel(**base_params)
-    dataset = IrisLoader()
+    dataset = DatasetFactory.create(DatasetSourceType.SKLEARN, name=SklearnDatasetName.IRIS)
     experiment = Experiment(model, dataset)
     metrics = experiment.run()
-    report_data(metrics, mode='print')
+    report_data(metrics, mode=ReportMode.PRINT)
 
 def run_gaussian_with_inference():
     print("\n=== GaussianNB COM INFERÊNCIA ===")
     base_params = {"var_smoothing": 1e-9}
     model, param_log = apply_param_inference(
-    model_class=GaussianNBModel,
-    base_params=base_params,
-    seed=42,
-    ignore_rules={"var_smoothing"}
+        model_class=GaussianNBModel,
+        base_params=base_params,
+        seed=42,
+        ignore_rules={"var_smoothing"}
     )
 
-    dataset = IrisLoader()
+    dataset = DatasetFactory.create(DatasetSourceType.SKLEARN, name=SklearnDatasetName.IRIS)
 
     config = {
         'noise_level': 0.2,
@@ -47,8 +47,8 @@ def run_gaussian_with_inference():
     inference = InferenceEngine(config)
     experiment = Experiment(model, dataset, inference=inference)
     metrics = experiment.run()
-    report_data(metrics, mode='print')
-    report_data(param_log, mode='json', file_path='results/gaussian_param_log.json')
+    report_data(metrics, mode=ReportMode.PRINT)
+    report_data(param_log, mode=ReportMode.JSON, file_path='results/gaussian_param_log.json')
 
 def run():
     run_gaussian_without_inference()

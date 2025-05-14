@@ -1,18 +1,19 @@
 from models.svm_model import SVMModel
-from datasets.iris_loader import IrisLoader
 from core.experiment import Experiment
 from inference.inference_engine import InferenceEngine
 from inference.param_runner import apply_param_inference
-from utils.report import report_data
+from utils.report import report_data, ReportMode
+from datasets.factory import DatasetFactory
+from utils.types import DatasetSourceType,SklearnDatasetName
 
 def run_svm_without_inference():
     print("\n=== SVM SEM INFERÊNCIA ===")
     base_params = {"kernel": "rbf", "C": 1.0}
     model = SVMModel(base_params)
-    dataset = IrisLoader()
+    dataset = DatasetFactory.create(DatasetSourceType.SKLEARN, name=SklearnDatasetName.IRIS)
     experiment = Experiment(model, dataset)
     metrics = experiment.run()
-    report_data(metrics, mode='print')
+    report_data(metrics, mode=ReportMode.PRINT)
 
 def run_svm_with_inference():
     print("\n=== SVM COM INFERÊNCIA ===")
@@ -24,7 +25,7 @@ def run_svm_with_inference():
         ignore_rules={"kernel"}
     )
 
-    dataset = IrisLoader()
+    dataset = DatasetFactory.create(DatasetSourceType.SKLEARN, name=SklearnDatasetName.IRIS)
 
     config = {
         'noise_level': 0.2,
@@ -47,8 +48,8 @@ def run_svm_with_inference():
     experiment = Experiment(model, dataset, inference=inference)
     metrics = experiment.run()
 
-    report_data(metrics, mode='print')
-    report_data(param_log, mode='json', file_path='results/svm_param_log.json')
+    report_data(metrics, mode=ReportMode.PRINT)
+    report_data(param_log, mode=ReportMode.JSON, file_path='results/svm_param_log.json')
 
 def run():
     run_svm_without_inference()
