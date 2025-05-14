@@ -1,6 +1,7 @@
 import numpy as np
-    
-class LabelNoise:
+from inference.transformations.label.base import LabelTransformation
+
+class LabelNoise(LabelTransformation):
     def __init__(self, flip_fraction):
         self.flip_fraction = flip_fraction
 

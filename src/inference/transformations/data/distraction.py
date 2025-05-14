@@ -1,5 +1,5 @@
 import numpy as np
-from inference.base_inference import InferenceTransformation
+from inference.transformations.data.base import InferenceTransformation
 
 class AddDummyFeatures(InferenceTransformation):
     def __init__(self, num_features):

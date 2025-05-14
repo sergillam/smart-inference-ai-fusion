@@ -5,27 +5,26 @@ Este documento resume todas as técnicas de inferência sintética atualmente im
 ## 🧠 1. Inferência Aplicada ao Dataset (X)
 
 Essas técnicas simulam ruídos realistas, falhas de sensores, perturbações estruturais e corrupções diretas nos dados.
+| Arquivo                                                                 | Categoria              | Técnica               | Impacto Esperado                                    |
+| ----------------------------------------------------------------------- | ---------------------- | --------------------- | --------------------------------------------------- |
+| `src/inference/transformations/data/noise.py`                          | Ruído Aditivo          | GaussianNoise         | Desestabiliza decisões próximas de fronteiras       |
+| `src/inference/transformations/data/noise.py`                          | Ruído Aditivo          | FeatureSelectiveNoise | Ruído apenas em atributos específicos               |
+| `src/inference/transformations/data/precision.py`                      | Redução de Precisão    | TruncateDecimals      | Perda de distinção entre pontos próximos            |
+| `src/inference/transformations/data/precision.py`                      | Redução de Precisão    | CastToInt             | Simplifica variações contínuas                      |
+| `src/inference/transformations/data/precision.py`                      | Redução de Precisão    | Quantize              | Discretiza os dados com bins fixos                  |
+| `src/inference/transformations/data/structure.py`                      | Perturbação Estrutural | ShuffleFeatures       | Quebra correlação entre colunas                     |
+| `src/inference/transformations/data/structure.py`                      | Perturbação Estrutural | ScaleFeatures         | Altera magnitude entre atributos                    |
+| `src/inference/transformations/data/structure.py`                      | Perturbação Estrutural | RemoveFeatures        | Remove atributos simulando sensores com falha       |
+| `src/inference/transformations/data/structure.py`                      | Perturbação Estrutural | FeatureSwap           | Troca valores entre amostras                        |
+| `src/inference/transformations/data/corruption.py`                     | Corrupção Direta       | ZeroOut               | Apaga parcialmente os dados                         |
+| `src/inference/transformations/data/corruption.py`                     | Corrupção Direta       | InsertNaN             | Simula leitura com falha completa                   |
+| `src/inference/transformations/data/outliers.py`                       | Perturbação Extrema    | InjectOutliers        | Injeta valores extremos que distorcem distribuições |
+| `src/inference/transformations/data/distraction.py`                    | Distração Semântica    | AddDummyFeatures      | Atributos irrelevantes confundem o modelo           |
+| `src/inference/transformations/data/distraction.py`                    | Distração Semântica    | DuplicateFeatures     | Colunas redundantes que aumentam dimensionalidade   |
+| `src/inference/transformations/label/label_noise.py`                   | Rótulos Corrompidos    | LabelNoise            | Rótulos trocados simulam erro de anotação           |
 
-| Arquivo          | Categoria              | Técnica               | Impacto Esperado                                    |
-| ---------------- | ---------------------- | --------------------- | --------------------------------------------------- |
-| `src/inference/noise.py`       | Ruído Aditivo          | GaussianNoise         | Desestabiliza decisões próximas de fronteiras       |
-| `src/inference/noise.py`       | Ruído Aditivo          | FeatureSelectiveNoise | Ruído apenas em atributos específicos               |
-| `src/inference/precision.py`   | Redução de Precisão    | TruncateDecimals      | Perda de distinção entre pontos próximos            |
-| `src/inference/precision.py`   | Redução de Precisão    | CastToInt             | Simplifica variações contínuas                      |
-| `src/inference/precision.py`   | Redução de Precisão    | Quantize              | Discretiza os dados com bins fixos                  |
-| `src/inference/structure.py`   | Perturbação Estrutural | ShuffleFeatures       | Quebra correlação entre colunas                     |
-| `src/inference/structure.py`   | Perturbação Estrutural | ScaleFeatures         | Altera magnitude entre atributos                    |
-| `src/inference/structure.py`   | Perturbação Estrutural | RemoveFeatures        | Remove atributos simulando sensores com falha       |
-| `src/inference/structure.py`   | Perturbação Estrutural | FeatureSwap           | Troca valores entre amostras                        |
-| `src/inference/corruption.py`  | Corrupção Direta       | ZeroOut               | Apaga parcialmente os dados                         |
-| `src/inference/corruption.py`  | Corrupção Direta       | InsertNaN             | Simula leitura com falha completa                   |
-| `src/inference/outliers.py`    | Perturbação Extrema    | InjectOutliers        | Injeta valores extremos que distorcem distribuições |
-| `src/inference/distraction.py` | Distração Semântica    | AddDummyFeatures      | Atributos irrelevantes confundem o modelo           |
-| `src/inference/distraction.py` | Distração Semântica    | DuplicateFeatures     | Colunas redundantes que aumentam dimensionalidade   |
-| `src/inference/label_noise.py` | Rótulos Corrompidos    | LabelNoise            | Rótulos trocados simulam erro de anotação           |
 
-
-# 🧩 2. Inferência Aplicada aos Parâmetros dos Modelos
+## 🛠️ 2. Inferência Aplicada aos Parâmetros dos Modelos
 
 Essas estratégias simulam erros de configuração, variações inesperadas, ou entradas semânticas incorretas nos hiperparâmetros dos modelos.
 
