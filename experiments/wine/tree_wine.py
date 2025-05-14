@@ -10,7 +10,7 @@ def run_tree_without_inference():
     
     base_params = {"max_depth": None}
     model = DecisionTreeModel(base_params)
-    dataset = DatasetFactory.create(DatasetSourceType.SKLEARN, name=SklearnDatasetName.IRIS)
+    dataset = DatasetFactory.create(DatasetSourceType.SKLEARN, name=SklearnDatasetName.WINE)
 
     X_train, X_test, y_train, y_test = dataset.load_data()
     
@@ -23,7 +23,7 @@ def run_tree_with_inference():
     print("\n=== Árvore de Decisão COM INFERÊNCIA (data + param + label) ===")
     
     base_params = {"max_depth": None}
-    dataset = DatasetFactory.create(DatasetSourceType.SKLEARN, name=SklearnDatasetName.IRIS)
+    dataset = DatasetFactory.create(DatasetSourceType.SKLEARN, name=SklearnDatasetName.WINE)
 
     dataset_noise_config = DatasetNoiseConfig(
         noise_level=0.2,
@@ -62,7 +62,7 @@ def run_tree_with_inference():
     metrics = experiment.run(X_train, X_test, y_train, y_test)
 
     report_data(metrics, mode=ReportMode.PRINT)
-    report_data(param_log, mode=ReportMode.JSON, file_path='results/tree_param_log-iris.json')
+    report_data(param_log, mode=ReportMode.JSON, file_path='results/tree_param_log-wine.json')
 
 def run():
     run_tree_without_inference()

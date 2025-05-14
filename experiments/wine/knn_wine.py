@@ -1,29 +1,29 @@
-from models.tree_model import DecisionTreeModel
+from models.knn_model import KNNModel
 from core.experiment import Experiment
 from utils.report import report_data, ReportMode
 from datasets.factory import DatasetFactory
-from utils.types import DatasetSourceType, SklearnDatasetName, DatasetNoiseConfig
+from utils.types import DatasetSourceType, SklearnDatasetName,DatasetNoiseConfig
 from inference.pipeline.inference_pipeline import InferencePipeline
 
-def run_tree_without_inference():
-    print("\n=== Árvore de Decisão SEM INFERÊNCIA ===")
-    
-    base_params = {"max_depth": None}
-    model = DecisionTreeModel(base_params)
-    dataset = DatasetFactory.create(DatasetSourceType.SKLEARN, name=SklearnDatasetName.IRIS)
+def run_knn_without_inference():
+    print("\n=== WINE SEM INFERÊNCIA ===")
+
+    base_params = {"n_neighbors": 3, "weights": "uniform", "algorithm": "auto"}
+    model = KNNModel(base_params)
+    dataset = DatasetFactory.create(DatasetSourceType.SKLEARN, name=SklearnDatasetName.WINE)
 
     X_train, X_test, y_train, y_test = dataset.load_data()
     
     experiment = Experiment(model, dataset)
     metrics = experiment.run(X_train, X_test, y_train, y_test)
-
+    
     report_data(metrics, mode=ReportMode.PRINT)
 
-def run_tree_with_inference():
-    print("\n=== Árvore de Decisão COM INFERÊNCIA (data + param + label) ===")
-    
-    base_params = {"max_depth": None}
-    dataset = DatasetFactory.create(DatasetSourceType.SKLEARN, name=SklearnDatasetName.IRIS)
+def run_knn_with_inference():
+    print("\n=== WINE COM INFERÊNCIA (data + param + label) ===")
+
+    base_params = {"n_neighbors": 3, "weights": "uniform", "algorithm": "auto"}
+    dataset = DatasetFactory.create(DatasetSourceType.SKLEARN, name=SklearnDatasetName.WINE)
 
     dataset_noise_config = DatasetNoiseConfig(
         noise_level=0.2,
@@ -43,13 +43,15 @@ def run_tree_with_inference():
         label_noise_fraction=0.1
     )
 
-    pipeline = InferencePipeline(dataset_noise_config=dataset_noise_config)
+    pipeline = InferencePipeline(
+        dataset_noise_config=dataset_noise_config
+    )
 
     model, param_log = pipeline.apply_param_inference(
-        model_class=DecisionTreeModel,
+        model_class=KNNModel,
         base_params=base_params,
         seed=42,
-        ignore_rules={"max_depth"}
+        ignore_rules={"weights"}
     )
 
     X_train, X_test, y_train, y_test = dataset.load_data()
@@ -62,11 +64,12 @@ def run_tree_with_inference():
     metrics = experiment.run(X_train, X_test, y_train, y_test)
 
     report_data(metrics, mode=ReportMode.PRINT)
-    report_data(param_log, mode=ReportMode.JSON, file_path='results/tree_param_log-iris.json')
+    report_data(param_log, mode=ReportMode.JSON, file_path='results/knn_param_log-wine.json')
+
 
 def run():
-    run_tree_without_inference()
-    run_tree_with_inference()
+    run_knn_without_inference()
+    run_knn_with_inference()
 
 if __name__ == "__main__":
     run()

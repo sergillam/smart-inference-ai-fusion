@@ -1,29 +1,30 @@
-from models.tree_model import DecisionTreeModel
+from models.gaussian_model import GaussianNBModel
 from core.experiment import Experiment
 from utils.report import report_data, ReportMode
 from datasets.factory import DatasetFactory
 from utils.types import DatasetSourceType, SklearnDatasetName, DatasetNoiseConfig
 from inference.pipeline.inference_pipeline import InferencePipeline
 
-def run_tree_without_inference():
-    print("\n=== Árvore de Decisão SEM INFERÊNCIA ===")
+
+def run_gaussian_without_inference():
+    print("\n=== GaussianNB SEM INFERÊNCIA ===")
     
-    base_params = {"max_depth": None}
-    model = DecisionTreeModel(base_params)
-    dataset = DatasetFactory.create(DatasetSourceType.SKLEARN, name=SklearnDatasetName.IRIS)
+    base_params = {"var_smoothing": 1e-9}
+    model = GaussianNBModel(**base_params)
+    dataset = DatasetFactory.create(DatasetSourceType.SKLEARN, name=SklearnDatasetName.WINE)
 
     X_train, X_test, y_train, y_test = dataset.load_data()
-    
+
     experiment = Experiment(model, dataset)
     metrics = experiment.run(X_train, X_test, y_train, y_test)
 
     report_data(metrics, mode=ReportMode.PRINT)
 
-def run_tree_with_inference():
-    print("\n=== Árvore de Decisão COM INFERÊNCIA (data + param + label) ===")
-    
-    base_params = {"max_depth": None}
-    dataset = DatasetFactory.create(DatasetSourceType.SKLEARN, name=SklearnDatasetName.IRIS)
+def run_gaussian_with_inference():
+    print("\n=== GaussianNB COM INFERÊNCIA (data + param + label) ===")
+
+    base_params = {"var_smoothing": 1e-9}
+    dataset = DatasetFactory.create(DatasetSourceType.SKLEARN, name=SklearnDatasetName.WINE)
 
     dataset_noise_config = DatasetNoiseConfig(
         noise_level=0.2,
@@ -46,10 +47,10 @@ def run_tree_with_inference():
     pipeline = InferencePipeline(dataset_noise_config=dataset_noise_config)
 
     model, param_log = pipeline.apply_param_inference(
-        model_class=DecisionTreeModel,
+        model_class=GaussianNBModel,
         base_params=base_params,
         seed=42,
-        ignore_rules={"max_depth"}
+        ignore_rules={"var_smoothing"}
     )
 
     X_train, X_test, y_train, y_test = dataset.load_data()
@@ -62,11 +63,11 @@ def run_tree_with_inference():
     metrics = experiment.run(X_train, X_test, y_train, y_test)
 
     report_data(metrics, mode=ReportMode.PRINT)
-    report_data(param_log, mode=ReportMode.JSON, file_path='results/tree_param_log-iris.json')
+    report_data(param_log, mode=ReportMode.JSON, file_path='results/gaussian_param_log-wine.json')
 
 def run():
-    run_tree_without_inference()
-    run_tree_with_inference()
+    run_gaussian_without_inference()
+    run_gaussian_with_inference()
 
 if __name__ == "__main__":
     run()

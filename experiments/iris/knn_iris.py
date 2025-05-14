@@ -64,7 +64,7 @@ def run_knn_with_inference():
     metrics = experiment.run(X_train, X_test, y_train, y_test)
 
     report_data(metrics, mode=ReportMode.PRINT)
-    report_data(param_log, mode=ReportMode.JSON, file_path='results/knn_param_log.json')
+    report_data(param_log, mode=ReportMode.JSON, file_path='results/knn_param_log-iris.json')
 
 
 def run():
