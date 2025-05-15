@@ -276,7 +276,7 @@ Essas técnicas são tratadas por `SmartParameterPerturber`.
 #### ⚠️ As três categorias são independentes, mas integradas por meio da InferencePipeline. Você pode aplicar apenas uma, duas ou todas combinadas.
 ---
 
-## 🧰 Suporte a Inferência
+## 🧬 Suporte a Inferência
 
 Este framework suporta inferência em dois níveis:
 ## 1. Inferência nos dados (data inference)
@@ -315,6 +315,8 @@ class ReportMode(Enum):
 class SklearnDatasetName(Enum):
     IRIS = "iris"
     WINE = "wine"
+    BREAST_CANCER = "breast_cancer"
+    DIGITS = "digits"
     
 class DatasetNoiseConfig(BaseModel):
     noise_level: Optional[float] = None  # Intensidade de ruído gaussiano
@@ -332,6 +334,14 @@ class DatasetNoiseConfig(BaseModel):
     remove_features: Optional[List[int]] = None  # Índices a remover
     feature_swap: Optional[List[int]] = None  # Índices a trocar entre si
     label_noise_fraction: Optional[float] = None  # Ruído nos rótulos
+
+class CSVDatasetName(Enum):
+    TITANIC = "datasets/titanic/titanic_dataset.csv"
+
+    @property
+    def path(self):
+        return self.value
+
 ```
 ## 📚 Objetivo
 Avaliar a robustez e sensibilidade de algoritmos de IA em cenários realistas com:
