@@ -1,0 +1,51 @@
+[MASTER]
+# Ignore cache directories, virtual environments, and bytecode
+ignore=__pycache__,venv,.venv,env_inference,tests
+extension-pkg-whitelist=numpy,scipy,pandas,sklearn,matplotlib
+
+# Enable useful extensions (e.g., for future docstring validation)
+load-plugins=pylint.extensions.docparams
+
+[MESSAGES CONTROL]
+# Disable overly strict rules that are not meaningful in scientific/modular projects
+disable=
+    C0114,  # missing-module-docstring
+    C0115,  # missing-class-docstring
+    C0116,  # missing-function-docstring
+    R0903,  # too-few-public-methods (comum em helpers e modelos simples)
+    R0913,  # too-many-arguments (aceitável em modelos e experimentos)
+    R0914,  # too-many-locals
+    W0621,  # redefined-outer-name (comum em scripts e loops)
+    W0511,  # fixme (permite TODOs)
+    E1136,  # unsubscriptable-object (falso positivo com pandas/sklearn)
+
+[FORMAT]
+max-line-length=100
+indent-string='    '
+expected-line-ending-format=LF
+
+[BASIC]
+# Allow common names in ML and Data Science
+good-names=i,j,k,x,y,z,X,y_true,y_pred,df,np,clf,ax
+variable-rgx=[a-z_][a-z0-9_]{0,30}$
+
+[DESIGN]
+# Allow more complex functions in analytical scripts
+max-args=10
+max-locals=20
+max-returns=6
+max-branches=12
+max-statements=60
+max-attributes=12
+min-public-methods=0
+
+[TYPECHECK]
+ignored-modules=numpy,scipy,sklearn,matplotlib,pandas
+
+[REPORTS]
+output-format=colorized
+reports=no
+score=yes
+
+[LOGGING]
+logging-format-style=old
