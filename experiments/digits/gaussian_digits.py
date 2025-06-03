@@ -4,20 +4,16 @@ from utils.report import report_data, ReportMode
 from datasets.factory import DatasetFactory
 from utils.types import DatasetSourceType, SklearnDatasetName, DatasetNoiseConfig
 from inference.pipeline.inference_pipeline import InferencePipeline
-
+from inference.engine.param_runner import ParameterInferenceEngine
 
 def run_gaussian_without_inference():
     print("\n=== GaussianNB SEM INFERÊNCIA ===")
-    
     base_params = {"var_smoothing": 1e-9}
     model = GaussianNBModel(**base_params)
     dataset = DatasetFactory.create(DatasetSourceType.SKLEARN, name=SklearnDatasetName.DIGITS)
-
     X_train, X_test, y_train, y_test = dataset.load_data()
-
     experiment = Experiment(model, dataset)
     metrics = experiment.run(X_train, X_test, y_train, y_test)
-
     report_data(metrics, mode=ReportMode.PRINT)
 
 def run_gaussian_with_inference():
@@ -46,17 +42,16 @@ def run_gaussian_with_inference():
 
     pipeline = InferencePipeline(dataset_noise_config=dataset_noise_config)
 
-    model, param_log = pipeline.apply_param_inference(
-        model_class=GaussianNBModel,
-        base_params=base_params,
-        seed=42,
-        ignore_rules={"var_smoothing"}
-    )
+    param_engine = ParameterInferenceEngine()
+    perturbed_params = param_engine.apply(base_params)
+    param_log = param_engine.export_log()
+
+    print("🔧 Parâmetros perturbados:", perturbed_params)
+
+    model = GaussianNBModel(**perturbed_params)
 
     X_train, X_test, y_train, y_test = dataset.load_data()
-
     X_train, X_test = pipeline.apply_data_inference(X_train, X_test)
-
     y_train, y_test = pipeline.apply_label_inference(y_train, y_test)
 
     experiment = Experiment(model, dataset)

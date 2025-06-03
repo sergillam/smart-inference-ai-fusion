@@ -1,43 +1,41 @@
 from inference.engine.inference_engine import InferenceEngine
 from inference.engine.label_runner import LabelInferenceEngine
-from inference.engine.param_runner import apply_param_inference
+from inference.engine.param_runner import ParameterInferenceEngine  # ✅ novo
 
 
 class InferencePipeline:
     """
-    Pipeline unificada que aplica inferência:
-    - Nos dados de entrada (X)
-    - Nos rótulos (y)
-    - Nos hiperparâmetros do modelo
-    
-    Permite maior organização e reutilização dos componentes do framework.
+    Unified pipeline that applies inference to:
+    - Input data (X)
+    - Labels (y)
+    - Model hyperparameters
+
+    Allows better organization and reuse of framework components.
     """
     def __init__(self, dataset_noise_config: dict):
         self.dataset_noise_config = dataset_noise_config
         self.data_engine = InferenceEngine(dataset_noise_config)
         self.label_engine = LabelInferenceEngine(dataset_noise_config)
+        self.param_engine = ParameterInferenceEngine()  # ✅ engine local da pipeline
 
     def apply_param_inference(self, model_class, base_params, seed=None, ignore_rules=None):
         """
-        Aplica inferência nos parâmetros do modelo.
+        Applies inference to the model's parameters.
 
-        Retorna: modelo instanciado com parâmetros perturbados e log
+        Returns: model instantiated with perturbed parameters and log.
         """
-        return apply_param_inference(
-            model_class=model_class,
-            base_params=base_params,
-            seed=seed,
-            ignore_rules=ignore_rules
-        )
+        perturbed_params = self.param_engine.apply(base_params)
+        model = model_class(**perturbed_params)
+        return model, {"perturbed_params": perturbed_params}
 
     def apply_data_inference(self, X_train, X_test):
         """
-        Aplica as transformações no conjunto de atributos (X).
+        Applies transformations to the input features (X).
         """
         return self.data_engine.apply(X_train, X_test)
 
     def apply_label_inference(self, y_train, y_test):
         """
-        Aplica as transformações no conjunto de rótulos (y).
+        Applies transformations to the labels (y).
         """
         return self.label_engine.apply(y_train, y_test)

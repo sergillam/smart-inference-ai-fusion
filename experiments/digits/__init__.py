@@ -6,9 +6,9 @@ from .gaussian_digits import run as run_gaussian
 
 def run_all():
     print("=== Executando Todos os Experimentos com a Base DIGITS ===")
-    run_knn()
-    run_svm()
-    run_tree()
-    run_perceptron()
+    # run_knn()
+    # run_svm()
+    # run_tree()
+    # run_perceptron()
     run_gaussian()
     print("=== Todos os Experimentos Concluídos ===")

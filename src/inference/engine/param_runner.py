@@ -1,31 +1,55 @@
-from inference.transformations.params.parameter_perturber import SmartParameterPerturber
+from inference.transformations.params.int_noise import IntegerNoise
+from inference.transformations.params.bool_flip import BooleanFlip
+from inference.transformations.params.str_mutator import StringMutator
+from inference.transformations.params.semantic_mutation import SemanticMutation
+from inference.transformations.params.scale_hyper import ScaleHyperparameter
+from inference.transformations.params.cross_dependency import CrossDependencyPerturbation
 
-def apply_param_inference(
-    model_class,
-    *,
-    base_params=None,
-    seed=None,
-    ignore_rules=None
-):
+class ParameterInferenceEngine:
     """
-    Aplica inferência nos hiperparâmetros de um modelo de IA.
-
-    Utiliza a classe SmartParameterPerturber para alterar dinamicamente
-    os parâmetros com base em regras e tipo de dado.
-
-    Args:
-        model_class (Callable): Classe do modelo (ex: KNNModel).
-        base_params (dict, optional): Parâmetros base originais do modelo.
-        seed (int, optional): Semente para reprodutibilidade das perturbações.
-        ignore_rules (set[str], optional): Conjunto de nomes de parâmetros a serem ignorados.
-
-    Returns:
-        Tuple:
-            model: Instância do modelo com parâmetros perturbados.
-            log (dict): Dicionário com o histórico das alterações aplicadas.
+    Applies perturbation techniques to model hyperparameters.
+    Supports both single-key and cross-parameter transformations.
     """
-    perturber = SmartParameterPerturber(base_params, seed=seed, ignore_rules=ignore_rules)
-    perturbed_params = perturber.apply(model_class=model_class)
-    model = model_class(**perturbed_params)
-    log = perturber.export_log()
-    return model, log
+    def __init__(self):
+        self.perturber_classes = [
+            IntegerNoise,
+            BooleanFlip,
+            StringMutator,
+            SemanticMutation,
+            ScaleHyperparameter,
+            CrossDependencyPerturbation,
+        ]
+        self.log = {}
+
+    def apply(self, params: dict) -> dict:
+        perturbed = params.copy()
+
+        for key, value in params.items():
+            for PerturberClass in self.perturber_classes:
+                if PerturberClass.supports(value):
+                    perturber = PerturberClass(key)
+                    result = perturber.apply(perturbed)
+
+                    # Dict-style response (cross-param updates)
+                    if isinstance(result, dict):
+                        for updated_key, updated_value in result.items():
+                            self.log[updated_key] = {
+                                "original": perturbed.get(updated_key),
+                                "perturbed": updated_value,
+                                "technique": PerturberClass.__name__,
+                            }
+                            perturbed[updated_key] = updated_value
+                    # Single value response
+                    elif result is not None:
+                        self.log[key] = {
+                            "original": perturbed[key],
+                            "perturbed": result,
+                            "technique": PerturberClass.__name__,
+                        }
+                        perturbed[key] = result
+
+                    break  # Only one transformation per key
+        return perturbed
+
+    def export_log(self) -> dict:
+        return self.log
