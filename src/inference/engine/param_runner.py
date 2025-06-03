@@ -4,6 +4,10 @@ from inference.transformations.params.str_mutator import StringMutator
 from inference.transformations.params.semantic_mutation import SemanticMutation
 from inference.transformations.params.scale_hyper import ScaleHyperparameter
 from inference.transformations.params.cross_dependency import CrossDependencyPerturbation
+from inference.transformations.params.random_from_space import RandomFromSpace
+from inference.transformations.params.bounded_numeric import BoundedNumericShift
+from inference.transformations.params.type_cast_perturbation import TypeCastPerturbation
+from inference.transformations.params.enum_boundary_shift import EnumBoundaryShift
 
 class ParameterInferenceEngine:
     """
@@ -18,6 +22,10 @@ class ParameterInferenceEngine:
             SemanticMutation,
             ScaleHyperparameter,
             CrossDependencyPerturbation,
+            RandomFromSpace,
+            BoundedNumericShift,
+            TypeCastPerturbation,
+            EnumBoundaryShift,
         ]
         self.log = {}
 
