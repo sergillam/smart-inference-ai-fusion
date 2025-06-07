@@ -34,7 +34,11 @@ class DatasetNoiseConfig(BaseModel):
     feature_selective_noise: Optional[Tuple[float, List[int]]] = None  # (nível, índices)
     remove_features: Optional[List[int]] = None  # Índices a remover
     feature_swap: Optional[List[int]] = None  # Índices a trocar entre si
-    label_noise_fraction: Optional[float] = None  # Ruído nos rótulos
+    label_noise_fraction: Optional[float] = None
+    flip_near_border_fraction: Optional[float] = None
+    confusion_matrix_noise_level: Optional[float] = None
+    partial_label_fraction: Optional[float] = None
+    swap_within_class_fraction: Optional[float] = None
 
 class CSVDatasetName(Enum):
     TITANIC = "datasets/titanic/titanic_dataset.csv"

@@ -12,11 +12,11 @@ class InferencePipeline:
 
     Allows better organization and reuse of framework components.
     """
-    def __init__(self, dataset_noise_config: dict):
+    def __init__(self, dataset_noise_config: dict, X_train=None):
         self.dataset_noise_config = dataset_noise_config
         self.data_engine = InferenceEngine(dataset_noise_config)
-        self.label_engine = LabelInferenceEngine(dataset_noise_config)
-        self.param_engine = ParameterInferenceEngine()  # ✅ engine local da pipeline
+        self.label_engine = LabelInferenceEngine(dataset_noise_config, X_train=X_train)
+        self.param_engine = ParameterInferenceEngine()
 
     def apply_param_inference(self, model_class, base_params, seed=None, ignore_rules=None):
         """
