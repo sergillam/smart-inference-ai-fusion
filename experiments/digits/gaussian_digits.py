@@ -45,6 +45,9 @@ def run_gaussian_with_inference():
         conditional_noise=(0, 5.0, 0.2),  # (feature_index, threshold, noise_std)
         random_missing_block_fraction=0.1,
         distribution_shift_fraction=0.1,
+        cluster_swap_fraction=0.1,
+        group_outlier_cluster_fraction=0.1,
+        temporal_drift_std=0.5,
     )
 
     X_train, X_test, y_train, y_test = dataset.load_data()
