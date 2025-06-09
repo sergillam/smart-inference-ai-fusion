@@ -29,12 +29,18 @@ class LabelInferenceEngine:
             value = getattr(config, field, None)
             if value is not None:
                 if cls == LabelFlipNearBorder:
-                    self.label_pipeline.append(cls(value, X_train))
+                    self.label_pipeline.append(cls(value))
                 else:
                     self.label_pipeline.append(cls(value))
 
-    def apply(self, y_train, y_test):
+    def apply(self, y_train, y_test, model=None, X_train=None, X_test=None):
         for transform in self.label_pipeline:
-            y_train = transform.apply(y_train)
-            y_test = transform.apply(y_test)
+            if getattr(transform, 'requires_model', False):
+                y_train = transform.apply(y_train, X=X_train, model=model)
+                y_test = transform.apply(y_test, X=X_test, model=model)
+            else:
+                y_train = transform.apply(y_train)
+                y_test = transform.apply(y_test)
         return y_train, y_test
+
+

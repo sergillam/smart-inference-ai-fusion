@@ -4,8 +4,8 @@ def main():
     # iris.run_all()
     # wine.run_all()
     # breast_cancer.run_all()
-    digits.run_all()
+    # digits.run_all()
     # titanic.run_all()
-
+    digits.run_gaussian()
 if __name__ == "__main__":
     main()

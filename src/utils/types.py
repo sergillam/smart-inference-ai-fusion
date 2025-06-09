@@ -39,6 +39,13 @@ class DatasetNoiseConfig(BaseModel):
     confusion_matrix_noise_level: Optional[float] = None
     partial_label_fraction: Optional[float] = None
     swap_within_class_fraction: Optional[float] = None
+    conditional_noise: tuple[int, float, float] | None = None  # (feature_index, threshold, std)
+    cluster_swap_fraction: Optional[float] = None
+    random_missing_block_fraction: Optional[float] = None  # Fração de células a apagar em blocos
+    distribution_shift_fraction: Optional[float] = None
+    group_outlier_cluster_fraction: Optional[float] = None  # Fração a ser contaminada com outliers em grupo
+    temporal_drift_std: Optional[float] = None  # Intensidade do drift temporal progressivo
+
 
 class CSVDatasetName(Enum):
     TITANIC = "datasets/titanic/titanic_dataset.csv"

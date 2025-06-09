@@ -34,8 +34,6 @@ class InferencePipeline:
         """
         return self.data_engine.apply(X_train, X_test)
 
-    def apply_label_inference(self, y_train, y_test):
-        """
-        Applies transformations to the labels (y).
-        """
-        return self.label_engine.apply(y_train, y_test)
+    def apply_label_inference(self, y_train, y_test, model=None, X_train=None, X_test=None):
+        return self.label_engine.apply(y_train, y_test, model=model, X_train=X_train, X_test=X_test)
+

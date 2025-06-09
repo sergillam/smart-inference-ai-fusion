@@ -2,37 +2,42 @@ import numpy as np
 from inference.transformations.label.base import LabelTransformation
 
 class LabelFlipNearBorder(LabelTransformation):
-    def __init__(self, model, X, fraction: float = 0.1):
-        """
-        Flip rótulos dos exemplos mais próximos à fronteira de decisão do modelo.
+    requires_model = True
+    
+    def __init__(self, flip_fraction):
+        self.flip_fraction = flip_fraction
+        self.requires_model = True
 
-        Args:
-            model: modelo treinado que implementa predict_proba() ou decision_function().
-            X: dados de entrada para avaliar proximidade da borda.
-            fraction: proporção de amostras a ter rótulo trocado.
-        """
-        self.model = model
-        self.X = X
-        self.fraction = fraction
-
-    def apply(self, y):
-        if hasattr(self.model, "predict_proba"):
-            probs = self.model.predict_proba(self.X)
-            confidence = np.max(probs, axis=1)
-        elif hasattr(self.model, "decision_function"):
-            df = self.model.decision_function(self.X)
-            confidence = -np.abs(df)  # menos certeza = mais perto da borda
+    def _get_confidence(self, model, X):
+        """Recupera a confiança do modelo, tentando predict_proba, decision_function, ou modelo interno."""
+        if hasattr(model, "predict_proba"):
+            probs = model.predict_proba(X)
+            return np.max(probs, axis=1)
+        elif hasattr(model, "decision_function"):
+            decision = model.decision_function(X)
+            return np.abs(decision)
+        elif hasattr(model, "model"):  # suporta wrapper
+            return self._get_confidence(model.model, X)
         else:
             raise ValueError("Model must support predict_proba or decision_function")
 
-        y = np.array(y)
-        n = int(len(y) * self.fraction)
-        idx = np.argsort(confidence)[:n]  # menos confiante → mais próximo da borda
-        classes = np.unique(y)
+    def apply(self, y, X=None, model=None):
+        if model is None or X is None:
+            raise ValueError("This transformation requires model and X")
 
-        y_flipped = y.copy()
-        for i in idx:
-            alt = classes[classes != y[i]]
-            y_flipped[i] = np.random.choice(alt)
+        if len(X) != len(y):
+            raise ValueError(f"Length mismatch: X has {len(X)} samples, y has {len(y)} labels")
+
+        confidence = self._get_confidence(model, X)
+
+        n = int(len(y) * self.flip_fraction)
+        low_conf_indices = np.argsort(confidence)[:n]
+
+        y_flipped = np.array(y).copy()
+        classes = np.unique(y)
+        for idx in low_conf_indices:
+            available = classes[classes != y_flipped[idx]]
+            y_flipped[idx] = np.random.choice(available)
 
         return y_flipped
+

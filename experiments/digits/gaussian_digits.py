@@ -37,23 +37,47 @@ def run_gaussian_with_inference():
         feature_selective_noise=(0.3, [0, 2]),
         remove_features=[1, 3],
         feature_swap=[0, 2],
-        label_noise_fraction=0.1
+        label_noise_fraction=0.1,
+        flip_near_border_fraction=0.1,
+        confusion_matrix_noise_level=0.1,
+        partial_label_fraction=0.1,
+        swap_within_class_fraction=0.1,
+        conditional_noise=(0, 5.0, 0.2),  # (feature_index, threshold, noise_std)
+        random_missing_block_fraction=0.1,
+        distribution_shift_fraction=0.1,
     )
 
-    pipeline = InferencePipeline(dataset_noise_config=dataset_noise_config)
+    X_train, X_test, y_train, y_test = dataset.load_data()
 
+    pipeline = InferencePipeline(
+        dataset_noise_config=dataset_noise_config,
+        X_train=X_train
+    )
+
+    # Aplicar inferência nos parâmetros
     param_engine = ParameterInferenceEngine()
     perturbed_params = param_engine.apply(base_params)
     param_log = param_engine.export_log()
-
     print("🔧 Parâmetros perturbados:", perturbed_params)
 
+    # Criar modelo e treinar antes da label inference
     model = GaussianNBModel(**perturbed_params)
-
-    X_train, X_test, y_train, y_test = dataset.load_data()
+    
+    # Aplicar inferência nos dados
     X_train, X_test = pipeline.apply_data_inference(X_train, X_test)
-    y_train, y_test = pipeline.apply_label_inference(y_train, y_test)
 
+    # ⚠️ Treinar o modelo antes de aplicar a inferência nos rótulos
+    model.fit(X_train, y_train)
+
+    # Aplicar inferência nos rótulos (usa modelo já treinado)
+    y_train, y_test = pipeline.apply_label_inference(
+        y_train, y_test,
+        model=model,
+        X_train=X_train,
+        X_test=X_test
+    )
+
+    # Rodar experimento com os dados inferidos
     experiment = Experiment(model, dataset)
     metrics = experiment.run(X_train, X_test, y_train, y_test)
 

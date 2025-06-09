@@ -4,6 +4,13 @@ from inference.transformations.data.structure import ShuffleFeatures, ScaleFeatu
 from inference.transformations.data.corruption import ZeroOut, InsertNaN
 from inference.transformations.data.outliers import InjectOutliers
 from inference.transformations.data.distraction import AddDummyFeatures, DuplicateFeatures
+from inference.transformations.data.conditional_noise import ConditionalNoise
+from inference.transformations.data.cluster_swap import ClusterSwap
+from inference.transformations.data.random_missing_block import RandomMissingBlock
+from inference.transformations.data.distribution_shift import DistributionShiftMixing
+from inference.transformations.data.group_outlier_injection import GroupOutlierInjection
+from inference.transformations.data.temporal_drift_injection import TemporalDriftInjection
+
 from utils.types import DatasetNoiseConfig
 
 class InferenceEngine:
@@ -25,6 +32,12 @@ class InferenceEngine:
             "duplicate_features": lambda val: DuplicateFeatures(val),
             "remove_features": lambda val: RemoveFeatures(val),
             "feature_swap": lambda val: FeatureSwap(val),
+            "conditional_noise": lambda val: ConditionalNoise(val[0], val[1]),
+            "cluster_swap_fraction": lambda val: ClusterSwap(swap_fraction=val),
+            "random_missing_block_fraction": lambda val: RandomMissingBlock(block_fraction=val),
+            "distribution_shift_fraction": lambda val: DistributionShiftMixing(shift_fraction=val),
+            "group_outlier_cluster_fraction": lambda val: GroupOutlierInjection(outlier_fraction=val),
+            "temporal_drift_std": lambda val: TemporalDriftInjection(drift_std=val),
         }
 
         for key, constructor in mapping.items():
