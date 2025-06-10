@@ -2,9 +2,16 @@ from models.gaussian_model import GaussianNBModel
 from core.experiment import Experiment
 from utils.report import report_data, ReportMode
 from datasets.factory import DatasetFactory
-from utils.types import DatasetSourceType, SklearnDatasetName, DatasetNoiseConfig, ParameterNoiseConfig
+from utils.types import (
+    DatasetSourceType,
+    SklearnDatasetName,
+    DataNoiseConfig,        # Configuração para inferência nos dados (X)
+    ParameterNoiseConfig,   # Configuração para inferência nos parâmetros do modelo
+    LabelNoiseConfig        # Configuração para inferência nos rótulos (y)
+)
 from inference.pipeline.inference_pipeline import InferencePipeline
 from inference.engine.param_runner import ParameterInferenceEngine
+
 
 def run_gaussian_without_inference():
     print("\n=== GaussianNB SEM INFERÊNCIA ===")
@@ -22,7 +29,8 @@ def run_gaussian_with_inference():
     base_params = {"var_smoothing": 1e-9}
     dataset = DatasetFactory.create(DatasetSourceType.SKLEARN, name=SklearnDatasetName.DIGITS)
 
-    dataset_noise_config = DatasetNoiseConfig(
+    # Separando configs
+    data_noise_config = DataNoiseConfig(
         noise_level=0.2,
         truncate_decimals=1,
         quantize_bins=5,
@@ -37,19 +45,20 @@ def run_gaussian_with_inference():
         feature_selective_noise=(0.3, [0, 2]),
         remove_features=[1, 3],
         feature_swap=[0, 2],
-        label_noise_fraction=0.1,
-        flip_near_border_fraction=0.1,
-        confusion_matrix_noise_level=0.1,
-        partial_label_fraction=0.1,
-        swap_within_class_fraction=0.1,
-        conditional_noise=(0, 5.0, 0.2),  # (feature_index, threshold, noise_std)
+        conditional_noise=(0, 5.0, 0.2),
         random_missing_block_fraction=0.1,
         distribution_shift_fraction=0.1,
         cluster_swap_fraction=0.1,
         group_outlier_cluster_fraction=0.1,
         temporal_drift_std=0.5,
     )
-
+    label_noise_config = LabelNoiseConfig(
+        label_noise_fraction=0.1,
+        flip_near_border_fraction=0.1,
+        confusion_matrix_noise_level=0.1,
+        partial_label_fraction=0.1,
+        swap_within_class_fraction=0.1,
+    )
     param_noise_config = ParameterNoiseConfig(
         integer_noise=True,
         boolean_flip=True,
@@ -66,7 +75,8 @@ def run_gaussian_with_inference():
     X_train, X_test, y_train, y_test = dataset.load_data()
 
     pipeline = InferencePipeline(
-        dataset_noise_config=dataset_noise_config,
+        data_noise_config=data_noise_config,
+        label_noise_config=label_noise_config,
         X_train=X_train
     )
 

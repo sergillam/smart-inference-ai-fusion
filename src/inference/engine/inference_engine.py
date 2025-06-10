@@ -11,10 +11,15 @@ from inference.transformations.data.distribution_shift import DistributionShiftM
 from inference.transformations.data.group_outlier_injection import GroupOutlierInjection
 from inference.transformations.data.temporal_drift_injection import TemporalDriftInjection
 
-from utils.types import DatasetNoiseConfig
+from utils.types import DataNoiseConfig
 
 class InferenceEngine:
-    def __init__(self, config: DatasetNoiseConfig):
+    """
+    Pipeline para aplicar múltiplas técnicas de perturbação nos dados de entrada (X).
+
+    Configuração via DataNoiseConfig.
+    """
+    def __init__(self, config: DataNoiseConfig):
         self.pipeline = []
 
         mapping = {
@@ -41,8 +46,8 @@ class InferenceEngine:
         }
 
         for key, constructor in mapping.items():
-            if key in config and config[key] is not None:
-                transform = constructor(config[key])
+            if key in config and getattr(config, key) is not None:
+                transform = constructor(getattr(config, key))
                 if transform:
                     self.pipeline.append(transform)
 
