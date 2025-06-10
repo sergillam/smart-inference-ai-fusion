@@ -46,6 +46,17 @@ class DatasetNoiseConfig(BaseModel):
     group_outlier_cluster_fraction: Optional[float] = None  # Fração a ser contaminada com outliers em grupo
     temporal_drift_std: Optional[float] = None  # Intensidade do drift temporal progressivo
 
+class ParameterNoiseConfig(BaseModel):
+    integer_noise: Optional[bool] = None
+    boolean_flip: Optional[bool] = None
+    string_mutator: Optional[bool] = None
+    semantic_mutation: Optional[bool] = None
+    scale_hyper: Optional[bool] = None
+    cross_dependency: Optional[bool] = None
+    random_from_space: Optional[bool] = None
+    bounded_numeric: Optional[bool] = None
+    type_cast_perturbation: Optional[bool] = None
+    enum_boundary_shift: Optional[bool] = None
 
 class CSVDatasetName(Enum):
     TITANIC = "datasets/titanic/titanic_dataset.csv"

@@ -2,7 +2,7 @@ from models.gaussian_model import GaussianNBModel
 from core.experiment import Experiment
 from utils.report import report_data, ReportMode
 from datasets.factory import DatasetFactory
-from utils.types import DatasetSourceType, SklearnDatasetName, DatasetNoiseConfig
+from utils.types import DatasetSourceType, SklearnDatasetName, DatasetNoiseConfig, ParameterNoiseConfig
 from inference.pipeline.inference_pipeline import InferencePipeline
 from inference.engine.param_runner import ParameterInferenceEngine
 
@@ -50,6 +50,19 @@ def run_gaussian_with_inference():
         temporal_drift_std=0.5,
     )
 
+    param_noise_config = ParameterNoiseConfig(
+        integer_noise=True,
+        boolean_flip=True,
+        string_mutator=True,
+        semantic_mutation=True,
+        scale_hyper=True,
+        cross_dependency=True,
+        random_from_space=True,
+        bounded_numeric=True,
+        type_cast_perturbation=True,
+        enum_boundary_shift=True,
+    )
+
     X_train, X_test, y_train, y_test = dataset.load_data()
 
     pipeline = InferencePipeline(
@@ -57,22 +70,16 @@ def run_gaussian_with_inference():
         X_train=X_train
     )
 
-    # Aplicar inferência nos parâmetros
-    param_engine = ParameterInferenceEngine()
+    param_engine = ParameterInferenceEngine(config=param_noise_config)
     perturbed_params = param_engine.apply(base_params)
     param_log = param_engine.export_log()
     print("🔧 Parâmetros perturbados:", perturbed_params)
 
-    # Criar modelo e treinar antes da label inference
     model = GaussianNBModel(**perturbed_params)
-    
-    # Aplicar inferência nos dados
-    X_train, X_test = pipeline.apply_data_inference(X_train, X_test)
 
-    # ⚠️ Treinar o modelo antes de aplicar a inferência nos rótulos
+    X_train, X_test = pipeline.apply_data_inference(X_train, X_test)
     model.fit(X_train, y_train)
 
-    # Aplicar inferência nos rótulos (usa modelo já treinado)
     y_train, y_test = pipeline.apply_label_inference(
         y_train, y_test,
         model=model,
@@ -80,7 +87,6 @@ def run_gaussian_with_inference():
         X_test=X_test
     )
 
-    # Rodar experimento com os dados inferidos
     experiment = Experiment(model, dataset)
     metrics = experiment.run(X_train, X_test, y_train, y_test)
 
