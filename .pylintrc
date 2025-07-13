@@ -2,9 +2,9 @@
 # Ignore cache directories, virtual environments, and bytecode
 ignore=__pycache__,venv,.venv,env_inference,tests
 extension-pkg-whitelist=numpy,scipy,pandas,sklearn,matplotlib
-
+ignore-patterns=test_.*\.py
 # Enable useful extensions (e.g., for future docstring validation)
-load-plugins=pylint.extensions.docparams
+load-plugins=pylint.extensions.mccabe,pylint.extensions.docparams
 
 [MESSAGES CONTROL]
 # Disable overly strict rules that are not meaningful in scientific/modular projects
@@ -18,6 +18,7 @@ disable=
     W0621,  # redefined-outer-name (comum em scripts e loops)
     W0511,  # fixme (permite TODOs)
     E1136,  # unsubscriptable-object (falso positivo com pandas/sklearn)
+enable=unused-import
 
 [FORMAT]
 max-line-length=100
@@ -26,7 +27,7 @@ expected-line-ending-format=LF
 
 [BASIC]
 # Allow common names in ML and Data Science
-good-names=i,j,k,x,y,z,X,y_true,y_pred,df,np,clf,ax
+good-names=i,j,k,x,y,z,X,y_true,y_pred,X_train,X_test,y_train,y_test,df,np,clf,ax
 variable-rgx=[a-z_][a-z0-9_]{0,30}$
 
 [DESIGN]
@@ -49,3 +50,4 @@ score=yes
 
 [LOGGING]
 logging-format-style=old
+docstring-min-length=10

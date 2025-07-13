@@ -1,35 +1,64 @@
-from models.gaussian_model import GaussianNBModel
+"""Experiment pipeline for GaussianNB on the Digits dataset.
+
+This module defines experiment runs for GaussianNB (with and without inference) 
+on the Digits dataset, saving metrics and logs as specified.
+"""
+
 from core.experiment import Experiment
-from utils.report import report_data, ReportMode
 from datasets.factory import DatasetFactory
+from models.gaussian_model import GaussianNBModel
+from utils.report import report_data, ReportMode, generate_experiment_filename
 from utils.types import (
+    DataNoiseConfig,
     DatasetSourceType,
+    LabelNoiseConfig,
+    ParameterNoiseConfig,
     SklearnDatasetName,
-    DataNoiseConfig,        # Configuração para inferência nos dados (X)
-    ParameterNoiseConfig,   # Configuração para inferência nos parâmetros do modelo
-    LabelNoiseConfig        # Configuração para inferência nos rótulos (y)
 )
 from inference.pipeline.inference_pipeline import InferencePipeline
 from inference.engine.param_runner import ParameterInferenceEngine
 
 
 def run_gaussian_without_inference():
-    print("\n=== GaussianNB SEM INFERÊNCIA ===")
+    """Run the GaussianNB baseline (no inference or perturbations).
+
+    Loads the Digits dataset, trains a GaussianNB model, evaluates it,
+    and reports results via report_data.
+    """
+    model_class = GaussianNBModel
+    dataset_name = SklearnDatasetName.DIGITS
+    name_output = generate_experiment_filename(model_class, dataset_name)
+
+    report_data("=== GaussianNB WITHOUT INFERENCE ===", mode=ReportMode.PRINT)
     base_params = {"var_smoothing": 1e-9}
-    model = GaussianNBModel(**base_params)
-    dataset = DatasetFactory.create(DatasetSourceType.SKLEARN, name=SklearnDatasetName.DIGITS)
+    model = model_class(**base_params)
+    dataset = DatasetFactory.create(DatasetSourceType.SKLEARN, name=dataset_name)
     X_train, X_test, y_train, y_test = dataset.load_data()
     experiment = Experiment(model, dataset)
     metrics = experiment.run(X_train, X_test, y_train, y_test)
+
+    report_data("Evaluation metrics (no inference):", mode=ReportMode.PRINT)
     report_data(metrics, mode=ReportMode.PRINT)
+    report_data(metrics, mode=ReportMode.JSON_RESULT, name_output=f"{name_output}-no-inference")
+
 
 def run_gaussian_with_inference():
-    print("\n=== GaussianNB COM INFERÊNCIA (data + param + label) ===")
+    """Run GaussianNB with data, parameter, and label inference (perturbations).
+
+    Loads the Digits dataset, applies full inference (data, parameter, label),
+    trains a GaussianNB model, evaluates it, and reports results via report_data.
+    Also saves perturbed parameter logs.
+    """
+    model_class = GaussianNBModel
+    dataset_name = SklearnDatasetName.DIGITS
+    name_output = generate_experiment_filename(model_class, dataset_name)
+
+    report_data("=== GaussianNB WITH INFERENCE (data + param + label) ===", mode=ReportMode.PRINT)
 
     base_params = {"var_smoothing": 1e-9}
-    dataset = DatasetFactory.create(DatasetSourceType.SKLEARN, name=SklearnDatasetName.DIGITS)
+    dataset = DatasetFactory.create(DatasetSourceType.SKLEARN, name=dataset_name)
 
-    # Separando configs
+    # Configurations
     data_noise_config = DataNoiseConfig(
         noise_level=0.2,
         truncate_decimals=1,
@@ -83,7 +112,8 @@ def run_gaussian_with_inference():
     param_engine = ParameterInferenceEngine(config=param_noise_config)
     perturbed_params = param_engine.apply(base_params)
     param_log = param_engine.export_log()
-    print("🔧 Parâmetros perturbados:", perturbed_params)
+    report_data(f"Perturbed parameters: {perturbed_params}", mode=ReportMode.PRINT)
+    report_data(param_log, mode=ReportMode.JSON_LOG, name_output=f"{name_output}-param-perturb")
 
     model = GaussianNBModel(**perturbed_params)
 
@@ -100,12 +130,12 @@ def run_gaussian_with_inference():
     experiment = Experiment(model, dataset)
     metrics = experiment.run(X_train, X_test, y_train, y_test)
 
+    report_data("Evaluation metrics (with inference):", mode=ReportMode.PRINT)
     report_data(metrics, mode=ReportMode.PRINT)
-    report_data(param_log, mode=ReportMode.JSON, file_path='results/gaussian_param_log-digits.json')
+    report_data(metrics, mode=ReportMode.JSON_RESULT, name_output=f"{name_output}-with-inference")
+
 
 def run():
+    """Run all experiment variants for GaussianNB on the Digits dataset."""
     run_gaussian_without_inference()
     run_gaussian_with_inference()
-
-if __name__ == "__main__":
-    run()
