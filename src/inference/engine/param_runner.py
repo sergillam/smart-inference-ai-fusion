@@ -1,3 +1,5 @@
+"""Parameter inference engine for applying perturbations to model hyperparameters."""
+
 from inference.transformations.params.int_noise import IntegerNoise
 from inference.transformations.params.bool_flip import BooleanFlip
 from inference.transformations.params.str_mutator import StringMutator
@@ -11,19 +13,24 @@ from inference.transformations.params.enum_boundary_shift import EnumBoundaryShi
 from utils.types import ParameterNoiseConfig
 
 class ParameterInferenceEngine:
-    """
-    Applies perturbation techniques to model hyperparameters, using a configurable set of techniques.
+    """Engine for applying configurable perturbation techniques to model hyperparameters.
 
-    Args:
-        config (ParameterNoiseConfig, optional): Configuration object enabling/disabling each technique.
-            If None, all techniques are enabled by default.
+    This engine supports a modular set of parameter perturbation techniques,
+    which can be enabled or disabled through a ParameterNoiseConfig.
 
-    Example:
-        >>> config = ParameterNoiseConfig(integer_noise=True, boolean_flip=False)
-        >>> engine = ParameterInferenceEngine(config)
+    Attributes:
+        config (ParameterNoiseConfig or None): Configuration object specifying enabled techniques.
+        log (dict): Records details of all perturbations applied.
+        perturber_classes (list): List of enabled perturbation classes.
     """
 
     def __init__(self, config: ParameterNoiseConfig = None):
+        """Initializes the parameter inference engine.
+
+        Args:
+            config (ParameterNoiseConfig, optional): Configuration enabling/disabling techniques.
+                If None, all techniques are enabled by default.
+        """
         self.config = config
         self.log = {}
         self.perturber_classes = []
@@ -42,17 +49,16 @@ class ParameterInferenceEngine:
         }
 
         if config is None:
-            # Default: all enabled
+            # By default, enable all techniques
             self.perturber_classes = list(mapping.values())
         else:
             for key, cls in mapping.items():
-                # Explicitly checks for True, ignores None/False
+                # Only enable techniques explicitly set to True
                 if getattr(config, key, None) is True:
                     self.perturber_classes.append(cls)
 
     def apply(self, params: dict) -> dict:
-        """
-        Applies configured perturbations to model parameters.
+        """Applies enabled perturbation techniques to model hyperparameters.
 
         Args:
             params (dict): Original model hyperparameters.
@@ -62,9 +68,9 @@ class ParameterInferenceEngine:
         """
         perturbed = params.copy()
         for key, value in params.items():
-            for PerturberClass in self.perturber_classes:
-                if PerturberClass.supports(value):
-                    perturber = PerturberClass(key)
+            for perturber_cls in self.perturber_classes:
+                if perturber_cls.supports(value):
+                    perturber = perturber_cls(key)
                     result = perturber.apply(perturbed)
                     # Dict-style response (cross-param updates)
                     if isinstance(result, dict):
@@ -73,7 +79,7 @@ class ParameterInferenceEngine:
                                 self.log[updated_key] = {
                                     "original": perturbed.get(updated_key),
                                     "perturbed": updated_value,
-                                    "technique": PerturberClass.__name__,
+                                    "technique": perturber_cls.__name__,
                                 }
                             perturbed[updated_key] = updated_value
                     # Single value response
@@ -82,17 +88,16 @@ class ParameterInferenceEngine:
                             self.log[key] = {
                                 "original": perturbed[key],
                                 "perturbed": result,
-                                "technique": PerturberClass.__name__,
+                                "technique": perturber_cls.__name__,
                             }
                         perturbed[key] = result
                     break  # Only one transformation per key
         return perturbed
 
     def export_log(self) -> dict:
-        """
-        Returns the log of all perturbations applied to the parameters.
+        """Returns a log of all perturbations applied to the parameters.
 
         Returns:
-            dict: Log of parameter changes.
+            dict: Log of parameter changes, keyed by parameter name.
         """
         return self.log

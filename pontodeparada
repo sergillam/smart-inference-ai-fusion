@@ -1,0 +1,40 @@
+cOLOCAR OS comentários padrao google docs string (sem modificar o codigo)
+Finalizar pylint e googledocsstrig falta src/inference/transformations (parado - focar no artigo)
+
+Iniciar artigo 2
+
+implementar os algoritmos supervisionados;
+implementar os algoritmos não supervisionados
+
+atualizar read.me
+
+escrever artigo;
+
+Add logs de debugs para rastreio;
+implementar testes unitários;
+
+
+Supervisionado – Novos algoritmos sugeridos (artigo 1)
+
+Algoritmo ----  Justificativa científica
+Logistic Regression ---- Linear, sensível a ruído e regularização
+Random Forest ---- Ensemble robusto, bom para testar ruído e overfitting
+Gradient Boosting (GBDT) ---- Ensemble aditivo, sensível a hiperparâmetros
+MLP Classifier (Rede Neural) ---- Sensível a escala, outliers e parâmetros de rede
+Quadratic Discriminant Analysis (QDA) ---- Complementa o GNB com fronteiras não-lineares
+
+Não Supervisionado – Novos algoritmos sugeridos (artigo 1)
+
+Algoritmo ----Justificativa científica
+Mini-Batch k-Means ---- Escalável, sensível a ruído e inicialização
+Spectral Clustering ---- Base em grafos, sensível a estrutura topológica
+Gaussian Mixture Model (GMM) ---- Clustering probabilístico, permite sobreposição
+Feature Agglomeration ---- Redução dimensional orientada a agrupamento
+FastICA ---- Redução dimensional sensível a ruído e independência
+
+Base de dados
+20 Newsgroups
+LFW People / LFW Pairs (scikit-learn: fetch_lfw_people, fetch_lfw_pairs)
+Breast Cancer Wisconsin
+Wine
+Digits
