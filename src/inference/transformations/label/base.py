@@ -1,14 +1,26 @@
+"""Base classes and abstractions for label inference transformations.
+
+This module defines the abstract interface for all label (y) perturbation
+and transformation techniques used in the inference framework.
+"""
+
 class LabelTransformation:
-    """Classe base para técnicas de inferência aplicadas aos rótulos (y)."""
+    """Abstract base class for label inference/perturbation transformations.
+
+    Any subclass should implement the `apply` method to perform a transformation
+    on the target labels.
+    """
 
     def apply(self, y):
-        """
-        Aplica a transformação no vetor de rótulos y.
+        """Applies the transformation to the input label vector.
 
         Args:
-            y (array-like): Rótulos originais.
+            y (array-like): Input label vector to be transformed.
 
         Returns:
-            array-like: Rótulos transformados.
+            array-like: Transformed label vector.
+
+        Raises:
+            NotImplementedError: If the subclass does not implement this method.
         """
-        raise NotImplementedError("O método 'apply' deve ser implementado pela subclasse.")
+        raise NotImplementedError("Subclasses must implement apply().")

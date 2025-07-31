@@ -1,12 +1,16 @@
+"""Parameter transformation that randomly selects a value from the parameter search space."""
+
 import random
 from .base import ParameterTransformation
 
 class RandomFromSpace(ParameterTransformation):
-    """
-    Randomly selects a value from a predefined set for the given parameter.
+    """Randomly selects a value from a predefined set for the given parameter.
 
-    Example:
-        kernel ∈ {rbf, linear, poly, sigmoid}
+    This transformation perturbs the parameter by randomly choosing a new value
+    from its search space, excluding the current value.
+
+    Attributes:
+        key (str): The parameter name to perturb.
     """
 
     PARAM_SPACE = {
@@ -33,7 +37,7 @@ class RandomFromSpace(ParameterTransformation):
         "leaf_size": [10, 20, 30, 40, 50],
 
         # GaussianNB
-        "var_smoothing": [1e-9, 1e-8, 1e-7, 1e-6],  # valores típicos para teste
+        "var_smoothing": [1e-9, 1e-8, 1e-7, 1e-6],
 
         # General
         "solver": ["lbfgs", "liblinear", "sag", "saga"],
@@ -41,9 +45,22 @@ class RandomFromSpace(ParameterTransformation):
     }
 
     def __init__(self, key: str):
+        """Initializes the RandomFromSpace transformation.
+
+        Args:
+            key (str): The parameter name to perturb.
+        """
         self.key = key
 
     def apply(self, params: dict) -> str | None:
+        """Applies random selection from search space to the parameter.
+
+        Args:
+            params (dict): Dictionary of model hyperparameters.
+
+        Returns:
+            str | None: New randomly selected value (if applied), else None.
+        """
         space = self.PARAM_SPACE.get(self.key)
         current = params.get(self.key)
         if space and current in space:
@@ -54,4 +71,12 @@ class RandomFromSpace(ParameterTransformation):
 
     @staticmethod
     def supports(value) -> bool:
+        """Checks if the value is a string.
+
+        Args:
+            value (Any): The parameter value to check.
+
+        Returns:
+            bool: True if value is a string, False otherwise.
+        """
         return isinstance(value, str)

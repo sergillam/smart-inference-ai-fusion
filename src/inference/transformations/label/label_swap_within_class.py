@@ -1,23 +1,39 @@
+"""Label transformation that swaps labels within the same superclass."""
+
+from collections import defaultdict
 import numpy as np
 from inference.transformations.label.base import LabelTransformation
-from collections import defaultdict
 
 class LabelSwapWithinClass(LabelTransformation):
-    """
-    Troca rótulos entre amostras de um mesmo supergrupo (ex: "benign1", "benign2").
-    Assume que os rótulos compartilham um prefixo comum separável por delimitador.
+    """Swaps labels within samples belonging to the same superclass.
+
+    Assumes label strings share a common prefix (superclass) separated by a delimiter
+    (e.g., 'benign_1' and 'benign_2' both have superclass 'benign').
+
+    Attributes:
+        swap_within_class_fraction (float): Fraction of samples to swap within superclass.
+        delimiter (str): Delimiter used to extract superclass from labels.
     """
 
     def __init__(self, swap_within_class_fraction: float, delimiter: str = "_"):
-        """
+        """Initializes the LabelSwapWithinClass transformation.
+
         Args:
-            swap_within_class_fraction (float): Fração dos rótulos que serão trocados dentro da mesma superclasse.
-            delimiter (str): Delimitador usado para identificar o supergrupo nos rótulos (ex: "benign_1").
+            swap_within_class_fraction (float): Fraction of labels to swap within each superclass.
+            delimiter (str, optional): Delimiter used to identify superclass (default: "_").
         """
         self.swap_within_class_fraction = swap_within_class_fraction
         self.delimiter = delimiter
 
     def apply(self, y):
+        """Swaps pairs of labels within each superclass, up to a given fraction.
+
+        Args:
+            y (array-like): Input label vector (converted to str internally).
+
+        Returns:
+            np.ndarray: Label vector with swapped labels within superclass.
+        """
         y = np.asarray(y).astype(str)
         y_noisy = y.copy()
         n_samples = len(y)
@@ -25,7 +41,7 @@ class LabelSwapWithinClass(LabelTransformation):
         if n_swaps < 2:
             return y
 
-        # Agrupa os índices por superclasse
+        # Group sample indices by superclass
         groups = defaultdict(list)
         for idx, label in enumerate(y):
             superclass = label.split(self.delimiter)[0]

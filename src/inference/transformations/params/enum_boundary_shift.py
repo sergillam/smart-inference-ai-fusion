@@ -1,13 +1,16 @@
+"""Parameter transformation for simulating boundary shifts in enum hyperparameters."""
+
 import random
 from .base import ParameterTransformation
 
 class EnumBoundaryShift(ParameterTransformation):
-    """
-    Simulates boundary shift in ordered enum-like categorical hyperparameters.
+    """Simulates a boundary shift in ordered enum-like categorical hyperparameters.
 
-    Example:
-        If "weights" = "uniform" and valid values are ["uniform", "distance"],
-        it flips to the adjacent value in list order.
+    For example, if 'weights' is 'uniform' and valid values are ['uniform', 'distance'],
+    this transformation flips it to the adjacent value in the order.
+    
+    Attributes:
+        ENUM_ORDERED_SPACE (dict): Ordered lists for supported categorical keys.
     """
 
     ENUM_ORDERED_SPACE = {
@@ -18,12 +21,26 @@ class EnumBoundaryShift(ParameterTransformation):
     }
 
     def __init__(self, key: str):
+        """Initializes the EnumBoundaryShift transformation.
+
+        Args:
+            key (str): Name of the hyperparameter to perturb.
+        """
         self.key = key
 
-    def apply(self, params: dict) -> str | None:
+    def apply(self, params: dict) -> dict:
+        """Flips the enum value to an adjacent boundary value if possible.
+
+        Args:
+            params (dict): Model hyperparameter dictionary.
+
+        Returns:
+            dict: Updated dictionary with the value shifted, if possible; otherwise unchanged.
+        """
+        params = params.copy()
         value = params.get(self.key)
         if value is None:
-            return None
+            return params
 
         enum_list = self.ENUM_ORDERED_SPACE.get(self.key)
         if enum_list and value in enum_list:
@@ -34,9 +51,17 @@ class EnumBoundaryShift(ParameterTransformation):
             if idx < len(enum_list) - 1:
                 neighbors.append(enum_list[idx + 1])
             if neighbors:
-                return random.choice(neighbors)
-        return None
+                params[self.key] = random.choice(neighbors)
+        return params
 
     @staticmethod
     def supports(value) -> bool:
+        """Checks if the value is a string (suitable for enum perturbation).
+
+        Args:
+            value (Any): Value to check.
+
+        Returns:
+            bool: True if value is a string.
+        """
         return isinstance(value, str)

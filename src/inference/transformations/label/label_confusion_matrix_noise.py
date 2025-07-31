@@ -1,20 +1,36 @@
+"""Label transformation that applies confusion-matrix-based noise to labels."""
+
 import numpy as np
 from inference.transformations.label.base import LabelTransformation
 
 class LabelConfusionMatrixNoise(LabelTransformation):
-    """
-    Aplica ruído nos rótulos com base em uma matriz de confusão artificial.
-    Classes são trocadas conforme probabilidades definidas entre pares de classes.
+    """Applies confusion-matrix-based noise to the label vector.
+
+    This transformation perturbs a fraction of labels, swapping classes according to
+    a synthetic confusion matrix where each off-diagonal entry encodes the probability
+    of mistaking one class for another.
+
+    Attributes:
+        noise_level (float): Fraction of labels to perturb.
     """
 
     def __init__(self, noise_level: float):
-        """
+        """Initializes the confusion matrix noise transformation.
+
         Args:
-            noise_level (float): Fração dos rótulos a serem alterados com base na matriz.
+            noise_level (float): Fraction of labels to be perturbed.
         """
         self.noise_level = noise_level
 
     def apply(self, y):
+        """Applies confusion-matrix-based label noise to the input labels.
+
+        Args:
+            y (array-like): Original label vector.
+
+        Returns:
+            np.ndarray: Noisy label vector.
+        """
         y = np.asarray(y)
         y_noisy = y.copy()
         n_samples = len(y)
@@ -25,11 +41,11 @@ class LabelConfusionMatrixNoise(LabelTransformation):
         classes = np.unique(y)
         n_classes = len(classes)
 
-        # Criar matriz de confusão artificial (com maior probabilidade fora da diagonal)
+        # Create artificial confusion matrix (high probability off-diagonal)
         confusion_matrix = np.full((n_classes, n_classes), 1.0 / (n_classes - 1))
         np.fill_diagonal(confusion_matrix, 0)
 
-        # Normalizar por linha (cada linha soma 1)
+        # Normalize each row to sum to 1
         row_sums = confusion_matrix.sum(axis=1, keepdims=True)
         confusion_matrix /= row_sums
 
@@ -38,8 +54,7 @@ class LabelConfusionMatrixNoise(LabelTransformation):
         for idx in indices:
             current_class = y_noisy[idx]
             current_idx = np.where(classes == current_class)[0][0]
-
-            # Sorteia nova classe com base na probabilidade da linha
+            # Sample a new class using the confusion probabilities
             new_class = np.random.choice(classes, p=confusion_matrix[current_idx])
             y_noisy[idx] = new_class
 
