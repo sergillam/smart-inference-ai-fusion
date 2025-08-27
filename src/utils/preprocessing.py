@@ -2,8 +2,7 @@
 import pandas as pd
 
 def filter_sklearn_params(params, model_class):
-    """
-    Filter a parameter dictionary, keeping only those accepted by the given scikit-learn model class.
+    """Filter a parameter dictionary for keys accepted by a scikit-learn model.
 
     Args:
         params (dict): Dictionary of parameters (may include extra keys).

@@ -4,8 +4,10 @@ import numpy as np
 from inference.transformations.data.base import InferenceTransformation
 
 class DistributionShiftMixing(InferenceTransformation):
-    """Simulates concept drift by replacing a fraction of samples with points
-    drawn from a shifted distribution (e.g., mean shifted).
+    """Simulates concept drift by mixing in samples from a shifted distribution.
+
+    This transformation replaces a fraction of the original samples with new points
+    drawn from a distribution with a shifted mean to simulate concept drift.
 
     Attributes:
         shift_fraction (float): Fraction of samples to replace with shifted samples.

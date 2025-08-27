@@ -15,7 +15,8 @@ class CrossDependencyPerturbation(ParameterTransformation):
     """
 
     def __init__(self, *args, **kwargs):
-        pass
+        """Initializes the CrossDependencyPerturbation transformation."""
+        # No initialization needed, but method kept for extensibility.
 
     RULES = [
         {

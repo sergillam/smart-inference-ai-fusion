@@ -1,37 +1,30 @@
-"""Experiment pipeline for GaussianNB on the Digits dataset.
-
-This module defines experiment runs for GaussianNB (with and without inference) 
-on the Digits dataset, saving metrics and logs as specified.
-"""
-
+"""Experiment script for MLPClassifier on the Digits dataset."""
 from core.experiment import Experiment
 from datasets.factory import DatasetFactory
-from models.gaussian_model import GaussianNBModel
-from utils.report import report_data, ReportMode, generate_experiment_filename
+from inference.engine.param_runner import ParameterInferenceEngine
+from inference.pipeline.inference_pipeline import InferencePipeline
+from models.mlp_model import MLPModel
+from src.utils.report import generate_experiment_filename
+from utils.preprocessing import filter_sklearn_params
+from utils.report import report_data, ReportMode
 from utils.types import (
     DataNoiseConfig,
     DatasetSourceType,
     LabelNoiseConfig,
     ParameterNoiseConfig,
-    SklearnDatasetName,
+    SklearnDatasetName
 )
-from inference.pipeline.inference_pipeline import InferencePipeline
-from inference.engine.param_runner import ParameterInferenceEngine
-
-
-def run_gaussian_without_inference():
-    """Run the GaussianNB baseline (no inference or perturbations).
-
-    Loads the Digits dataset, trains a GaussianNB model, evaluates it,
-    and reports results via report_data.
-    """
-    model_class = GaussianNBModel
+# pylint: disable=duplicate-code
+def run_mlp_without_inference():
+    """Run the MLPClassifier baseline (no inference or perturbations)."""
+    model_class = MLPModel
     dataset_name = SklearnDatasetName.DIGITS
     name_output = generate_experiment_filename(model_class, dataset_name)
 
-    report_data("=== GaussianNB WITHOUT INFERENCE ===", mode=ReportMode.PRINT)
-    base_params = {"var_smoothing": 1e-9}
-    model = model_class(**base_params)
+    report_data("=== MLPClassifier WITHOUT INFERENCE ===", mode=ReportMode.PRINT)
+    base_params = {"hidden_layer_sizes": (100,), "max_iter": 300, "random_state": 42}
+    filtered_params = filter_sklearn_params(base_params, MLPModel)
+    model = model_class(**filtered_params)
     dataset = DatasetFactory.create(DatasetSourceType.SKLEARN, name=dataset_name)
     X_train, X_test, y_train, y_test = dataset.load_data()
     experiment = Experiment(model, dataset)
@@ -41,24 +34,17 @@ def run_gaussian_without_inference():
     report_data(metrics, mode=ReportMode.PRINT)
     report_data(metrics, mode=ReportMode.JSON_RESULT, name_output=f"{name_output}-no-inference")
 
-
-def run_gaussian_with_inference():
-    """Run GaussianNB with data, parameter, and label inference (perturbations).
-
-    Loads the Digits dataset, applies full inference (data, parameter, label),
-    trains a GaussianNB model, evaluates it, and reports results via report_data.
-    Also saves perturbed parameter logs.
-    """
-    model_class = GaussianNBModel
+def run_mlp_with_inference():
+    """Run MLPClassifier with data, parameter, and label inference (perturbations)."""
+    model_class = MLPModel
     dataset_name = SklearnDatasetName.DIGITS
     name_output = generate_experiment_filename(model_class, dataset_name)
 
-    report_data("=== GaussianNB WITH INFERENCE (data + param + label) ===", mode=ReportMode.PRINT)
-
-    base_params = {"var_smoothing": 1e-9}
+    report_data("=== MLPClassifier WITH INFERENCE (data + param + label) ===",
+                mode=ReportMode.PRINT)
+    base_params = {"hidden_layer_sizes": (100,), "max_iter": 300, "random_state": 42}
     dataset = DatasetFactory.create(DatasetSourceType.SKLEARN, name=dataset_name)
 
-    # Configurations
     data_noise_config = DataNoiseConfig(
         noise_level=0.2,
         truncate_decimals=1,
@@ -115,7 +101,8 @@ def run_gaussian_with_inference():
     report_data(f"Perturbed parameters: {perturbed_params}", mode=ReportMode.PRINT)
     report_data(param_log, mode=ReportMode.JSON_LOG, name_output=f"{name_output}-param-perturb")
 
-    model = GaussianNBModel(**perturbed_params)
+    filtered_params = filter_sklearn_params(perturbed_params, MLPModel)
+    model = MLPModel(**filtered_params)
 
     X_train, X_test = pipeline.apply_data_inference(X_train, X_test)
     model.fit(X_train, y_train)
@@ -134,8 +121,10 @@ def run_gaussian_with_inference():
     report_data(metrics, mode=ReportMode.PRINT)
     report_data(metrics, mode=ReportMode.JSON_RESULT, name_output=f"{name_output}-with-inference")
 
-
 def run():
-    """Run all experiment variants for GaussianNB on the Digits dataset."""
-    run_gaussian_without_inference()
-    run_gaussian_with_inference()
+    """Runs the complete experiment suite for the MLPClassifier."""
+    run_mlp_without_inference()
+    run_mlp_with_inference()
+
+if __name__ == "__main__":
+    run()

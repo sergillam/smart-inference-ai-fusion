@@ -1,40 +1,96 @@
-cOLOCAR OS comentários padrao google docs string (sem modificar o codigo)
-Finalizar pylint e googledocsstrig falta src/inference/transformations (parado - focar no artigo)
+Atualizar read.me (pt- ok/ingles)
 
 Iniciar artigo 2
 
 implementar os algoritmos supervisionados;
 implementar os algoritmos não supervisionados
 
-atualizar read.me
-
 escrever artigo;
 
-Add logs de debugs para rastreio;
 implementar testes unitários;
 
+Algoritmos Supervisionados Escolhidos
 
-Supervisionado – Novos algoritmos sugeridos (artigo 1)
+    Nome: Random Forest (Versões Classifier e Regressor)
 
-Algoritmo ----  Justificativa científica
-Logistic Regression ---- Linear, sensível a ruído e regularização
-Random Forest ---- Ensemble robusto, bom para testar ruído e overfitting
-Gradient Boosting (GBDT) ---- Ensemble aditivo, sensível a hiperparâmetros
-MLP Classifier (Rede Neural) ---- Sensível a escala, outliers e parâmetros de rede
-Quadratic Discriminant Analysis (QDA) ---- Complementa o GNB com fronteiras não-lineares
+        Tipo: Ensemble (Bagging).
 
-Não Supervisionado – Novos algoritmos sugeridos (artigo 1)
+        Justificativa Científica: Modelo robusto e versátil. Excelente para estabelecer um baseline de alta performance. Sua natureza de ensemble o torna menos propenso a overfitting em comparação com uma única árvore de decisão. Será usado tanto para classificação quanto para regressão, permitindo comparar sua eficácia em ambos os cenários.
 
-Algoritmo ----Justificativa científica
-Mini-Batch k-Means ---- Escalável, sensível a ruído e inicialização
-Spectral Clustering ---- Base em grafos, sensível a estrutura topológica
-Gaussian Mixture Model (GMM) ---- Clustering probabilístico, permite sobreposição
-Feature Agglomeration ---- Redução dimensional orientada a agrupamento
-FastICA ---- Redução dimensional sensível a ruído e independência
+    Nome: Gradient Boosting Decision Trees (GBDT)
 
-Base de dados
-20 Newsgroups
-LFW People / LFW Pairs (scikit-learn: fetch_lfw_people, fetch_lfw_pairs)
-Breast Cancer Wisconsin
-Wine
-Digits
+        Tipo: Ensemble (Boosting).
+
+        Justificativa Científica: Frequentemente um dos modelos de melhor performance em dados tabulares. Constrói árvores de forma sequencial, onde cada árvore corrige os erros da anterior. É muito sensível aos hiperparâmetros, o que o torna um ótimo candidato para demonstrar o impacto da otimização.
+
+    Nome: MLP Classifier (Rede Neural)
+
+        Tipo: Rede Neural Artificial.
+
+        Justificativa Científica: Representa a classe de modelos de deep learning. Capaz de aprender fronteiras de decisão altamente complexas e não-lineares. Sua performance é muito sensível à escala dos dados e à arquitetura da rede, servindo para ilustrar a importância do pré-processamento e do design do modelo.
+
+    Nome: Ridge Regression
+
+        Tipo: Modelo Linear (Regularizado).
+
+        Justificativa Científica: É um algoritmo de regressão linear que inclui regularização L2. Serve como um baseline fundamental para os problemas de regressão. É rápido, interpretável e sua regularização ajuda a prevenir o overfitting em dados com muitas features ou multicolinearidade.
+
+    Nome: Random Forest Regressor
+
+        Tipo: Ensemble (Bagging).
+
+        Justificativa Científica: Versão de regressão do Random Forest. Será comparado diretamente com a Regressão Ridge para avaliar a diferença de performance entre um modelo linear simples e um ensemble não-linear complexo na tarefa de prever valores contínuos.
+
+Algoritmos Não Supervisionados Escolhidos
+
+    Nome: Mini-Batch k-Means
+
+        Tipo: Clustering (Baseado em Centroides).
+
+        Justificativa Científica: Versão escalável do k-Means, ideal para bases de dados maiores. Sua performance e sensibilidade à inicialização dos centroides serão avaliadas, servindo como um baseline rápido e eficiente para clustering.
+
+    Nome: Spectral Clustering
+
+        Tipo: Clustering (Baseado em Grafos).
+
+        Justificativa Científica: Poderoso para encontrar clusters com formas não-convexas (não-globulares). Sua força será destacada na base de dados sintética make_moons, onde algoritmos como o k-Means falham. Testa a capacidade de capturar a estrutura topológica dos dados.
+
+    Nome: Gaussian Mixture Model (GMM)
+
+        Tipo: Clustering (Modelo Probabilístico).
+
+        Justificativa Científica: Mais flexível que o k-Means, pois assume que os clusters são distribuições gaussianas, permitindo formatos elípticos e sobreposição. Atribui uma probabilidade de pertencimento a cada ponto, o que oferece um resultado mais rico.
+
+    Nome: Agglomerative Clustering
+
+        Tipo: Clustering (Hierárquico).
+
+        Justificativa Científica: Constrói uma hierarquia de clusters e não exige a definição prévia do número de clusters. Permite a visualização de um dendrograma, que pode revelar a estrutura hierárquica dos dados.
+
+    Nome: FastICA
+
+        Tipo: Redução de Dimensionalidade (Separação de Componentes).
+
+        Justificativa Científica: Usado como um passo de pré-processamento. O objetivo é separar um sinal multivariado em componentes aditivos independentes. Será usado para transformar as features antes de aplicar algoritmos de classificação/clustering, para avaliar se essa separação de sinais melhora a performance.
+
+Bases de Dados Escolhidas
+
+    Digits
+
+        Justificativa da Escolha: Base clássica para classificação multivariada. Os dados são imagens de dígitos, que também podem ser usados para clustering (para ver se os clusters formados correspondem aos dígitos reais) e para testar a redução de dimensionalidade.
+
+    Wine
+
+        Justificativa da Escolha: Dataset tabular de baixa dimensão e bem-comportado. Excelente para classificação, servindo como um cenário mais controlado para comparar as fronteiras de decisão dos modelos. Também é útil para clustering hierárquico, onde a estrutura de sub-tipos de vinho pode ser explorada.
+
+    California Housing (fetch_california_housing)
+
+        Justificativa da Escolha: Dataset padrão para problemas de regressão. Será a principal base para comparar Ridge Regression e Random Forest Regressor. Suas features (renda média, idade da casa, etc.) também podem ser usadas em uma tarefa de clustering para segmentação de mercado.
+
+    LFW People (fetch_lfw_people)
+
+        Justificativa da Escolha: Base de imagens de alta dimensão. É um desafio maior para classificação e o cenário perfeito para demonstrar a utilidade da redução de dimensionalidade com FastICA como pré-processamento para melhorar a performance e velocidade dos modelos.
+
+    Make Moons (make_moons)
+
+        Justificativa da Escolha: Base de dados sintética e não-linear, gerada especificamente para clustering. Seu propósito é servir como um "teste de estresse" para os algoritmos de cluster, destacando de forma clara e visual a superioridade do Spectral Clustering em cenários onde o k-Means e GMM falham.

@@ -1,7 +1,7 @@
 """Evaluation metrics utilities for classification and clustering tasks."""
 
-import numpy as np
 from typing import Any, Dict, Optional, Literal
+import numpy as np
 from sklearn.metrics import (
     accuracy_score, balanced_accuracy_score, f1_score, precision_score, recall_score,
     confusion_matrix,

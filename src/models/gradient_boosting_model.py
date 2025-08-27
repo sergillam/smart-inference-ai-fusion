@@ -1,7 +1,11 @@
+"""Gradient Boosting Classifier model for the Smart Inference AI Fusion framework.
+
+This module provides a wrapper for sklearn's GradientBoostingClassifier.
+"""
 from sklearn.ensemble import GradientBoostingClassifier
 from utils.metrics import evaluate_classification
 from core.base_model import BaseModel
-
+# pylint: disable=duplicate-code
 class GradientBoostingModel(BaseModel):
     """Gradient Boosting Classifier model wrapper for the Smart Inference AI Fusion framework.
 
@@ -32,28 +36,76 @@ class GradientBoostingModel(BaseModel):
         """Evaluates the model on the test set.
 
         Args:
-            X_test: Input (features) data for testing.
-            y_test: True labels for testing.
-            average (str, optional): The averaging method for multiclass metrics. Default is "macro".
+            X_test (array-like): Input (features) data for testing.
+            y_test (array-like): True labels for testing.
+            average (str, optional): The averaging method for multiclass metrics.
+                Default is "macro".
 
         Returns:
-            dict: A dictionary containing classification metrics such as accuracy, f1_score, precision, recall, etc.
+            dict: A dictionary containing classification metrics such as accuracy,
+                f1_score, precision, recall, etc.
         """
         y_pred = self.model.predict(X_test)
-        return evaluate_classification(y_test, y_pred, average=average)
+        return evaluate_classification(
+            y_test, y_pred, average=average
+        )
 
     def fit(self, X, y):
+        """Fit the model to data (scikit-learn compatibility).
+
+        Args:
+            X (array-like): Features.
+            y (array-like): Labels.
+
+        Returns:
+            The result of the train method.
+        """
         return self.train(X, y)
 
     def predict(self, X):
+        """Generate predictions for the input features.
+
+        Args:
+            X (array-like): Features to predict.
+
+        Returns:
+            array-like: Predicted labels.
+        """
         return self.model.predict(X)
 
     def predict_proba(self, X):
+        """Return probability estimates for the input features.
+
+        Args:
+            X (array-like): Features to predict probabilities for.
+
+        Returns:
+            array-like: Probability estimates for each class.
+        """
         return self.model.predict_proba(X)
 
     def get_params(self, deep=True):
-        return self.model.get_params(deep=deep)
+        """Get parameters for this estimator.
+
+        Args:
+            deep (bool): If True, will return the parameters for this estimator 
+            and contained subobjects.
+
+        Returns:
+            dict: Model parameters.
+        """
+        return self.model.get_params(
+            deep=deep
+        )
 
     def set_params(self, **params):
+        """Set the parameters of this estimator.
+
+        Args:
+            **params: Model parameters to set.
+
+        Returns:
+            self
+        """
         self.model.set_params(**params)
         return self
