@@ -1,13 +1,40 @@
 """Evaluation metrics utilities for classification and clustering tasks."""
 
+import numpy as np
 from typing import Any, Dict, Optional, Literal
 from sklearn.metrics import (
     accuracy_score, balanced_accuracy_score, f1_score, precision_score, recall_score,
     confusion_matrix,
     adjusted_rand_score, normalized_mutual_info_score,
     homogeneity_score, completeness_score, v_measure_score,
-    silhouette_score
+    silhouette_score, mean_squared_error, mean_absolute_error, r2_score, median_absolute_error,
+    explained_variance_score
 )
+
+def evaluate_regression(y_true, y_pred) -> dict:
+    """Computes regression metrics for supervised regression models.
+
+    Args:
+        y_true (array-like): Ground truth (true) target values.
+        y_pred (array-like): Predicted target values from the regressor.
+
+    Returns:
+        dict: A dictionary containing regression metrics:
+            - mse: Mean Squared Error
+            - mae: Mean Absolute Error
+            - median_ae: Median Absolute Error
+            - r2: R^2 (coefficient of determination)
+            - explained_variance: Explained Variance Score
+    """
+    y_true = np.asarray(y_true).astype(float)
+    y_pred = np.asarray(y_pred).astype(float)
+    return {
+        "mse": mean_squared_error(y_true, y_pred),
+        "mae": mean_absolute_error(y_true, y_pred),
+        "median_ae": median_absolute_error(y_true, y_pred),
+        "r2": r2_score(y_true, y_pred),
+        "explained_variance": explained_variance_score(y_true, y_pred),
+    }
 
 def evaluate_classification(
     y_true: Any,

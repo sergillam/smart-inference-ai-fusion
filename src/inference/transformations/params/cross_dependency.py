@@ -3,6 +3,7 @@
 from typing import Any
 from .base import ParameterTransformation
 
+
 class CrossDependencyPerturbation(ParameterTransformation):
     """Alters dependent hyperparameters together based on predefined rules.
 
@@ -12,6 +13,9 @@ class CrossDependencyPerturbation(ParameterTransformation):
     Attributes:
         RULES (list): List of rules specifying parameter dependencies.
     """
+
+    def __init__(self, *args, **kwargs):
+        pass
 
     RULES = [
         {

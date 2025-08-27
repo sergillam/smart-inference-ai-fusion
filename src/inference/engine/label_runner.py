@@ -27,9 +27,11 @@ class LabelInferenceEngine:
         _ = X_train
 
         self.label_pipeline = []
+
+        # LabelFlipNearBorder is commented out for regression tasks because it requires predict_proba/decision_function
         transformation_map = {
             "label_noise_fraction": RandomLabelNoise,
-            "flip_near_border_fraction": LabelFlipNearBorder,
+            "flip_near_border_fraction": LabelFlipNearBorder,  # Excluded for regression: needs predict_proba
             "confusion_matrix_noise_level": LabelConfusionMatrixNoise,
             "partial_label_fraction": PartialLabelNoise,
             "swap_within_class_fraction": LabelSwapWithinClass,

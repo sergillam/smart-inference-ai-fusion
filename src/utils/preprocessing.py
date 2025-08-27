@@ -1,6 +1,20 @@
 """Preprocess the dataset for machine learning tasks."""
 import pandas as pd
 
+def filter_sklearn_params(params, model_class):
+    """
+    Filter a parameter dictionary, keeping only those accepted by the given scikit-learn model class.
+
+    Args:
+        params (dict): Dictionary of parameters (may include extra keys).
+        model_class (type): scikit-learn model class (e.g., RandomForestClassifier).
+
+    Returns:
+        dict: Only the parameters valid for the model.
+    """
+    valid_keys = model_class().get_params().keys()
+    return {k: v for k, v in params.items() if k in valid_keys}
+
 def preprocess_titanic(df: pd.DataFrame) -> pd.DataFrame:
     """Preprocesses the Titanic dataset DataFrame for machine learning.
 
