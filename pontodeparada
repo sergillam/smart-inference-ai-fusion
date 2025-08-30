@@ -1,6 +1,13 @@
 Atualizar read.me (pt- ok/ingles)
 
+Melhorias
+remover os warnings 
+:# pylint: disable=duplicate-code (models e experiments)
+:# pylint: disable=too-many-positional-arguments(inferencia)
+
+
 Iniciar artigo 2
+
 
 implementar os algoritmos supervisionados;
 implementar os algoritmos não supervisionados
@@ -11,7 +18,7 @@ implementar testes unitários;
 
 Algoritmos Supervisionados Escolhidos
 
-    Nome: Random Forest (Versões Classifier e Regressor)
+    Nome: Random Forest Classifier
 
         Tipo: Ensemble (Bagging).
 
@@ -55,13 +62,13 @@ Algoritmos Não Supervisionados Escolhidos
 
         Justificativa Científica: Poderoso para encontrar clusters com formas não-convexas (não-globulares). Sua força será destacada na base de dados sintética make_moons, onde algoritmos como o k-Means falham. Testa a capacidade de capturar a estrutura topológica dos dados.
 
-    Nome: Gaussian Mixture Model (GMM)
+    Nome: Gaussian Mixture Model (GMM) 
 
         Tipo: Clustering (Modelo Probabilístico).
 
         Justificativa Científica: Mais flexível que o k-Means, pois assume que os clusters são distribuições gaussianas, permitindo formatos elípticos e sobreposição. Atribui uma probabilidade de pertencimento a cada ponto, o que oferece um resultado mais rico.
 
-    Nome: Agglomerative Clustering
+    Nome: Agglomerative Clustering --PAREI NESSE
 
         Tipo: Clustering (Hierárquico).
 

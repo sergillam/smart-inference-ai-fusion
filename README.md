@@ -5,103 +5,137 @@ Um framework modular e extensível para experimentos de inferência sintética e
 
 ## 📁 Estrutura do Projeto
 ```
-smart-inference-ai-fusion/
-├── main.py                      # Ponto de entrada principal para execução dos experimentos
+├── pyproject.toml               # Arquivo de configuração que gerencia dependências e build do projeto
 ├── makefile                     # Comandos automatizados para execução, lint, testes etc.
-├── requirements.txt             # Lista de dependências do projeto
-├── datasets/                    # Bases de dados (ex: arquivos CSV do Titanic)
-├── docs/                        # Documentação adicional (ex: resumos de inferência)
-├── experiments/                 # Scripts de experimentos organizados por dataset
-│   ├── iris/
-│   ├── wine/
-│   ├── digits/
-│   ├── breast_cancer/
-│   ├── titanic/
-│   └── ...
-├── logs/                        # Logs de execução e inferência (não versionados)
-├── results/                     # Resultados dos experimentos e inferências (não versionados)
-├── src/                         # Código-fonte principal do framework
-│   ├── core/                    # Classes base para Experiment, Model e Dataset
-│   ├── datasets/                # Loaders de datasets (sklearn, csv) e fábricas
-│   ├── inference/               # Módulo de inferência (pipelines, engines, transforms)
-│   │   ├── engine/              # Orquestradores de inferência (InferenceEngine, LabelRunner, etc.)
-│   │   ├── pipeline/            # Pipeline unificada que aplica todas as inferências
-│   │   ├── transformations/
-│   │   │   ├── data/            # Técnicas aplicadas aos dados de entrada (X)
-│   │   │   ├── label/           # Técnicas aplicadas aos rótulos (y)
-│   │   │   └── params/          # Estratégias de perturbação nos parâmetros
-│   ├── models/                  # Modelos de IA implementados no framework
-│   └── utils/                   # Utilitários, enums, métricas, tipos
-└── tests/                       # Testes unitários do projeto
+├── README.md                    # Documentação principal do projeto
+├── datasets/                    # Contém os datasets não oriundos do scikit-learn (ex: arquivos .csv)
+├── docs/                        # Documentação adicional e resumos
+├── logs/                        # Logs de execução e inferência
+├── results/                     # Resultados dos experimentos e inferências
+├── scripts/                     # Contém scripts utilizados para automação de configuração;
+├── smart_inference_ai_fusion/   # Código-fonte principal do framework
+│   ├── core/                    # Classes base para Experimento, Modelo e Dataset
+│   ├── datasets/                # Módulos para carregar datasets (de arquivos CSV, scikit-learn etc.)
+│   ├── experiments/             # Scripts de experimentos, agora parte do pacote, com um `run.py` orquestrador
+│   ├── inference/               # Módulo central de inferência de ruídos
+│   │   ├── engine/              # Motores que orquestram a aplicação das perturbações
+│   │   ├── pipeline/            # Pipeline que integra e aplica as transformações
+│   │   └── transformations/     # Lógicas de perturbação, separadas por alvo:
+│   │       ├── data/            # Técnicas aplicadas aos dados de entrada (X)
+│   │       ├── label/           # Técnicas aplicadas aos rótulos (y)
+│   │       └── params/          # Estratégias de perturbação nos hiperparâmetros
+│   ├── models/                  # Wrappers de modelos (BaseModel-compatíveis)
+│   └── utils/                   # Funções utilitárias, tipos, métricas e relatórios
+└── tests/                       # Testes unitários do framework
 ```
 
 ## 🚀 Guia de Instalação e Execução
+### Este guia assume que você está em um ambiente `Linux` ou `MacOS`.
+#### **Pré-requisitos**:
+- `Git`
+- `Python 3.10`
+- `Make` para usar os comandos automatizados
 
-### Ambiente recomendado:
-- Python 3.10
-- Ambiente virtual (ex: `venv` ou `conda`)
+#### **Instalação (Método Recomendado: `make`)**
 
-### Instalação:
-#### Linux / MacOS:
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
+O `Makefile` automatiza todo o processo de configuração. Você só precisa de um comando.
+1. **Clone o repositório:**
+    ```bash
+    git clone git@github.com:sergillam/smart-inference-ai-fusion.git
+    cd smart-inference-ai-fusion
+    ```
 
-#### Windows:
-```bash
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-```
+2. **Instale as dependências:**
+    
+    - **Para desenvolver no projeto (Recomendado):**
+    
+        Este comando cria o ambiente virtual, instala todas as dependências (de execução, testes, linting, etc.) e o pacote em modo editável.
+        ```bash
+        make install-dev
+        ```
+    
+    - **Apenas para executar os experimentos:**
+    
 
-### Uso do Makefile (recomendado):
-O projeto possui um Makefile com comandos úteis para rodar experimentos, checar estilo, rodar testes e instalar dependências.
+        Este comando faz uma instalação mínima, apenas com as dependências de execução.
+        ```bash
+        make install
+        ```
 
-Use os comandos abaixo para simplificar o fluxo de trabalho:
-- Executa o pipeline principal (main.py)
+    - **Nota: Você não precisa criar ou ativar o ambiente virtual (venv) manualmente. Os comandos make cuidam de tudo para você.**
+
+#### **Executando os Experimentos**
+
+Use `make run` para executar os scripts. A variável `EXP` define o alvo.
+
+1. **Executar Todos os Experimentos**
+    
+    Roda o orquestrador principal que executa todos os scripts de experimento.
     ```bash
     make run
     ```
-- Lint (checa estilo e boas práticas com pylint)
-    ```bash
-    make lint
-    ```
-- Checa docstrings no padrão Google (pydocstyle)
-    ```bash
-    make style
-    ```
-- Roda os dois acima juntos (make lint e make style)
-    ```bash
-    make check
-    ```
-- Executa TODOS os testes unitários
-    ```bash
-    make test
-    ```
-- Instala as dependências do projeto
-    ```bash
-    make requirements
-    ```
-- Executa tudo (lint, style, test, run)
-    ```bash
-    make all
-    ```
-- Disponibiliza todos os comandos disponíveis e exemplos avançados
-    ```bash
-    make help
-    ```
-### Executando experimentos específicos:
-Para rodar um experimento individual (arquivo ou diretório):
-```bash
-make experiment EXP=experiments/iris/knn_iris.py
-make experiment EXP=experiments/wine/
-```
 
-### Execução manual (opcional):
+2. **Executar um Pacote de Experimentos**
+    
+    Roda todos os experimentos de um diretório específico.
+    ```bash
+    make run EXP=smart_inference_ai_fusion.experiments.name_data_set
+    ```
+
+3. **Executar um Único Experimentos**
+    
+    Roda um único arquivo de experimento.
+    ```bash
+    make run EXP=smart_inference_ai_fusion.experiments.name_data_set.name_experiments
+    ```
+
+4. **Passando Argumentos para os Scripts**
+    
+    Use a variável `ARGS` para passar argumentos customizados para seus scripts.
+    ```bash
+    make run EXP=<seu_alvo> ARGS="--seed 42 --outro_parametro valor"
+    ```
+
+5. **Executar em Modo Debug**
+    
+    Para uma saída de log mais detalhada.
+    ```bash
+    make debug
+    ```
+
+#### **Workflow de Desenvolvimento**
+
+O `Makefile` inclui vários comandos para garantir a qualidade e a manutenção do código.
+
+- `make check`: Roda todas as verificações de qualidade (formatação, linting e estilo de docstrings).
+- `make format`: Formata o código automaticamente.
+- `make test`: Roda a suíte de testes unitários.
+- `make clean-outputs`: Limpa as pastas de `logs` e `results` (útil para garantir uma execução limpa).
+- `make help`: Lista todos os comandos disponíveis e o que eles fazem.
+
+#### **Instalação Manual (Alternativa)**
+Para usuários de `Windows` ou que não desejam usar `make`.
 ```bash
-PYTHONPATH=src python main.py
+# 1. Clone o repositório e entre na pasta
+
+git clone git@github.com:sergillam/smart-inference-ai-fusion.git
+cd smart-inference-ai_fusion
+
+# 2. Crie e ative o ambiente virtual
+# No Windows:
+python -m venv .venv
+.\.venv\Scripts\activate
+
+# No Linux / MacOS:
+# python3.10 -m venv .venv
+# source .venv/bin/activate
+
+# 3. Instale o projeto e suas dependências
+# O comando abaixo lê o `pyproject.toml` e instala tudo
+pip install -e .[dev]
+
+# Para instalação mínima (sem ferramentas de dev), use:
+# pip install -e .
 ```
 
 ## 🧪 Adicionando novos experimentos
@@ -440,38 +474,74 @@ As definições que padronizam origem de dados, nomes de datasets, modos de rela
 - **CSVDatasetName** → atalhos de CSV (ex.: `TITANIC`) com propriedade `.path`.
 - **ReportMode** → destino do output: `PRINT` (console), `JSON_LOG` (`logs/`), `JSON_RESULT` (`results/`).
 
-#### Configs de perturbação (Pydantic):
-- **DataNoiseConfig** → perturbações em X (dados):
-    ruído/precisão: `noise_level`, `truncate_decimals`, `quantize_bins`, `cast_to_int`.
-    - estrutura/escala: `shuffle_fraction`, `scale_range`, `remove_features`, `feature_swap`.
-    - corrupção/outliers/missing: `zero_out_fraction`, `insert_nan_fraction`, `outlier_fraction`
-    - avançadas tabulares: `feature_selective_noise`, `conditional_noise`,
-        `random_missing_block_fraction`, `distribution_shift_fraction`,
-        `cluster_swap_fraction`, `group_outlier_cluster_fraction`, `temporal_drift_std`
-    - distrações: `add_dummy_features`, `duplicate_features`
+### 🔧 Configurações de Perturbação (Pydantic)
 
-    noise_level: # Intensidade de ruído gaussiano
-    truncate_decimals: # Número de casas decimais
-    quantize_bins: # Quantização em N bins
-    cast_to_int: # Converte para int
-    shuffle_fraction: # Fração de colunas embaralhadas
-    scale_range:  # Intervalo de escala (min, max)
-    zero_out_fraction: # Fração de valores zerados
-    insert_nan_fraction: # Fração de NaNs inseridos
-    outlier_fraction: # Fração de outliers
-    add_dummy_features: # N novas features aleatórias
-    duplicate_features: # N features duplicadas
-    feature_selective_noise: # (nível, índices)
-    remove_features: # Índices a remover
-    feature_swap: # Índices a trocar entre si
-    label_noise_fraction: # Ruído nos rótulos
+O framework utiliza **Pydantic** para gerenciar e validar as configurações de perturbação em **dados (X)**, **rótulos (y)** e **hiperparâmetros**.  
+As configurações são definidas pelas classes `DataNoiseConfig`, `LabelNoiseConfig` e `ParameterNoiseConfig`.
 
-- **LabelNoiseConfig** → perturbações em **y** (rótulos):  
-  `label_noise_fraction`, `flip_near_border_fraction`, `confusion_matrix_noise_level`,
-  `partial_label_fraction`, `swap_within_class_fraction`.
+---
 
-- **ParameterNoiseConfig** → estratégias para hiperparâmetros:
-   `integer_noise`, `boolean_flip`, `string_mutator`, `semantic_mutation`, `scale_hyper`, `cross_dependency`, `random_from_space`, `bounded_numeric`, `type_cast_perturbation`, `enum_boundary_shift`.
+#### 📊 `DataNoiseConfig` – Perturbações nos Dados de Entrada (X)
+
+Controla ruídos, transformações estruturais e distorções tabulares para testar robustez dos modelos.
+
+| Categoria | Parâmetro | Tipo / Exemplo | Descrição |
+|-----------|-----------|---------------|-----------|
+| **Ruído e Precisão** | `noise_level` | `0.1` | Intensidade de ruído gaussiano. |
+| | `truncate_decimals` | `2` | Trunca valores para N casas decimais. |
+| | `quantize_bins` | `5` | Quantização dos dados em N bins. |
+| | `cast_to_int` | `True` | Converte valores para inteiros. |
+| **Estrutura e Escala** | `shuffle_fraction` | `0.1` | Fração de colunas embaralhadas. |
+| | `scale_range` | `(0.8, 1.2)` | Escala de valores (min, max). |
+| | `remove_features` | `[1, 3]` | Índices de features a remover. |
+| | `feature_swap` | `[0, 2]` | Índices de features a trocar entre si. |
+| **Corrupção e Outliers** | `zero_out_fraction` | `0.05` | Fração de valores zerados. |
+| | `insert_nan_fraction` | `0.05` | Fração de `NaN`s inseridos. |
+| | `outlier_fraction` | `0.05` | Fração de outliers aleatórios. |
+| **Distrações e Redundância** | `add_dummy_features` | `2` | Número de features fictícias adicionadas. |
+| | `duplicate_features` | `2` | Número de features duplicadas. |
+| **Perturbações Avançadas** | `feature_selective_noise` | `(0.3, [0, 2])` | Aplica ruído específico em features selecionadas. |
+| | `conditional_noise` | `(0, 5.0, 0.2)` | Ruído condicional (feature, valor, desvio). |
+| | `random_missing_block_fraction` | `0.1` | Porção de blocos inteiros de dados ausentes. |
+| | `distribution_shift_fraction` | `0.1` | Mudança de distribuição simulada. |
+| | `cluster_swap_fraction` | `0.1` | Troca de amostras entre clusters. |
+| | `group_outlier_cluster_fraction` | `0.1` | Introdução de grupos de outliers. |
+| | `temporal_drift_std` | `0.5` | Desvio padrão do drift temporal. |
+
+---
+
+#### 🏷️ `LabelNoiseConfig` – Perturbações em Rótulos (y)
+
+Aplica ruídos e distorções controladas nos rótulos para simular erros de anotação.
+
+| Parâmetro | Tipo / Exemplo | Descrição |
+|-----------|---------------|-----------|
+| `label_noise_fraction` | `0.05` | Fração de rótulos aleatoriamente alterados. |
+| `flip_near_border_fraction` | `0.05` | Troca rótulos próximos da fronteira de decisão. |
+| `confusion_matrix_noise_level` | `0.05` | Probabilidade de ruído guiado por matriz de confusão. |
+| `partial_label_fraction` | `0.05` | Fração de rótulos substituídos por conjuntos parciais. |
+| `swap_within_class_fraction` | `0.05` | Troca de rótulos dentro da mesma classe. |
+
+---
+
+#### ⚙️ `ParameterNoiseConfig` – Perturbações em Hiperparâmetros
+
+Simula cenários adversos ao modificar hiperparâmetros de modelos.
+
+| Parâmetro | Tipo / Exemplo | Descrição |
+|-----------|---------------|-----------|
+| `integer_noise` | `True` | Aplica ruído em hiperparâmetros inteiros. |
+| `boolean_flip` | `False` | Inverte valores booleanos. |
+| `string_mutator` | `False` | Altera strings de parâmetros (ex: nomes de otimizadores). |
+| `semantic_mutation` | `False` | Perturba valores respeitando semântica (ex: step size). |
+| `scale_hyper` | `True` | Escala valores numéricos (multiplicativo). |
+| `cross_dependency` | `False` | Perturba parâmetros considerando dependências cruzadas. |
+| `random_from_space` | `False` | Escolhe valores aleatórios de espaços pré-definidos. |
+| `bounded_numeric` | `True` | Garante que valores numéricos fiquem em faixas válidas. |
+| `type_cast_perturbation` | `False` | Converte tipos dinamicamente (int ↔ float). |
+| `enum_boundary_shift` | `False` | Escolhe próximo valor válido em enums. |
+
+---
 
 ## 📚 Objetivo
 
