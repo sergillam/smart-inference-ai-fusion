@@ -153,11 +153,8 @@ clean: ## Removes build artifacts and Python cache files
 
 clean-outputs: ## WARNING: Deletes all generated logs and results
 	@echo "🔥 Deleting all contents of $(LOGS_DIR)/ and $(RESULTS_DIR)/..."
-	rm -rf $(LOGS_DIR) $(RESULTS_DIR)
-	mkdir -p $(LOGS_DIR) $(RESULTS_DIR)
-	@# Se você usa arquivos .gitkeep para manter as pastas vazias no Git, recrie-os:
-	@# touch $(LOGS_DIR)/.gitkeep $(RESULTS_DIR)/.gitkeep
-	@echo "✅ Logs and results folders have been reset."
+	rm -rf $(LOGS_DIR)/* $(RESULTS_DIR)/* 2>/dev/null || true
+	@echo "✅ Logs and results contents have been cleared (directories preserved)."
 
 clean-pyc: ## Removes only Python bytecode cache files
 	find . -type d -name "__pycache__" -prune -exec rm -rf {} +
