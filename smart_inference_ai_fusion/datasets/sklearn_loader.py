@@ -2,7 +2,15 @@
 
 from typing import Tuple
 
-from sklearn.datasets import load_breast_cancer, load_digits, load_iris, load_wine
+from sklearn.datasets import (
+    fetch_california_housing,
+    fetch_lfw_people,
+    load_breast_cancer,
+    load_digits,
+    load_iris,
+    load_wine,
+    make_moons,
+)
 from sklearn.model_selection import train_test_split
 
 from smart_inference_ai_fusion.core.base_dataset import BaseDataset
@@ -35,6 +43,9 @@ class SklearnDatasetLoader(BaseDataset):
             SklearnDatasetName.WINE: load_wine,
             SklearnDatasetName.BREAST_CANCER: load_breast_cancer,
             SklearnDatasetName.DIGITS: load_digits,
+            SklearnDatasetName.CALIFORNIA_HOUSING: fetch_california_housing,
+            SklearnDatasetName.LFW_PEOPLE: self._load_lfw_people,
+            SklearnDatasetName.MAKE_MOONS: self._load_make_moons,
         }
 
     def load_data(self) -> Tuple:
@@ -53,3 +64,36 @@ class SklearnDatasetLoader(BaseDataset):
         return train_test_split(
             data.data, data.target, test_size=self.test_size, random_state=self.random_state
         )
+
+    def _load_lfw_people(self):
+        """Load LFW People dataset with optimized settings.
+        
+        Returns:
+            Bunch object with data and target attributes.
+        """
+        # Use subset of people to avoid excessive memory usage
+        return fetch_lfw_people(
+            min_faces_per_person=20,
+            resize=0.4
+        )
+    
+    def _load_make_moons(self):
+        """Load synthetic make_moons dataset.
+        
+        Returns:
+            Bunch-like object with data and target attributes.
+        """
+        # Create synthetic dataset with noise
+        X, y = make_moons(
+            n_samples=1000,
+            noise=0.3,
+            random_state=self.random_state
+        )
+        
+        # Return in scikit-learn Bunch format
+        class MockBunch:
+            def __init__(self, data, target):
+                self.data = data
+                self.target = target
+        
+        return MockBunch(X, y)

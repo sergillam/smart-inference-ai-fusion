@@ -104,6 +104,197 @@ DIGITS_EXPERIMENTS = {
 }
 
 
+# Registry of experiment configurations for the wine dataset
+WINE_EXPERIMENTS = {
+    AgglomerativeClusteringModel: ExperimentConfig(
+        model_class=AgglomerativeClusteringModel,
+        model_params={"n_clusters": 3},  # Wine has 3 classes
+    ),
+    FastICAModel: ExperimentConfig(
+        model_class=FastICAModel,
+        model_params={"n_components": 3, "random_state": 42},
+    ),
+    GaussianMixtureModel: ExperimentConfig(
+        model_class=GaussianMixtureModel,
+        model_params={"n_components": 3, "random_state": 42},
+    ),
+    GradientBoostingModel: ExperimentConfig(
+        model_class=GradientBoostingModel,
+        model_params={"n_estimators": 100, "random_state": 42},
+    ),
+    MiniBatchKMeansModel: ExperimentConfig(
+        model_class=MiniBatchKMeansModel,
+        model_params={"n_clusters": 3, "random_state": 42, "batch_size": 50},  # Smaller batch for smaller dataset
+    ),
+    MLPModel: ExperimentConfig(
+        model_class=MLPModel,
+        model_params={"hidden_layer_sizes": (50,), "random_state": 42, "max_iter": 500},  # Smaller hidden layer
+    ),
+    RandomForestClassifierModel: ExperimentConfig(
+        model_class=RandomForestClassifierModel,
+        model_params={"n_estimators": 100, "random_state": 42},
+    ),
+    RandomForestRegressorModel: ExperimentConfig(
+        model_class=RandomForestRegressorModel,
+        model_params={"n_estimators": 100, "random_state": 42},
+    ),
+    RidgeModel: ExperimentConfig(
+        model_class=RidgeModel,
+        model_params={"alpha": 1.0, "random_state": 42},
+    ),
+    SpectralClusteringModel: ExperimentConfig(
+        model_class=SpectralClusteringModel,
+        model_params={
+            "n_clusters": 3,
+            "random_state": 42,
+            "affinity": "nearest_neighbors",
+            "n_neighbors": 5,  # Smaller for wine dataset
+            "assign_labels": "discretize",
+            "n_init": 1,
+        },
+    ),
+}
+
+
+# Registry of experiment configurations for the California Housing dataset
+CALIFORNIA_HOUSING_EXPERIMENTS = {
+    GradientBoostingModel: ExperimentConfig(
+        model_class=GradientBoostingModel,
+        model_params={"n_estimators": 100, "random_state": 42},
+    ),
+    RandomForestRegressorModel: ExperimentConfig(
+        model_class=RandomForestRegressorModel,
+        model_params={"n_estimators": 100, "random_state": 42},
+    ),
+    RidgeModel: ExperimentConfig(
+        model_class=RidgeModel,
+        model_params={"alpha": 1.0, "random_state": 42},
+    ),
+    # Clustering algorithms for market segmentation
+    AgglomerativeClusteringModel: ExperimentConfig(
+        model_class=AgglomerativeClusteringModel,
+        model_params={"n_clusters": 5},  # Market segments
+    ),
+    MiniBatchKMeansModel: ExperimentConfig(
+        model_class=MiniBatchKMeansModel,
+        model_params={"n_clusters": 5, "random_state": 42, "batch_size": 200},
+    ),
+    GaussianMixtureModel: ExperimentConfig(
+        model_class=GaussianMixtureModel,
+        model_params={"n_components": 5, "random_state": 42},
+    ),
+}
+
+
+# Registry of experiment configurations for the LFW People dataset  
+LFW_PEOPLE_EXPERIMENTS = {
+    RandomForestClassifierModel: ExperimentConfig(
+        model_class=RandomForestClassifierModel,
+        model_params={"n_estimators": 50, "random_state": 42},  # Reduced for high-dim data
+    ),
+    MLPModel: ExperimentConfig(
+        model_class=MLPModel,
+        model_params={"hidden_layer_sizes": (100, 50), "random_state": 42, "max_iter": 200},
+    ),
+    RidgeModel: ExperimentConfig(
+        model_class=RidgeModel,
+        model_params={"alpha": 10.0, "random_state": 42},  # Higher regularization
+    ),
+    # Dimensionality reduction
+    FastICAModel: ExperimentConfig(
+        model_class=FastICAModel,
+        model_params={"n_components": 50, "random_state": 42},  # Reduce from high dimensions
+    ),
+    # Additional models for 10 experiments total
+    GradientBoostingModel: ExperimentConfig(
+        model_class=GradientBoostingModel,
+        model_params={"n_estimators": 50, "random_state": 42},  # Reduced for high-dim data
+    ),
+    RandomForestRegressorModel: ExperimentConfig(
+        model_class=RandomForestRegressorModel,
+        model_params={"n_estimators": 50, "random_state": 42},  # Reduced for high-dim data
+    ),
+    # Clustering for face analysis
+    AgglomerativeClusteringModel: ExperimentConfig(
+        model_class=AgglomerativeClusteringModel,
+        model_params={"n_clusters": 10},  # Multiple people clusters
+    ),
+    MiniBatchKMeansModel: ExperimentConfig(
+        model_class=MiniBatchKMeansModel,
+        model_params={"n_clusters": 10, "random_state": 42, "batch_size": 100},  # Face clustering
+    ),
+    GaussianMixtureModel: ExperimentConfig(
+        model_class=GaussianMixtureModel,
+        model_params={"n_components": 10, "random_state": 42},  # Face mixture modeling
+    ),
+    SpectralClusteringModel: ExperimentConfig(
+        model_class=SpectralClusteringModel,
+        model_params={
+            "n_clusters": 10,
+            "random_state": 42,
+            "affinity": "nearest_neighbors",
+            "n_neighbors": 10,
+            "assign_labels": "discretize",
+            "n_init": 1,
+        },
+    ),
+}
+
+
+# Registry of experiment configurations for the Make Moons dataset
+MAKE_MOONS_EXPERIMENTS = {
+    SpectralClusteringModel: ExperimentConfig(
+        model_class=SpectralClusteringModel,
+        model_params={
+            "n_clusters": 2,
+            "random_state": 42,
+            "affinity": "nearest_neighbors", 
+            "n_neighbors": 10,
+            "assign_labels": "discretize",
+            "n_init": 1,
+        },
+    ),
+    AgglomerativeClusteringModel: ExperimentConfig(
+        model_class=AgglomerativeClusteringModel,
+        model_params={"n_clusters": 2},
+    ),
+    MiniBatchKMeansModel: ExperimentConfig(
+        model_class=MiniBatchKMeansModel,
+        model_params={"n_clusters": 2, "random_state": 42, "batch_size": 100},
+    ),
+    GaussianMixtureModel: ExperimentConfig(
+        model_class=GaussianMixtureModel,
+        model_params={"n_components": 2, "random_state": 42},
+    ),
+    # Classification algorithms to compare with clustering
+    RandomForestClassifierModel: ExperimentConfig(
+        model_class=RandomForestClassifierModel,
+        model_params={"n_estimators": 100, "random_state": 42},
+    ),
+    MLPModel: ExperimentConfig(
+        model_class=MLPModel,
+        model_params={"hidden_layer_sizes": (50,), "random_state": 42, "max_iter": 500},
+    ),
+    # Additional models for 10 experiments total
+    GradientBoostingModel: ExperimentConfig(
+        model_class=GradientBoostingModel,
+        model_params={"n_estimators": 50, "random_state": 42},  # Reduced for 2D dataset
+    ),
+    FastICAModel: ExperimentConfig(
+        model_class=FastICAModel,
+        model_params={"n_components": 2, "random_state": 42},  # 2 components for 2D dataset
+    ),
+    RidgeModel: ExperimentConfig(
+        model_class=RidgeModel,
+        model_params={"alpha": 1.0, "random_state": 42},
+    ),
+    RandomForestRegressorModel: ExperimentConfig(
+        model_class=RandomForestRegressorModel,
+        model_params={"n_estimators": 50, "random_state": 42},  # Reduced for 2D dataset
+    ),
+}
+
+
 def run_experiment_by_name(
     experiment_name: str,
     dataset_name: SklearnDatasetName = SklearnDatasetName.DIGITS,
@@ -122,11 +313,16 @@ def run_experiment_by_name(
     Raises:
         KeyError: If experiment_name is not found in the registry.
     """
-    # Get the base config and update dataset if needed
-    if dataset_name == SklearnDatasetName.DIGITS:
-        registry = DIGITS_EXPERIMENTS
+    # Get the appropriate registry based on dataset
+    if dataset_name == SklearnDatasetName.WINE:
+        registry = WINE_EXPERIMENTS
+    elif dataset_name == SklearnDatasetName.CALIFORNIA_HOUSING:
+        registry = CALIFORNIA_HOUSING_EXPERIMENTS
+    elif dataset_name == SklearnDatasetName.LFW_PEOPLE:
+        registry = LFW_PEOPLE_EXPERIMENTS
+    elif dataset_name == SklearnDatasetName.MAKE_MOONS:
+        registry = MAKE_MOONS_EXPERIMENTS
     else:
-        # For other datasets, use digits config but update dataset_name
         registry = DIGITS_EXPERIMENTS
 
     if experiment_name not in registry:
@@ -164,15 +360,27 @@ def run_experiment_by_model(
     Raises:
         ValueError: If model_class is not found in any registry.
     """
+    # Get the appropriate registry based on dataset
+    if dataset_name == SklearnDatasetName.WINE:
+        registry = WINE_EXPERIMENTS
+    elif dataset_name == SklearnDatasetName.CALIFORNIA_HOUSING:
+        registry = CALIFORNIA_HOUSING_EXPERIMENTS
+    elif dataset_name == SklearnDatasetName.LFW_PEOPLE:
+        registry = LFW_PEOPLE_EXPERIMENTS
+    elif dataset_name == SklearnDatasetName.MAKE_MOONS:
+        registry = MAKE_MOONS_EXPERIMENTS
+    else:
+        registry = DIGITS_EXPERIMENTS
+    
     # Get configuration directly using model class as key
-    if model_class not in DIGITS_EXPERIMENTS:
-        available_models = [cls.__name__ for cls in DIGITS_EXPERIMENTS]
+    if model_class not in registry:
+        available_models = [cls.__name__ for cls in registry]
         raise ValueError(
             f"Model '{model_class.__name__}' not found in registry. "
             f"Available: {', '.join(available_models)}"
         )
 
-    config = DIGITS_EXPERIMENTS[model_class]
+    config = registry[model_class]
     # Use custom params if provided, otherwise use registry defaults
     params = model_params if model_params is not None else config.model_params
 
