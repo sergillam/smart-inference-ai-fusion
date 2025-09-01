@@ -4,25 +4,17 @@ This module defines the MiniBatchKMeansModel class, a wrapper for scikit-learn's
 MiniBatchKMeans compatible with the BaseModel interface.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import numpy as np
 from numpy.typing import ArrayLike
 from sklearn.cluster import MiniBatchKMeans
-from sklearn.metrics import (
-    accuracy_score,
-    balanced_accuracy_score,
-    f1_score,
-    silhouette_score,
-)
 
-from smart_inference_ai_fusion.core.base_model import BaseModel
-from smart_inference_ai_fusion.utils.logging import logger
-
-# pylint: disable=duplicate-code
+from smart_inference_ai_fusion.core.base_clustering_model import BaseClusteringModel
+from smart_inference_ai_fusion.utils.model_utils import get_estimator_params, set_estimator_params
 
 
-class MiniBatchKMeansModel(BaseModel):
+class MiniBatchKMeansModel(BaseClusteringModel):
     """Wrapper for scikit-learn's MiniBatchKMeans, compatible with BaseModel.
 
     Allows use of evaluation and inference methods in the Smart Inference AI Fusion framework.
@@ -41,6 +33,7 @@ class MiniBatchKMeansModel(BaseModel):
             params = {}
         params.update(kwargs)
         self.model = MiniBatchKMeans(**params)
+        super().__init__()
 
     def train(self, X_train: ArrayLike, y_train: Optional[ArrayLike] = None) -> None:
         """Fit the Mini-Batch K-Means model to the training data.
@@ -99,72 +92,6 @@ class MiniBatchKMeansModel(BaseModel):
         )
         return probs
 
-    def evaluate(
-        self,
-        X_test: ArrayLike,
-        y_test: Optional[ArrayLike] = None,
-    ) -> Dict[str, Any]:
-        """Evaluate the clustering model on the test set.
-
-        Args:
-            X_test (ArrayLike): Feature matrix for evaluation.
-                Shape: ``(n_samples, n_features)``.
-            y_test (ArrayLike | None): True labels (optional). If provided and
-                comparable to predicted labels, supervised metrics are reported.
-
-        Returns:
-            Dict[str, Any]: Dictionary with clustering (and optional supervised) metrics:
-                - ``inertia`` (float | None)
-                - ``silhouette_score`` (float | None)
-                - ``n_clusters`` (float)
-                - ``accuracy`` (float | None)
-                - ``balanced_accuracy`` (float | None)
-                - ``f1`` (float | None)
-        """
-        labels = self.model.predict(X_test)
-        inertia = self.model.inertia_
-
-        # Silhouette only makes sense with >1 cluster and enough samples
-        try:
-            sil = (
-                silhouette_score(X_test, labels)
-                if self.model.n_clusters > 1 and len(X_test) > self.model.n_clusters
-                else None
-            )
-        except ValueError:
-            sil = None  # silhouette_score can raise if only one label is present
-
-        metrics: Dict[str, Any] = {
-            "inertia": float(inertia) if inertia is not None else None,
-            "silhouette_score": sil,
-            "n_clusters": float(self.model.n_clusters),
-            "accuracy": None,
-            "balanced_accuracy": None,
-            "f1": None,
-        }
-
-        if y_test is not None:
-            y_test_arr = np.asarray(y_test)
-            labels_arr = np.asarray(labels)
-            # Both must be comparable (same dtype kind) for supervised metrics
-            if y_test_arr.dtype == labels_arr.dtype:
-                try:
-                    metrics["accuracy"] = float(accuracy_score(y_test, labels))
-                    metrics["balanced_accuracy"] = float(balanced_accuracy_score(y_test, labels))
-                    metrics["f1"] = float(f1_score(y_test, labels, average="macro"))
-                except ValueError as exc:
-                    # Keep supervised metrics as None if computation fails
-                    logger.warning(
-                        "[MiniBatchKMeansModel] Error computing supervised metrics: %s", exc
-                    )
-            else:
-                logger.warning(
-                    "[MiniBatchKMeansModel] Incompatible dtypes for y_test and labels. "
-                    "Skipping supervised metrics."
-                )
-
-        return metrics
-
     def get_params(self, deep: bool = True) -> dict:
         """Get parameters for this estimator.
 
@@ -174,7 +101,7 @@ class MiniBatchKMeansModel(BaseModel):
         Returns:
             dict: Model parameters.
         """
-        return self.model.get_params(deep=deep)
+        return get_estimator_params(self.model, deep=deep)
 
     def set_params(self, **params: Any) -> "MiniBatchKMeansModel":
         """Set the parameters of this estimator.
@@ -185,5 +112,5 @@ class MiniBatchKMeansModel(BaseModel):
         Returns:
             MiniBatchKMeansModel: ``self`` to allow chaining.
         """
-        self.model.set_params(**params)
+        set_estimator_params(self.model, **params)
         return self

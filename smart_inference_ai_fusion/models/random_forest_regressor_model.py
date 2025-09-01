@@ -4,18 +4,24 @@ This module defines the RandomForestRegressorModel class, a wrapper for
 scikit-learn's RandomForestRegressor.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import numpy as np
-from numpy.typing import ArrayLike
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import (
+    accuracy_score,
+    balanced_accuracy_score,
+    f1_score,
+    precision_score,
+    recall_score,
+)
 
-from smart_inference_ai_fusion.core.base_model import BaseModel
+from smart_inference_ai_fusion.core.base_regression_model import BaseRegressionModel
+from smart_inference_ai_fusion.utils import logging
 from smart_inference_ai_fusion.utils.metrics import evaluate_regression
 
 
-# pylint: disable=duplicate-code
-class RandomForestRegressorModel(BaseModel):
+class RandomForestRegressorModel(BaseRegressionModel):
     """Random Forest Regressor model wrapper for the framework.
 
     This class wraps sklearn's RandomForestRegressor and exposes a consistent
@@ -30,43 +36,70 @@ class RandomForestRegressorModel(BaseModel):
                 If ``None``, an empty dict is used.
             **kwargs: Additional keyword arguments for model parameters (merged into ``params``).
         """
+        super().__init__()
         if params is None:
             params = {}
         params.update(kwargs)
         self.model = RandomForestRegressor(**params)
 
-    def train(self, X_train: ArrayLike, y_train: ArrayLike) -> None:
-        """Fit the Random Forest Regressor to the training data.
+    def evaluate(self, X_test: Any, y_test: Any):
+        """Evaluate the model on the test set with both regression and classification metrics.
 
         Args:
-            X_train (ArrayLike): Training features. Shape: ``(n_samples, n_features)``.
-            y_train (ArrayLike): Training targets. Shape: ``(n_samples,)``.
-        """
-        self.model.fit(X_train, y_train)
-
-    def evaluate(self, X_test: ArrayLike, y_test: ArrayLike) -> Dict[str, float]:
-        """Evaluate the model on the test set.
-
-        Args:
-            X_test (ArrayLike): Test features. Shape: ``(n_samples, n_features)``.
-            y_test (ArrayLike): True targets. Shape: ``(n_samples,)``.
+            X_test: Test features. Shape: ``(n_samples, n_features)``.
+            y_test: True targets. Shape: ``(n_samples,)``.
 
         Returns:
-            Dict[str, float]: Regression metrics, including:
-                - ``mse``: Mean Squared Error
-                - ``mae``: Mean Absolute Error
-                - ``median_ae``: Median Absolute Error
-                - ``r2``: Coefficient of determination
-                - ``explained_variance``: Explained variance score
+            Dict[str, float]: Combined regression and classification metrics.
         """
         y_pred = self.model.predict(X_test)
-        return evaluate_regression(y_test, y_pred)
 
-    def predict_proba(self, X: ArrayLike) -> np.ndarray:  # type: ignore[override]
+        # Get regression metrics
+        regression_metrics = evaluate_regression(y_test, y_pred)
+
+        # Convert regression predictions to classification for additional metrics
+        # Round predictions to nearest integer (suitable for digits dataset 0-9)
+        y_pred_class = np.round(y_pred).astype(int)
+        y_test_class = np.asarray(y_test, dtype=int)
+
+        # Ensure predictions are within valid range [0, 9] for digits dataset
+        y_pred_class = np.clip(y_pred_class, 0, 9)
+
+        # Calculate classification metrics
+        try:
+            classification_metrics = {
+                "accuracy": float(accuracy_score(y_test_class, y_pred_class)),
+                "balanced_accuracy": float(balanced_accuracy_score(y_test_class, y_pred_class)),
+                "f1": float(f1_score(y_test_class, y_pred_class, average="macro", zero_division=0)),
+                "precision": float(
+                    precision_score(y_test_class, y_pred_class, average="macro", zero_division=0)
+                ),
+                "recall": float(
+                    recall_score(y_test_class, y_pred_class, average="macro", zero_division=0)
+                ),
+            }
+
+        except (ValueError, TypeError) as e:
+            # Fallback to None if classification metrics fail
+            classification_metrics = {
+                "accuracy": None,
+                "balanced_accuracy": None,
+                "f1": None,
+                "precision": None,
+                "recall": None,
+            }
+
+            logging.warning("Classification metrics calculation failed: %s", e)
+
+        # Combine both sets of metrics
+        combined_metrics = {**regression_metrics, **classification_metrics}
+        return combined_metrics
+
+    def predict_proba(self, X):
         """Probability prediction is not supported for regressors.
 
         Args:
-            X (ArrayLike): Input features. Shape: ``(n_samples, n_features)``.
+            X: Input features. Shape: ``(n_samples, n_features)``.
 
         Raises:
             AttributeError: Always, since regression models do not support ``predict_proba``.
@@ -74,46 +107,3 @@ class RandomForestRegressorModel(BaseModel):
         raise AttributeError(
             "RandomForestRegressor doesn't support predict_proba for regression tasks."
         )
-
-    def fit(self, X: ArrayLike, y: ArrayLike) -> None:
-        """Fit the model to data (scikit-learn compatibility).
-
-        Args:
-            X (ArrayLike): Feature matrix. Shape: ``(n_samples, n_features)``.
-            y (ArrayLike): Target vector. Shape: ``(n_samples,)``.
-        """
-        self.train(X, y)
-
-    def predict(self, X: ArrayLike) -> np.ndarray:
-        """Generate predictions for the input features.
-
-        Args:
-            X (ArrayLike): Features to predict. Shape: ``(n_samples, n_features)``.
-
-        Returns:
-            np.ndarray: Predicted targets. Shape: ``(n_samples,)``.
-        """
-        return self.model.predict(X)
-
-    def get_params(self, deep: bool = True) -> dict:
-        """Get parameters for this estimator.
-
-        Args:
-            deep (bool): If ``True``, also return parameters of contained subobjects.
-
-        Returns:
-            dict: Model parameters.
-        """
-        return self.model.get_params(deep=deep)
-
-    def set_params(self, **params: Any) -> "RandomForestRegressorModel":
-        """Set the parameters of this estimator.
-
-        Args:
-            **params: Model parameters to set.
-
-        Returns:
-            RandomForestRegressorModel: ``self`` to allow chaining.
-        """
-        self.model.set_params(**params)
-        return self

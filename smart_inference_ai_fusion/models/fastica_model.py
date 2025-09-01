@@ -1,8 +1,7 @@
-"""FastICA + KMeans model for the Smart Inference AI Fusion framework.
+"""FastICA model for the Smart Inference AI Fusion framework.
 
-This module defines the FastICAModel class that wraps scikit-learn's
-FastICA as an unsupervised feature extractor and pairs it with a
-KMeans head for cluster assignment, exposing a BaseModel-compatible API.
+This module defines the FastICAModel class, which combines scikit-learn's FastICA
+for feature extraction with KMeans clustering.
 """
 
 from __future__ import annotations
@@ -11,7 +10,6 @@ from typing import Any, Dict, Optional
 
 import numpy as np
 from numpy.typing import ArrayLike
-from scipy.optimize import linear_sum_assignment
 from sklearn.cluster import KMeans
 from sklearn.decomposition import FastICA
 from sklearn.metrics import (
@@ -24,9 +22,17 @@ from sklearn.metrics import (
 )
 
 from smart_inference_ai_fusion.core.base_model import BaseModel
+from smart_inference_ai_fusion.utils.clustering import compute_clustering_metrics
 from smart_inference_ai_fusion.utils.logging import logger
 
-# pylint: disable=duplicate-code
+
+def _safe_asarray(arr: Any) -> np.ndarray:
+    """Safely convert to numpy array, preserving original dtype when possible."""
+    try:
+        return np.asarray(arr)
+    except (TypeError, ValueError):
+        pass
+    return arr  # Keep original dtype if conversion is not safe
 
 
 def _coerce_labels_1d_int_safe(y: np.ndarray) -> np.ndarray:
@@ -42,50 +48,6 @@ def _coerce_labels_1d_int_safe(y: np.ndarray) -> np.ndarray:
     except (TypeError, ValueError):
         pass
     return arr  # Keep original dtype if conversion is not safe
-
-
-def _align_clusters_to_labels(y_true: np.ndarray, y_pred: np.ndarray) -> np.ndarray:
-    """Map predicted cluster ids to ground-truth labels using the Hungarian algorithm.
-
-    This is robust to cases where n_clusters != n_classes. Any unmapped clusters
-    are aligned to the class with the highest count for that cluster; if the cluster
-    has no samples, it falls back to the majority class of y_true.
-    """
-    y_true = np.asarray(y_true)
-    y_pred = np.asarray(y_pred)
-
-    true_vals = np.unique(y_true)
-    pred_vals = np.unique(y_pred)
-
-    # Contingency table w[pred, true]
-    pred_index = {v: i for i, v in enumerate(pred_vals)}
-    true_index = {v: i for i, v in enumerate(true_vals)}
-    w = np.zeros((len(pred_vals), len(true_vals)), dtype=np.int64)
-    for t, p in zip(y_true, y_pred):
-        w[pred_index[p], true_index[t]] += 1
-
-    # Hungarian assignment: maximize hits by minimizing (max(w) - w)
-    row_ind, col_ind = linear_sum_assignment(w.max() - w)
-    mapped_rows = set(row_ind.tolist())
-
-    mapping = {pred_vals[r]: true_vals[c] for r, c in zip(row_ind, col_ind)}
-
-    # Fill in any unmapped clusters
-    if len(mapped_rows) < len(pred_vals):
-        majority_true_val = true_vals[np.argmax(np.bincount([true_index[v] for v in y_true]))]
-        for ri, pred_val in enumerate(pred_vals):
-            if ri in mapped_rows:
-                continue
-            row = w[ri]
-            if row.sum() > 0:
-                best_col = int(np.argmax(row))
-                mapping[pred_val] = true_vals[best_col]
-            else:
-                mapping[pred_val] = majority_true_val
-
-    # Apply mapping with a defensive fallback to the majority class
-    majority_true_val = true_vals[np.argmax(np.bincount([true_index[v] for v in y_true]))]
-    return np.asarray([mapping.get(p, majority_true_val) for p in y_pred], dtype=true_vals.dtype)
 
 
 class FastICAModel(BaseModel):
@@ -236,19 +198,12 @@ class FastICAModel(BaseModel):
             metrics.setdefault("balanced_accuracy_raw", None)
             metrics.setdefault("f1_raw", None)
 
-        # Aligned supervised metrics (Hungarian + fallback)
+        # Aligned supervised metrics using utility function
         try:
-            y_pred_aligned = _align_clusters_to_labels(y_true, y_pred)
-            metrics["accuracy"] = float(accuracy_score(y_true, y_pred_aligned))
-            metrics["balanced_accuracy"] = float(balanced_accuracy_score(y_true, y_pred_aligned))
-            metrics["f1"] = float(
-                f1_score(y_true, y_pred_aligned, average="macro", zero_division=0)
-            )
+            supervised_metrics = compute_clustering_metrics(y_true, y_pred, use_hungarian=True)
+            metrics.update(supervised_metrics)
         except ValueError as exc:
             logger.warning("[FastICAModel] Supervised metrics failed: %s", exc)
-            metrics.setdefault("accuracy", None)
-            metrics.setdefault("balanced_accuracy", None)
-            metrics.setdefault("f1", None)
 
         return metrics
 

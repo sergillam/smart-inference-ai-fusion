@@ -8,7 +8,6 @@ from typing import Any, Dict, Optional
 
 import numpy as np
 from numpy.typing import ArrayLike
-from scipy.optimize import linear_sum_assignment
 from sklearn.metrics import (
     accuracy_score,
     adjusted_rand_score,
@@ -20,38 +19,8 @@ from sklearn.metrics import (
 from sklearn.mixture import GaussianMixture
 
 from smart_inference_ai_fusion.core.base_model import BaseModel
+from smart_inference_ai_fusion.utils.clustering import align_clusters_to_labels
 from smart_inference_ai_fusion.utils.logging import logger
-
-# pylint: disable=duplicate-code
-
-
-def _align_clusters_to_labels(y_true: np.ndarray, y_pred: np.ndarray) -> np.ndarray:
-    """Map predicted cluster ids to ground-truth labels using Hungarian assignment.
-
-    Works with any hashable label dtype (ints/strings).
-
-    Args:
-        y_true (np.ndarray): Ground truth labels.
-        y_pred (np.ndarray): Predicted cluster ids.
-
-    Returns:
-        np.ndarray: y_pred remapped into y_true label space.
-    """
-    pred_vals = np.unique(y_pred)
-    true_vals = np.unique(y_true)
-
-    pred_index = {v: i for i, v in enumerate(pred_vals)}
-    true_index = {v: i for i, v in enumerate(true_vals)}
-
-    w = np.zeros((len(pred_vals), len(true_vals)), dtype=np.int64)
-    for t, p in zip(y_true, y_pred):
-        w[pred_index[p], true_index[t]] += 1
-
-    # maximize matches -> minimize (max - w)
-    r, c = linear_sum_assignment(w.max() - w)
-    mapping = {pred_vals[ri]: true_vals[ci] for ri, ci in zip(r, c)}
-
-    return np.array([mapping[p] for p in y_pred], dtype=true_vals.dtype)
 
 
 class GaussianMixtureModel(BaseModel):
@@ -200,7 +169,7 @@ class GaussianMixtureModel(BaseModel):
 
             # Aligned supervised metrics (Hungarian)
             try:
-                y_pred_aligned = _align_clusters_to_labels(y_true, y_pred)
+                y_pred_aligned = align_clusters_to_labels(y_true, y_pred)
                 metrics["accuracy"] = float(accuracy_score(y_true, y_pred_aligned))
                 metrics["balanced_accuracy"] = float(
                     balanced_accuracy_score(y_true, y_pred_aligned)

@@ -10,7 +10,7 @@ from .agglomerative_clustering_digits import run as run_agglomerative_clustering
 from .fastica_digits import run as run_fastica_digits
 from .gaussian_mixture_digits import run as run_gaussian_mixture_digits
 from .gradient_boosting_digits import run as run_gradient_boosting
-from .minibatch_kmeans_digits import run as run_minibatch
+from .minibatch_kmeans_digits import run as run_minibatch_kmeans
 from .mlp_digits import run as run_mlp
 from .random_forest_classifier_digits import run as run_random_forest
 from .random_forest_regressor_digits import run as run_rf_regressor
@@ -30,7 +30,7 @@ def run_all():
     run_mlp()
     run_ridge()
     run_rf_regressor()
-    run_minibatch()
+    run_minibatch_kmeans()
     run_spectral_clustering()
     run_gaussian_mixture_digits()
     run_agglomerative_clustering_digits()

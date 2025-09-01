@@ -10,6 +10,8 @@ PKG              ?= smart_inference_ai_fusion
 SRC_DIR          ?= $(PKG)
 TESTS_DIR        ?= tests
 VENV             ?= .venv
+LOGS_DIR         ?= logs
+RESULTS_DIR      ?= results
 
 # Prioritizes python3.10, falls back to python3
 PYTHON_310       := $(shell command -v python3.10 2>/dev/null || true)
@@ -162,7 +164,7 @@ clean-pyc: ## Removes only Python bytecode cache files
 	find . -type f -name "*.py[co]" -delete
 	@echo "🧼 pyc files cleaned."
 
-clean-all: clean clean-outputs ## Runs all clean tasks, including logs and results
+clean-all: clean clean-outputs clean-pyc ## Runs all clean tasks, including logs and results
 	@echo "✅ All clean tasks completed."
 
 clean-venv: ## Removes the .venv virtual environment directory

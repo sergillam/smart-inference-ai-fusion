@@ -112,12 +112,13 @@ def main() -> int:
                 break
     
     # --- Final Report ---
-    print("-" * 60)
+    logging.info("-" * 60)
     logging.info("🏁 Execution Summary:")
     logging.info("   Total experiments executed: %d", total_modules)
     logging.info("   ✅ Succeeded: %d", succeeded_count)
     logging.info("   ❌ Failed: %d", failed_count)
-    print("-" * 60)
+    logging.info("-" * 60)
+
 
     return 1 if failed_count > 0 else 0
 

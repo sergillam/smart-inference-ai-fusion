@@ -57,13 +57,6 @@ class GaussianNBModel(BaseModel):
             Dict[str, Any]:
                 A dictionary containing classification metrics such as
                 accuracy, f1_score, precision, recall, etc.
-
-        Example:
-            >>> # Assuming 'model' is an instance of your class
-            >>> # and X_test, y_test exist.
-            >>> results = model.evaluate(X_test, y_test, average="macro")
-            >>> print(results['accuracy'])
-            0.93
         """
         predictions = self.model.predict(X_test)
         return evaluate_classification(y_test, predictions, average=average)

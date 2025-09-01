@@ -66,3 +66,14 @@ def setup_logger(name="inference_framework", log_file=None, level=None):
 
 # Global logger instance: respects LOG_LEVEL env or default INFO, log file named by date
 logger = setup_logger()
+
+# =======================================================================
+# Expose logger methods at the module level for convenient access elsewhere.
+# This allows other files to call `logging.info(...)` instead of `logging.logger.info(...)`
+info = logger.info
+warning = logger.warning
+error = logger.error
+debug = logger.debug
+critical = logger.critical
+exception = logger.exception
+# =======================================================================

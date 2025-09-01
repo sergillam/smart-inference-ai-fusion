@@ -325,9 +325,9 @@ report_data(param_log, mode=ReportMode.JSON, file_path="results/knn_param_log.js
     from .<seu_experimento> import run as run_<algoritmo>
 
     def run_all():
-        print("=== Executando todos os experimentos para <dataset> ===")
+        logging.info("=== Executando todos os experimentos para <dataset> ===")
         run_<algoritmo>()  # Adicione mais funções se tiver outros experimentos
-        print("=== Experimentos concluídos ===")
+        logging.info("=== Experimentos concluídos ===")
     ```
 - Inclua no `__init__.py` da pasta `experiments/<dataset>/`
 
