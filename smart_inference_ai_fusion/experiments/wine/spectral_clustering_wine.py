@@ -12,10 +12,7 @@ def run():
 
     Executes both baseline and inference experiments using standard configurations.
     """
-    return run_experiment_by_model(
-        SpectralClusteringModel, 
-        dataset_name=SklearnDatasetName.WINE
-    )
+    return run_experiment_by_model(SpectralClusteringModel, dataset_name=SklearnDatasetName.WINE)
 
 
 if __name__ == "__main__":

@@ -67,33 +67,26 @@ class SklearnDatasetLoader(BaseDataset):
 
     def _load_lfw_people(self):
         """Load LFW People dataset with optimized settings.
-        
+
         Returns:
             Bunch object with data and target attributes.
         """
         # Use subset of people to avoid excessive memory usage
-        return fetch_lfw_people(
-            min_faces_per_person=20,
-            resize=0.4
-        )
-    
+        return fetch_lfw_people(min_faces_per_person=20, resize=0.4)
+
     def _load_make_moons(self):
         """Load synthetic make_moons dataset.
-        
+
         Returns:
             Bunch-like object with data and target attributes.
         """
         # Create synthetic dataset with noise
-        X, y = make_moons(
-            n_samples=1000,
-            noise=0.3,
-            random_state=self.random_state
-        )
-        
+        X, y = make_moons(n_samples=1000, noise=0.3, random_state=self.random_state)
+
         # Return in scikit-learn Bunch format
         class MockBunch:
             def __init__(self, data, target):
                 self.data = data
                 self.target = target
-        
+
         return MockBunch(X, y)

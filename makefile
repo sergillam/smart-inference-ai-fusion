@@ -85,17 +85,26 @@ uninstall: venv ## Removes the installed package from the venv
 # -------- Execution --------
 run: venv ensure-venv-py310 ## Runs experiments. Use EXP=<module|package> and ARGS="<options>"
 	@if [ -z "$(EXP)" ]; then \
-		echo "🚀 Running ALL experiments via main orchestrator…"; \
-		$(PY) -m $(PKG).experiments.run $(ARGS); \
+		echo "🚀 Running ALL experiments via auto-discovery…"; \
+		$(PY) -m $(PKG).experiments $(ARGS); \
 	else \
 		echo "🚀 Running specific target EXP='$(EXP)' with ARGS='$(ARGS)'…"; \
 		$(PY) scripts/run_experiment.py $(EXP) $(ARGS); \
 	fi
 	@echo "✅ Done."
 
+run-dataset: venv ensure-venv-py310 ## Runs all experiments for a specific dataset. Use DATASET=<name>
+	@if [ -z "$(DATASET)" ]; then \
+		echo "❌ Please specify DATASET. Example: make run-dataset DATASET=digits"; \
+		exit 1; \
+	fi
+	@echo "🚀 Running all experiments for dataset: $(DATASET)…"
+	$(PY) -m $(PKG).experiments $(DATASET) $(ARGS)
+	@echo "✅ Done."
+
 debug: venv ensure-venv-py310 ## Runs the main experiment orchestrator in DEBUG mode
 	@echo "🐞 Running in DEBUG mode (LOG_LEVEL=DEBUG)…"
-	LOG_LEVEL=DEBUG $(PY) -m $(PKG).experiments.run $(ARGS)
+	LOG_LEVEL=DEBUG $(PY) -m $(PKG).experiments $(ARGS)
 	@echo "✅ Done (debug)."
 
 # -------- Code Quality & Testing --------

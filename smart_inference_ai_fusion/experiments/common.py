@@ -250,7 +250,11 @@ def create_inference_configs():
 
 
 def create_inference_configs_lfw_people():
-    """Create inference configuration objects specific for LFW People dataset (high-dimensional image data)."""
+    """Create inference configuration objects specific for LFW People dataset.
+
+    This configuration is optimized for high-dimensional image data from the
+    LFW People dataset.
+    """
     data_config = DataNoiseConfig(
         noise_level=0.1,  # Lower noise for high-dim data
         truncate_decimals=2,  # More precision for image data
@@ -417,11 +421,15 @@ def run_inference_experiment(
     )
 
     # Create base configurations - use dataset specific config if needed
-    if (isinstance(dataset_name, SklearnDatasetName) and 
-        dataset_name == SklearnDatasetName.MAKE_MOONS):
+    if (
+        isinstance(dataset_name, SklearnDatasetName)
+        and dataset_name == SklearnDatasetName.MAKE_MOONS
+    ):
         data_config, label_config, _ = create_inference_configs_make_moons()
-    elif (isinstance(dataset_name, SklearnDatasetName) and 
-          dataset_name == SklearnDatasetName.LFW_PEOPLE):
+    elif (
+        isinstance(dataset_name, SklearnDatasetName)
+        and dataset_name == SklearnDatasetName.LFW_PEOPLE
+    ):
         data_config, label_config, _ = create_inference_configs_lfw_people()
     else:
         data_config, label_config, _ = create_inference_configs()  # param_config is unused here

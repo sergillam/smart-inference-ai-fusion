@@ -1,9 +1,11 @@
 """Parameter transformation for injecting random integer noise."""
 
-import random
 import logging
-logger = logging.getLogger(__name__)
+import random
+
 from .base import ParameterTransformation
+
+logger = logging.getLogger(__name__)
 
 
 class IntegerNoise(ParameterTransformation):
@@ -36,26 +38,28 @@ class IntegerNoise(ParameterTransformation):
         Returns:
             dict: Updated dictionary with the perturbed integer parameter.
         """
-        
         params = params.copy()
-        
+
         # 🧪 SCIENTIFIC PROTECTION: Detect float-like parameter ranges
-        FLOAT_RANGE_PARAMS = {
+        float_range_params = {
             "subsample": (0.0, 1.0),  # GradientBoosting subsample must be in (0.0, 1.0]
             "learning_rate": (0.0, 1.0),  # Learning rates typically in (0.0, 1.0]
-            "alpha": (0.0, float('inf')),  # Regularization parameters must be positive
+            "alpha": (0.0, float("inf")),  # Regularization parameters must be positive
         }
-        
+
         if self.key in params and isinstance(params[self.key], (int, float)):
             original_value = params[self.key]
-            
+
             # Check if this is a float parameter that should not get integer noise
-            if self.key in FLOAT_RANGE_PARAMS:
-                min_val, max_val = FLOAT_RANGE_PARAMS[self.key]
+            if self.key in float_range_params:
+                min_val, max_val = float_range_params[self.key]
                 logger.warning(
                     "🧪 SCIENTIFIC PROTECTION: Parameter %s=%.3f is float-range parameter, "
                     "skipping integer noise (valid range: %.1f-%.1f)",
-                    self.key, original_value, min_val, max_val
+                    self.key,
+                    original_value,
+                    min_val,
+                    max_val,
                 )
                 # Ensure it's a proper float and within valid range
                 if isinstance(original_value, int):
@@ -66,16 +70,18 @@ class IntegerNoise(ParameterTransformation):
                     if float_value != clamped_value:
                         logger.warning(
                             "🧪 SCIENTIFIC PROTECTION: Clamping %s from %.3f to %.3f",
-                            self.key, float_value, clamped_value
+                            self.key,
+                            float_value,
+                            clamped_value,
                         )
                     params[self.key] = clamped_value
                 return params
-            
+
             # Apply integer noise only to actual integer parameters
             if isinstance(original_value, int):
                 new_value = original_value + random.randint(-self.delta, self.delta)
                 params[self.key] = new_value
-                
+
         return params
 
     @staticmethod

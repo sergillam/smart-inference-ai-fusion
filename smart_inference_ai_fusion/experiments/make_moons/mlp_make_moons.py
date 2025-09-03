@@ -12,10 +12,7 @@ def run():
 
     Executes both baseline and inference experiments using standard configurations.
     """
-    return run_experiment_by_model(
-        MLPModel, 
-        dataset_name=SklearnDatasetName.MAKE_MOONS
-    )
+    return run_experiment_by_model(MLPModel, dataset_name=SklearnDatasetName.MAKE_MOONS)
 
 
 if __name__ == "__main__":

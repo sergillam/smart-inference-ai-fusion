@@ -13,8 +13,7 @@ def run():
     Executes both baseline and inference experiments using standard configurations.
     """
     return run_experiment_by_model(
-        GradientBoostingModel, 
-        dataset_name=SklearnDatasetName.MAKE_MOONS
+        GradientBoostingModel, dataset_name=SklearnDatasetName.MAKE_MOONS
     )
 
 

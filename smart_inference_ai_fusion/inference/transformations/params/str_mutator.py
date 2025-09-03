@@ -46,7 +46,7 @@ class StringMutator(ParameterTransformation):
 
         Args:
             key (str): The hyperparameter name to mutate.
-            options (list, optional): List of possible string values. 
+            options (list, optional): List of possible string values.
                 If None, uses parameter-specific options from PARAMETER_OPTIONS.
         """
         self.key = key
@@ -67,7 +67,7 @@ class StringMutator(ParameterTransformation):
         """
         if self.key in params and isinstance(params[self.key], str) and self.options:
             current = params[self.key]
-            
+
             # 🧪 SCIENTIFIC PROTECTION: GradientBoosting max_features compatibility
             if self.key == "max_features":
                 # Check if this looks like a GradientBoosting context
@@ -79,12 +79,13 @@ class StringMutator(ParameterTransformation):
                         new_value = random.choice(safe_options)
                         logger.warning(
                             "🧪 SCIENTIFIC PROTECTION: GradientBoosting detected, using safe "
-                            "max_features '%s' -> '%s' (preventing InvalidParameterError)", 
-                            current, new_value
+                            "max_features '%s' -> '%s' (preventing InvalidParameterError)",
+                            current,
+                            new_value,
                         )
                         params[self.key] = new_value
                         return params
-            
+
             # Only mutate if current value is in our known options
             if current in self.options:
                 choices = [opt for opt in self.options if opt != current]
@@ -98,7 +99,9 @@ class StringMutator(ParameterTransformation):
                     logger.warning(
                         "🧪 SCIENTIFIC PERTURBATION: Applying potentially invalid mutation "
                         "%s='%s' -> '%s' (testing robustness to invalid parameters)",
-                        self.key, current, new_value
+                        self.key,
+                        current,
+                        new_value,
                     )
                     params[self.key] = new_value
         return params

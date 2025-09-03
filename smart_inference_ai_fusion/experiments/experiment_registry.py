@@ -124,11 +124,19 @@ WINE_EXPERIMENTS = {
     ),
     MiniBatchKMeansModel: ExperimentConfig(
         model_class=MiniBatchKMeansModel,
-        model_params={"n_clusters": 3, "random_state": 42, "batch_size": 50},  # Smaller batch for smaller dataset
+        model_params={
+            "n_clusters": 3,
+            "random_state": 42,
+            "batch_size": 50,
+        },  # Smaller batch for smaller dataset
     ),
     MLPModel: ExperimentConfig(
         model_class=MLPModel,
-        model_params={"hidden_layer_sizes": (50,), "random_state": 42, "max_iter": 500},  # Smaller hidden layer
+        model_params={
+            "hidden_layer_sizes": (50,),
+            "random_state": 42,
+            "max_iter": 500,
+        },  # Smaller hidden layer
     ),
     RandomForestClassifierModel: ExperimentConfig(
         model_class=RandomForestClassifierModel,
@@ -186,7 +194,7 @@ CALIFORNIA_HOUSING_EXPERIMENTS = {
 }
 
 
-# Registry of experiment configurations for the LFW People dataset  
+# Registry of experiment configurations for the LFW People dataset
 LFW_PEOPLE_EXPERIMENTS = {
     RandomForestClassifierModel: ExperimentConfig(
         model_class=RandomForestClassifierModel,
@@ -255,7 +263,7 @@ MAKE_MOONS_EXPERIMENTS = {
         model_params={
             "n_clusters": 2,
             "random_state": 42,
-            "affinity": "nearest_neighbors", 
+            "affinity": "nearest_neighbors",
             "n_neighbors": 10,
             "assign_labels": "discretize",
             "n_init": 1,
@@ -378,7 +386,7 @@ def run_experiment_by_model(
         registry = MAKE_MOONS_EXPERIMENTS
     else:
         registry = DIGITS_EXPERIMENTS
-    
+
     # Get configuration directly using model class as key
     if model_class not in registry:
         available_models = [cls.__name__ for cls in registry]
