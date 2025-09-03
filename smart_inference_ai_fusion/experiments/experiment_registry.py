@@ -208,7 +208,14 @@ LFW_PEOPLE_EXPERIMENTS = {
     # Additional models for 10 experiments total
     GradientBoostingModel: ExperimentConfig(
         model_class=GradientBoostingModel,
-        model_params={"n_estimators": 50, "random_state": 42},  # Reduced for high-dim data
+        model_params={
+            "n_estimators": 10,  # Extremamente reduzido para alta dimensionalidade
+            "random_state": 42,
+            "max_depth": 5,  # Muito raso para evitar overfitting
+            "learning_rate": 0.6,  # Learning rate maior para convergir mais rápido
+            "subsample": 0.9,  # Subsampling agressivo
+            "max_features": "sqrt",  # Reduzir features por árvore
+        },
     ),
     RandomForestRegressorModel: ExperimentConfig(
         model_class=RandomForestRegressorModel,
