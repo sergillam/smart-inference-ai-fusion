@@ -88,18 +88,15 @@ run: venv ensure-venv-py310 ## Runs experiments. Use EXP=<module|package> and AR
 		echo "🚀 Running ALL experiments via auto-discovery…"; \
 		$(PY) -m $(PKG).experiments $(ARGS); \
 	else \
-		echo "🚀 Running specific target EXP='$(EXP)' with ARGS='$(ARGS)'…"; \
-		$(PY) scripts/run_experiment.py $(EXP) $(ARGS); \
+		# Se EXP já começa com smart_inference_ai_fusion.experiments., usa direto; senão, monta o caminho completo
+		if echo "$(EXP)" | grep -q '^smart_inference_ai_fusion\.experiments\.'; then \
+			EXP_MODULE="$(EXP)"; \
+		else \
+			EXP_MODULE="smart_inference_ai_fusion.experiments.$(EXP)"; \
+		fi; \
+		echo "🚀 Running specific target EXP='$$EXP_MODULE' with ARGS='$(ARGS)'…"; \
+		$(PY) scripts/run_experiment.py "$$EXP_MODULE" $(ARGS); \
 	fi
-	@echo "✅ Done."
-
-run-dataset: venv ensure-venv-py310 ## Runs all experiments for a specific dataset. Use DATASET=<name>
-	@if [ -z "$(DATASET)" ]; then \
-		echo "❌ Please specify DATASET. Example: make run-dataset DATASET=digits"; \
-		exit 1; \
-	fi
-	@echo "🚀 Running all experiments for dataset: $(DATASET)…"
-	$(PY) -m $(PKG).experiments $(DATASET) $(ARGS)
 	@echo "✅ Done."
 
 debug: venv ensure-venv-py310 ## Runs the main experiment orchestrator in DEBUG mode
