@@ -42,6 +42,8 @@ class RandomFromSpace(ParameterTransformation):
         "solver": ["lbfgs", "liblinear", "sag", "saga"],
         # MLP-specific solver (only valid options)
         "solver_mlp": ["adam", "lbfgs", "sgd"],
+        # MLP-specific learning_rate (only valid options)
+        "learning_rate": ["constant", "invscaling", "adaptive"],
         # Ridge-specific solver (only valid options)
         "solver_ridge": ["lsqr", "saga", "sparse_cg", "auto", "svd", "lbfgs", "cholesky", "sag"],
         "multi_class": ["auto", "ovr", "multinomial"],
@@ -72,9 +74,12 @@ class RandomFromSpace(ParameterTransformation):
         Returns:
             str | None: New randomly selected value (if applied), else None.
         """
-        # Handle solver protection first
+        # Handle solver and learning_rate protection first
         if self.key == "solver":
             return self._handle_solver_protection(params)
+
+        if self.key == "learning_rate":
+            return self._handle_learning_rate_protection(params)
 
         # Standard parameter mutation
         return self._apply_standard_mutation(params)
@@ -155,6 +160,51 @@ class RandomFromSpace(ParameterTransformation):
         report_data(
             f"🧪 SCIENTIFIC PERTURBATION: Applying {model_type} solver mutation "
             f"solver='{current}' -> '{new_value}' (testing robustness)",
+            mode=ReportMode.PRINT,
+        )
+        return new_value
+
+    def _handle_learning_rate_protection(self, params: dict) -> str | None:
+        """Handle learning_rate validation for MLPClassifier.
+
+        Args:
+            params (dict): Dictionary of model hyperparameters.
+
+        Returns:
+            str | None: New learning_rate value or None.
+        """
+        # MLPClassifier has hidden_layer_sizes (unique identifier)
+        if "hidden_layer_sizes" in params:
+            return self._apply_learning_rate_mutation(params, "learning_rate", "MLP")
+
+        # For other models, skip learning_rate mutation to avoid confusion
+        return None
+
+    def _apply_learning_rate_mutation(self, params: dict, key: str, model_type: str) -> str | None:
+        """Apply learning_rate mutation for specific model type.
+
+        Args:
+            params (dict): Dictionary of model hyperparameters.
+            key (str): Parameter key to mutate.
+            model_type (str): Type of model for logging.
+
+        Returns:
+            str | None: New parameter value or None.
+        """
+        space = self.PARAM_SPACE.get(key, ["constant", "invscaling", "adaptive"])
+        current = params.get(self.key)
+
+        if current not in space:
+            return None
+
+        candidates = [val for val in space if val != current]
+        if not candidates:
+            return None
+
+        new_value = random.choice(candidates)
+        report_data(
+            f"🧪 SCIENTIFIC PERTURBATION: Applying {model_type} learning_rate mutation "
+            f"learning_rate='{current}' -> '{new_value}' (testing robustness)",
             mode=ReportMode.PRINT,
         )
         return new_value

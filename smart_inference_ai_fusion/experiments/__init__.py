@@ -20,10 +20,115 @@ import importlib
 import logging
 import pkgutil
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
+
+# Global variables to track experiment results across datasets
+_successful_experiments: List[str] = []
+_failed_experiments: List[str] = []
+
+
+def _initialize_experiment_tracking():
+    """Initialize global experiment tracking variables."""
+    _successful_experiments.clear()
+    _failed_experiments.clear()
+
+
+def _discover_datasets() -> List[str]:
+    """Discover all available dataset directories.
+
+    Returns:
+        List of dataset directory names.
+    """
+    experiments_path = Path(__file__).parent
+    return sorted(
+        [
+            item.name
+            for item in experiments_path.iterdir()
+            if item.is_dir() and not item.name.startswith("_")
+        ]
+    )
+
+
+def _group_experiments_by_dataset(experiments: List[str]) -> dict:
+    """Group experiment names by dataset.
+
+    Args:
+        experiments: List of experiment names in format 'dataset.model'.
+
+    Returns:
+        Dictionary mapping dataset names to lists of model names.
+    """
+    by_dataset = {}
+    for exp in experiments:
+        dataset, model = exp.split(".", 1)
+        if dataset not in by_dataset:
+            by_dataset[dataset] = []
+        by_dataset[dataset].append(model)
+    return by_dataset
+
+
+def _log_successful_experiments():
+    """Log detailed information about successful experiments."""
+    if not _successful_experiments:
+        return
+
+    logger.info("")
+    logger.info("🎯 SUCCESSFUL EXPERIMENTS:")
+    by_dataset = _group_experiments_by_dataset(_successful_experiments)
+
+    for dataset, models in sorted(by_dataset.items()):
+        logger.info("   📂 %s (%d experiments):", dataset, len(models))
+        for model in sorted(models):
+            logger.info("      ✅ %s.%s", dataset, model)
+
+
+def _log_failed_experiments():
+    """Log detailed information about failed experiments."""
+    if not _failed_experiments:
+        return
+
+    logger.info("")
+    logger.info("💥 FAILED EXPERIMENTS:")
+    by_dataset = _group_experiments_by_dataset(_failed_experiments)
+
+    for dataset, models in sorted(by_dataset.items()):
+        logger.info("   📂 %s (%d failures):", dataset, len(models))
+        for model in sorted(models):
+            logger.info("      ❌ %s.%s", dataset, model)
+
+
+def _log_recent_result_files():
+    """Log information about recently generated result files."""
+    logger.info("")
+    logger.info("📁 RECENT RESULT FILES:")
+
+    try:
+        results_dir = Path("results")
+        if not results_dir.exists():
+            logger.info("   (Results directory not found)")
+            return
+
+        # Get files modified in the last hour
+        recent_files = []
+        one_hour_ago = datetime.now() - timedelta(hours=1)
+
+        for file_path in results_dir.glob("*.json"):
+            if file_path.stat().st_mtime > one_hour_ago.timestamp():
+                recent_files.append(file_path.name)
+
+        if recent_files:
+            recent_files.sort()
+            for i, filename in enumerate(recent_files[-10:], 1):  # Show last 10
+                logger.info("   %2d. %s", i, filename)
+        else:
+            logger.info("   (No recent result files found)")
+
+    except (OSError, IOError) as e:
+        logger.info("   (Could not list result files: %s)", str(e))
 
 
 def discover_dataset_experiments(dataset_name: str) -> List[str]:
@@ -107,15 +212,28 @@ def _run_experiments_for_dataset(dataset: str) -> Tuple[int, int]:
     experiments = discover_dataset_experiments(dataset)
     success_count, failed_count = 0, 0
 
+    # Track detailed results for summary
+    successful_experiments = []
+    failed_experiments = []
+
     if not experiments:
         logger.warning("No experiments found for dataset: %s", dataset)
         return 0, 0
 
     for experiment_module in experiments:
+        # Extract model name from module (e.g., "mlp_newsgroups_20" -> "mlp")
+        model_name = experiment_module.split(".")[-1].replace(f"_{dataset}", "")
+
         if _run_single_experiment(experiment_module):
             success_count += 1
+            successful_experiments.append(f"{dataset}.{model_name}")
         else:
             failed_count += 1
+            failed_experiments.append(f"{dataset}.{model_name}")
+
+    # Store results for final summary
+    _successful_experiments.extend(successful_experiments)
+    _failed_experiments.extend(failed_experiments)
 
     return success_count, failed_count
 
@@ -123,8 +241,8 @@ def _run_experiments_for_dataset(dataset: str) -> Tuple[int, int]:
 def run_all_experiments(dataset_name: Optional[str] = None) -> bool:
     """Run all experiments for a dataset or for all discovered datasets.
 
-    This function now orchestrates the discovery of datasets and delegates the
-    actual execution to helper functions, reducing its complexity.
+    This function orchestrates the discovery of datasets and delegates the
+    actual execution to helper functions, keeping complexity low.
 
     Args:
         dataset_name: Specific dataset to run. If None, auto-discovers all datasets.
@@ -132,44 +250,56 @@ def run_all_experiments(dataset_name: Optional[str] = None) -> bool:
     Returns:
         bool: True if all experiments succeeded, False if any failed.
     """
-    if dataset_name:
-        datasets = [dataset_name]
-    else:
-        experiments_path = Path(__file__).parent
-        datasets = sorted(
-            [
-                item.name
-                for item in experiments_path.iterdir()
-                if item.is_dir() and not item.name.startswith("_")
-            ]
-        )
+    _initialize_experiment_tracking()
 
+    datasets = [dataset_name] if dataset_name else _discover_datasets()
+
+    total_success, total_failed = _execute_all_datasets(datasets)
+
+    _log_execution_summary(total_success, total_failed)
+
+    return total_failed == 0
+
+
+def _execute_all_datasets(datasets: List[str]) -> Tuple[int, int]:
+    """Execute experiments for all specified datasets.
+
+    Args:
+        datasets: List of dataset names to process.
+
+    Returns:
+        Tuple of (total_success_count, total_failed_count).
+    """
     total_success = 0
     total_failed = 0
-    failed_experiments = []
 
     for dataset in datasets:
         success, failed = _run_experiments_for_dataset(dataset)
         total_success += success
         total_failed += failed
-        if failed > 0:
-            failed_experiments.append(dataset)
 
-    # Final Summary matching run_experiment.py format
-    logger.info("-" * 60)
-    logger.info("🏁 Execution Summary:")
-    logger.info("   Total experiments executed: %d", total_success + total_failed)
-    logger.info("   ✅ Succeeded: %d", total_success)
+    return total_success, total_failed
 
-    if failed_experiments:
-        failed_list = ", ".join(failed_experiments)
-        logger.info("   ❌ Failed: %d (%s)", total_failed, failed_list)
-    else:
-        logger.info("   ❌ Failed: %d", total_failed)
 
-    logger.info("-" * 60)
+def _log_execution_summary(total_success: int, total_failed: int):
+    """Log the complete execution summary with detailed results.
 
-    return total_failed == 0
+    Args:
+        total_success: Total number of successful experiments.
+        total_failed: Total number of failed experiments.
+    """
+    logger.info("=" * 70)
+    logger.info("🏁 EXECUTION SUMMARY")
+    logger.info("=" * 70)
+    logger.info("📊 Total experiments executed: %d", total_success + total_failed)
+    logger.info("✅ Succeeded: %d", total_success)
+    logger.info("❌ Failed: %d", total_failed)
+
+    _log_successful_experiments()
+    _log_failed_experiments()
+    _log_recent_result_files()
+
+    logger.info("=" * 70)
 
 
 def run():
