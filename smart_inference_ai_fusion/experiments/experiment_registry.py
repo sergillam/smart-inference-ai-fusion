@@ -164,36 +164,6 @@ WINE_EXPERIMENTS = {
 }
 
 
-# Registry of experiment configurations for the California Housing dataset
-CALIFORNIA_HOUSING_EXPERIMENTS = {
-    GradientBoostingModel: ExperimentConfig(
-        model_class=GradientBoostingModel,
-        model_params={"n_estimators": 100, "random_state": 42},
-    ),
-    RandomForestRegressorModel: ExperimentConfig(
-        model_class=RandomForestRegressorModel,
-        model_params={"n_estimators": 100, "random_state": 42},
-    ),
-    RidgeModel: ExperimentConfig(
-        model_class=RidgeModel,
-        model_params={"alpha": 1.0, "random_state": 42},
-    ),
-    # Clustering algorithms for market segmentation
-    AgglomerativeClusteringModel: ExperimentConfig(
-        model_class=AgglomerativeClusteringModel,
-        model_params={"n_clusters": 5},  # Market segments
-    ),
-    MiniBatchKMeansModel: ExperimentConfig(
-        model_class=MiniBatchKMeansModel,
-        model_params={"n_clusters": 5, "random_state": 42, "batch_size": 200},
-    ),
-    GaussianMixtureModel: ExperimentConfig(
-        model_class=GaussianMixtureModel,
-        model_params={"n_components": 5, "random_state": 42},
-    ),
-}
-
-
 # Registry of experiment configurations for the LFW People dataset
 LFW_PEOPLE_EXPERIMENTS = {
     RandomForestClassifierModel: ExperimentConfig(
@@ -331,8 +301,6 @@ def run_experiment_by_name(
     # Get the appropriate registry based on dataset
     if dataset_name == SklearnDatasetName.WINE:
         registry = WINE_EXPERIMENTS
-    elif dataset_name == SklearnDatasetName.CALIFORNIA_HOUSING:
-        registry = CALIFORNIA_HOUSING_EXPERIMENTS
     elif dataset_name == SklearnDatasetName.LFW_PEOPLE:
         registry = LFW_PEOPLE_EXPERIMENTS
     elif dataset_name == SklearnDatasetName.MAKE_MOONS:
@@ -378,13 +346,11 @@ def run_experiment_by_model(
     # Get the appropriate registry based on dataset
     if dataset_name == SklearnDatasetName.WINE:
         registry = WINE_EXPERIMENTS
-    elif dataset_name == SklearnDatasetName.CALIFORNIA_HOUSING:
-        registry = CALIFORNIA_HOUSING_EXPERIMENTS
     elif dataset_name == SklearnDatasetName.LFW_PEOPLE:
         registry = LFW_PEOPLE_EXPERIMENTS
     elif dataset_name == SklearnDatasetName.MAKE_MOONS:
         registry = MAKE_MOONS_EXPERIMENTS
-    else:
+    elif dataset_name == SklearnDatasetName.DIGITS:
         registry = DIGITS_EXPERIMENTS
 
     # Get configuration directly using model class as key

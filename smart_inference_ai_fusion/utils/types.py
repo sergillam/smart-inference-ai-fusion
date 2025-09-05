@@ -42,7 +42,6 @@ class SklearnDatasetName(Enum):
         WINE: Wine classification dataset.
         BREAST_CANCER: Breast cancer dataset.
         DIGITS: Handwritten digits dataset.
-        CALIFORNIA_HOUSING: California housing regression dataset.
         LFW_PEOPLE: Labeled Faces in the Wild people dataset.
         MAKE_MOONS: Synthetic make_moons dataset for clustering.
     """
@@ -51,7 +50,6 @@ class SklearnDatasetName(Enum):
     WINE = "wine"
     BREAST_CANCER = "breast_cancer"
     DIGITS = "digits"
-    CALIFORNIA_HOUSING = "california_housing"
     LFW_PEOPLE = "lfw_people"
     MAKE_MOONS = "make_moons"
 

@@ -13,6 +13,19 @@ from smart_inference_ai_fusion.utils.logging import logger
 
 
 class SpectralClusteringModel(BaseClusteringModel):
+    def train(self, X_train, y_train=None):
+        """Override train to ensure non-negative data for SpectralClustering."""
+        from sklearn.preprocessing import MinMaxScaler
+        import numpy as np
+        # Se houver valores negativos, aplica MinMaxScaler e loga warning
+        if np.min(X_train) < 0:
+            logger.warning(
+                "[Robustness] Input data for SpectralClustering contained negative values. " \
+                "Applied MinMaxScaler to ensure robustness and avoid model failure."
+            )
+            scaler = MinMaxScaler()
+            X_train = scaler.fit_transform(X_train)
+        super().train(X_train, y_train)
     """Wrapper for scikit-learn's SpectralClustering, compatible with BaseModel."""
 
     def __init__(self, params: Optional[dict] = None, **kwargs: Any) -> None:

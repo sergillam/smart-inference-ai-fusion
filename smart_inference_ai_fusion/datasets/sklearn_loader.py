@@ -3,7 +3,6 @@
 from typing import Tuple
 
 from sklearn.datasets import (
-    fetch_california_housing,
     fetch_lfw_people,
     load_breast_cancer,
     load_digits,
@@ -43,7 +42,6 @@ class SklearnDatasetLoader(BaseDataset):
             SklearnDatasetName.WINE: load_wine,
             SklearnDatasetName.BREAST_CANCER: load_breast_cancer,
             SklearnDatasetName.DIGITS: load_digits,
-            SklearnDatasetName.CALIFORNIA_HOUSING: fetch_california_housing,
             SklearnDatasetName.LFW_PEOPLE: self._load_lfw_people,
             SklearnDatasetName.MAKE_MOONS: self._load_make_moons,
         }
