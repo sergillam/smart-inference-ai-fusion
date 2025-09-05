@@ -9,10 +9,15 @@ Examples:
     python -m smart_inference_ai_fusion.experiments lfw_people # Run LFW People experiments only
 """
 
+import logging
 import sys
 
 from . import run_all_experiments
 
 if __name__ == "__main__":
+    # Configure logging to match single experiment runs
+    logging.basicConfig(level=logging.INFO, format="INFO: %(message)s", force=True)
+
     dataset = sys.argv[1] if len(sys.argv) > 1 else None
-    sys.exit(run_all_experiments(dataset))
+    success = run_all_experiments(dataset)
+    sys.exit(0 if success else 1)

@@ -56,49 +56,88 @@ class ExperimentConfig:
 DIGITS_EXPERIMENTS = {
     AgglomerativeClusteringModel: ExperimentConfig(
         model_class=AgglomerativeClusteringModel,
-        model_params={"n_clusters": 3},
+        model_params={"n_clusters": 10, "linkage": "ward"},  # 10 digits (0-9) - no random_state
     ),
     FastICAModel: ExperimentConfig(
         model_class=FastICAModel,
-        model_params={"n_components": 10, "random_state": 42},
+        model_params={
+            "n_components": 32,
+            "random_state": 42,
+            "max_iter": 1000,
+            "tol": 1e-4,
+        },  # Scientific parameters
     ),
     GaussianMixtureModel: ExperimentConfig(
         model_class=GaussianMixtureModel,
-        model_params={"n_components": 10, "random_state": 42},
+        model_params={
+            "n_components": 10,
+            "random_state": 42,
+            "covariance_type": "full",
+            "max_iter": 100,
+        },  # 10 digits
     ),
     GradientBoostingModel: ExperimentConfig(
         model_class=GradientBoostingModel,
-        model_params={"n_estimators": 20, "random_state": 42},
+        model_params={
+            "n_estimators": 100,
+            "learning_rate": 0.1,
+            "max_depth": 3,
+            "random_state": 42,
+        },  # Standard parameters
     ),
     MiniBatchKMeansModel: ExperimentConfig(
         model_class=MiniBatchKMeansModel,
-        model_params={"n_clusters": 3, "random_state": 42, "batch_size": 100},
+        model_params={
+            "n_clusters": 10,
+            "random_state": 42,
+            "batch_size": 256,
+            "max_iter": 100,
+        },  # 10 digits, reasonable batch
     ),
     MLPModel: ExperimentConfig(
         model_class=MLPModel,
-        model_params={"hidden_layer_sizes": (100,), "random_state": 42, "max_iter": 200},
+        model_params={
+            "hidden_layer_sizes": (100, 50),
+            "random_state": 42,
+            "max_iter": 500,
+            "alpha": 0.001,
+        },  # Multi-layer with regularization
     ),
     RandomForestClassifierModel: ExperimentConfig(
         model_class=RandomForestClassifierModel,
-        model_params={"n_estimators": 20, "random_state": 42},
+        model_params={
+            "n_estimators": 100,
+            "max_depth": 10,
+            "random_state": 42,
+            "min_samples_split": 5,
+        },  # Standard RF parameters
     ),
     RandomForestRegressorModel: ExperimentConfig(
         model_class=RandomForestRegressorModel,
-        model_params={"n_estimators": 20, "random_state": 42},
+        model_params={
+            "n_estimators": 100,
+            "max_depth": 10,
+            "random_state": 42,
+            "min_samples_split": 5,
+        },
     ),
     RidgeModel: ExperimentConfig(
         model_class=RidgeModel,
-        model_params={"alpha": 1.0, "random_state": 42},
+        model_params={
+            "alpha": 1.0,
+            "random_state": 42,
+            "max_iter": 1000,
+        },  # Standard regularization
     ),
     SpectralClusteringModel: ExperimentConfig(
         model_class=SpectralClusteringModel,
         model_params={
-            "n_clusters": 3,
+            "n_clusters": 10,
             "random_state": 42,
             "affinity": "nearest_neighbors",
-            "n_neighbors": 10,
-            "assign_labels": "discretize",
-            "n_init": 1,  # Reduce iterations for faster execution
+            "n_neighbors": 15,  # Scientific choice for digits
+            "assign_labels": "kmeans",
+            "gamma": 1.0,
         },
     ),
 }
@@ -108,19 +147,34 @@ DIGITS_EXPERIMENTS = {
 WINE_EXPERIMENTS = {
     AgglomerativeClusteringModel: ExperimentConfig(
         model_class=AgglomerativeClusteringModel,
-        model_params={"n_clusters": 3},  # Wine has 3 classes
+        model_params={"n_clusters": 3, "linkage": "ward"},  # 3 wine classes - no random_state
     ),
     FastICAModel: ExperimentConfig(
         model_class=FastICAModel,
-        model_params={"n_components": 10, "random_state": 42},
+        model_params={
+            "n_components": 8,
+            "random_state": 42,
+            "max_iter": 1000,
+            "tol": 1e-4,
+        },  # Suitable for wine features
     ),
     GaussianMixtureModel: ExperimentConfig(
         model_class=GaussianMixtureModel,
-        model_params={"n_components": 10, "random_state": 42},
+        model_params={
+            "n_components": 3,
+            "random_state": 42,
+            "covariance_type": "full",
+            "max_iter": 100,
+        },  # 3 wine classes
     ),
     GradientBoostingModel: ExperimentConfig(
         model_class=GradientBoostingModel,
-        model_params={"n_estimators": 20, "random_state": 42},
+        model_params={
+            "n_estimators": 100,
+            "learning_rate": 0.1,
+            "max_depth": 3,
+            "random_state": 42,
+        },  # Conservative for small dataset
     ),
     MiniBatchKMeansModel: ExperimentConfig(
         model_class=MiniBatchKMeansModel,
@@ -128,154 +182,237 @@ WINE_EXPERIMENTS = {
             "n_clusters": 3,
             "random_state": 42,
             "batch_size": 50,
-        },  # Smaller batch for smaller dataset
+            "max_iter": 100,
+        },  # Small batch for small dataset
     ),
     MLPModel: ExperimentConfig(
         model_class=MLPModel,
         model_params={
-            "hidden_layer_sizes": (50,),
+            "hidden_layer_sizes": (50, 25),
             "random_state": 42,
-            "max_iter": 200,
-        },  # Smaller hidden layer
+            "max_iter": 1000,
+            "alpha": 0.01,
+        },  # Conservative for small dataset
     ),
     RandomForestClassifierModel: ExperimentConfig(
         model_class=RandomForestClassifierModel,
-        model_params={"n_estimators": 20, "random_state": 42},
+        model_params={
+            "n_estimators": 100,
+            "max_depth": 8,
+            "random_state": 42,
+            "min_samples_split": 2,
+        },  # Balanced for wine dataset
     ),
     RandomForestRegressorModel: ExperimentConfig(
         model_class=RandomForestRegressorModel,
-        model_params={"n_estimators": 20, "random_state": 42},
+        model_params={
+            "n_estimators": 100,
+            "max_depth": 8,
+            "random_state": 42,
+            "min_samples_split": 2,
+        },
     ),
     RidgeModel: ExperimentConfig(
         model_class=RidgeModel,
-        model_params={"alpha": 1.0, "random_state": 42},
+        model_params={
+            "alpha": 1.0,
+            "random_state": 42,
+            "max_iter": 1000,
+        },  # Standard regularization
     ),
     SpectralClusteringModel: ExperimentConfig(
         model_class=SpectralClusteringModel,
         model_params={
             "n_clusters": 3,
             "random_state": 42,
-            "affinity": "nearest_neighbors",
-            "n_neighbors": 5,  # Smaller for wine dataset
-            "assign_labels": "discretize",
-            "n_init": 1,
+            "affinity": "rbf",  # Better for dense continuous data
+            "gamma": 1.0,  # Balanced gamma for wine data
+            "assign_labels": "kmeans",  # More stable than discretize
         },
     ),
 }
 
 
-# Registry of experiment configurations for the LFW People dataset
+# Registry of experiment configurations for the LFW People dataset (face recognition)
 LFW_PEOPLE_EXPERIMENTS = {
     RandomForestClassifierModel: ExperimentConfig(
         model_class=RandomForestClassifierModel,
-        model_params={"n_estimators": 20, "random_state": 42},  # Reduced for high-dim data
+        model_params={
+            "n_estimators": 100,
+            "max_depth": 15,
+            "random_state": 42,
+            "min_samples_split": 5,
+        },  # Deep for face features
     ),
     MLPModel: ExperimentConfig(
         model_class=MLPModel,
-        model_params={"hidden_layer_sizes": (100, 50), "random_state": 42, "max_iter": 200},
+        model_params={
+            "hidden_layer_sizes": (200, 100),
+            "random_state": 42,
+            "max_iter": 500,
+            "alpha": 0.01,
+        },  # Deep for face recognition
     ),
     RidgeModel: ExperimentConfig(
         model_class=RidgeModel,
-        model_params={"alpha": 10.0, "random_state": 42},  # Higher regularization
+        model_params={
+            "alpha": 10.0,
+            "random_state": 42,
+            "max_iter": 2000,
+        },  # Higher regularization for high-dim
     ),
-    # Dimensionality reduction
     FastICAModel: ExperimentConfig(
         model_class=FastICAModel,
-        model_params={"n_components": 10, "random_state": 42},  # Reduce from high dimensions
+        model_params={
+            "n_components": 50,
+            "random_state": 42,
+            "max_iter": 1000,
+            "tol": 1e-4,
+        },  # Dimensionality reduction for faces
     ),
-    # Additional models for 10 experiments total
     GradientBoostingModel: ExperimentConfig(
         model_class=GradientBoostingModel,
         model_params={
-            "n_estimators": 20,  # Extremamente reduzido para alta dimensionalidade
+            "n_estimators": 300,  # Significantly increased for 30-40s target
+            "learning_rate": 0.03,  # Lower learning rate for better convergence
+            "max_depth": 5,  # Deeper trees for complex face features
             "random_state": 42,
-            "max_depth": 5,  # Muito raso para evitar overfitting
-            "learning_rate": 0.6,  # Learning rate maior para convergir mais rápido
-            "subsample": 0.9,  # Subsampling agressivo
-            "max_features": "sqrt",  # Reduzir features por árvore
-        },
+            "subsample": 0.9,  # High subsample for robust learning
+            "max_features": "sqrt",  # Feature subsampling
+            "validation_fraction": 0.15,  # Larger validation set
+            "n_iter_no_change": 15,  # More patience for early stopping
+            "tol": 1e-5,  # Stricter convergence tolerance
+            "min_samples_split": 2,  # Standard splitting
+            "min_samples_leaf": 1,  # Standard leaf size
+        },  # Robust scientific parameters for face recognition (30-40 seconds target)
     ),
     RandomForestRegressorModel: ExperimentConfig(
         model_class=RandomForestRegressorModel,
-        model_params={"n_estimators": 20, "random_state": 42},  # Reduced for high-dim data
+        model_params={
+            "n_estimators": 100,
+            "max_depth": 15,
+            "random_state": 42,
+            "min_samples_split": 5,
+        },
     ),
     # Clustering for face analysis
     AgglomerativeClusteringModel: ExperimentConfig(
         model_class=AgglomerativeClusteringModel,
-        model_params={"n_clusters": 3},  # Multiple people clusters
+        model_params={
+            "n_clusters": 5,
+            "linkage": "ward",
+        },  # Multiple people clusters - no random_state
     ),
     MiniBatchKMeansModel: ExperimentConfig(
         model_class=MiniBatchKMeansModel,
-        model_params={"n_clusters": 3, "random_state": 42, "batch_size": 100},  # Face clustering
+        model_params={
+            "n_clusters": 5,
+            "random_state": 42,
+            "batch_size": 256,
+            "max_iter": 100,
+        },  # Face clustering
     ),
     GaussianMixtureModel: ExperimentConfig(
         model_class=GaussianMixtureModel,
-        model_params={"n_components": 10, "random_state": 42},  # Face mixture modeling
+        model_params={
+            "n_components": 5,
+            "random_state": 42,
+            "covariance_type": "diag",
+            "max_iter": 100,
+        },  # Diagonal for high-dim
     ),
     SpectralClusteringModel: ExperimentConfig(
         model_class=SpectralClusteringModel,
         model_params={
-            "n_clusters": 3,
+            "n_clusters": 5,
             "random_state": 42,
             "affinity": "nearest_neighbors",
             "n_neighbors": 10,
-            "assign_labels": "discretize",
-            "n_init": 1,
+            "assign_labels": "kmeans",  # More stable for face data
         },
     ),
 }
 
 
-# Registry of experiment configurations for the Make Moons dataset
+# Registry of experiment configurations for the Make Moons dataset (2D synthetic data)
 MAKE_MOONS_EXPERIMENTS = {
     SpectralClusteringModel: ExperimentConfig(
         model_class=SpectralClusteringModel,
         model_params={
-            "n_clusters": 3,
+            "n_clusters": 2,  # Two moons
             "random_state": 42,
             "affinity": "nearest_neighbors",
-            "n_neighbors": 10,
-            "assign_labels": "discretize",
-            "n_init": 1,
+            "n_neighbors": 15,  # Good for moon shapes
+            "assign_labels": "kmeans",
+            "gamma": 1.0,
         },
     ),
     AgglomerativeClusteringModel: ExperimentConfig(
         model_class=AgglomerativeClusteringModel,
-        model_params={"n_clusters": 3},
+        model_params={"n_clusters": 2, "linkage": "ward"},  # Two moons - no random_state
     ),
     MiniBatchKMeansModel: ExperimentConfig(
         model_class=MiniBatchKMeansModel,
-        model_params={"n_clusters": 3, "random_state": 42, "batch_size": 100},
+        model_params={
+            "n_clusters": 2,
+            "random_state": 42,
+            "batch_size": 100,
+            "max_iter": 100,
+        },  # Two moons
     ),
     GaussianMixtureModel: ExperimentConfig(
         model_class=GaussianMixtureModel,
-        model_params={"n_components": 10, "random_state": 42},
+        model_params={
+            "n_components": 2,
+            "random_state": 42,
+            "covariance_type": "full",
+            "max_iter": 100,
+        },  # Two moons
     ),
     # Classification algorithms to compare with clustering
     RandomForestClassifierModel: ExperimentConfig(
         model_class=RandomForestClassifierModel,
-        model_params={"n_estimators": 20, "random_state": 42},
+        model_params={
+            "n_estimators": 100,
+            "max_depth": 5,
+            "random_state": 42,
+            "min_samples_split": 5,
+        },  # Simple for 2D data
     ),
     MLPModel: ExperimentConfig(
         model_class=MLPModel,
-        model_params={"hidden_layer_sizes": (50,), "random_state": 42, "max_iter": 200},
+        model_params={
+            "hidden_layer_sizes": (50, 25),
+            "random_state": 42,
+            "max_iter": 1000,
+            "alpha": 0.01,
+        },  # Simple for 2D
     ),
-    # Additional models for 10 experiments total
     GradientBoostingModel: ExperimentConfig(
         model_class=GradientBoostingModel,
-        model_params={"n_estimators": 20, "random_state": 42},  # Reduced for 2D dataset
-    ),
-    FastICAModel: ExperimentConfig(
-        model_class=FastICAModel,
-        model_params={"n_components": 10, "random_state": 42},  # 10 components for 2D dataset
+        model_params={
+            "n_estimators": 100,
+            "learning_rate": 0.1,
+            "max_depth": 3,
+            "random_state": 42,
+        },  # Standard for 2D
     ),
     RidgeModel: ExperimentConfig(
         model_class=RidgeModel,
-        model_params={"alpha": 1.0, "random_state": 42},
+        model_params={
+            "alpha": 1.0,
+            "random_state": 42,
+            "max_iter": 1000,
+        },  # Simple regularization for 2D
     ),
-    RandomForestRegressorModel: ExperimentConfig(
-        model_class=RandomForestRegressorModel,
-        model_params={"n_estimators": 20, "random_state": 42},  # Reduced for 2D dataset
+    FastICAModel: ExperimentConfig(
+        model_class=FastICAModel,
+        model_params={
+            "n_components": 8,
+            "random_state": 42,
+            "max_iter": 1000,
+            "tol": 1e-4,
+        },  # Dimensionality reduction for 2D
     ),
 }
 
@@ -284,66 +421,101 @@ MAKE_MOONS_EXPERIMENTS = {
 NEWSGROUPS_20_EXPERIMENTS = {
     AgglomerativeClusteringModel: ExperimentConfig(
         model_class=AgglomerativeClusteringModel,
-        model_params={"n_clusters": 20, "linkage": "ward"},
+        model_params={
+            "n_clusters": 8,
+            "linkage": "ward",
+        },  # Balanced clusters for text topics - no random_state
         dataset_name=SklearnDatasetName.NEWSGROUPS_20,
     ),
     FastICAModel: ExperimentConfig(
         model_class=FastICAModel,
-        model_params={"n_components": 10, "random_state": 42},
+        model_params={
+            "n_components": 50,
+            "random_state": 42,
+            "max_iter": 1000,
+            "tol": 1e-4,
+        },  # Moderate components for text
         dataset_name=SklearnDatasetName.NEWSGROUPS_20,
     ),
     GaussianMixtureModel: ExperimentConfig(
         model_class=GaussianMixtureModel,
-        model_params={"n_components": 10, "random_state": 42},
+        model_params={
+            "n_components": 8,
+            "random_state": 42,
+            "covariance_type": "diag",
+            "max_iter": 100,
+        },  # Diagonal for high-dim text
         dataset_name=SklearnDatasetName.NEWSGROUPS_20,
     ),
     GradientBoostingModel: ExperimentConfig(
         model_class=GradientBoostingModel,
-        model_params={"n_estimators": 20, "max_depth": 5, "learning_rate": 0.1, "random_state": 42},
+        model_params={
+            "n_estimators": 10,  # Muito reduzido para texto de alta dimensionalidade
+            "learning_rate": 0.3,  # Maior para compensar menos estimadores
+            "max_depth": 2,  # Muito raso para evitar overfitting em texto
+            "random_state": 42,
+            "subsample": 0.5,  # Agressivo subsampling para velocidade
+            "max_features": "sqrt",  # Reduzir features para velocidade
+        },  # Ultra-otimizado para texto de alta dimensionalidade
         dataset_name=SklearnDatasetName.NEWSGROUPS_20,
     ),
     MiniBatchKMeansModel: ExperimentConfig(
         model_class=MiniBatchKMeansModel,
         model_params={
-        "n_clusters": 20,
-        "random_state": 42,
-        "batch_size": 2048,
-        "max_iter": 200,
-        "n_init": 10,
-        "reassignment_ratio": 0.1,
-        "tol": 1e-3,
-    },
+            "n_clusters": 8,
+            "random_state": 42,
+            "batch_size": 512,
+            "max_iter": 100,
+        },  # Larger batch for text
         dataset_name=SklearnDatasetName.NEWSGROUPS_20,
     ),
     MLPModel: ExperimentConfig(
         model_class=MLPModel,
-        model_params={"hidden_layer_sizes": (50,), "random_state": 42, "max_iter": 200, "alpha": 0.01},
+        model_params={
+            "hidden_layer_sizes": (100, 50),
+            "random_state": 42,
+            "max_iter": 200,
+            "alpha": 0.01,
+        },  # Deep for text classification
         dataset_name=SklearnDatasetName.NEWSGROUPS_20,
     ),
     RandomForestClassifierModel: ExperimentConfig(
         model_class=RandomForestClassifierModel,
-        model_params={"n_estimators": 20, "max_depth": 5, "random_state": 42},
+        model_params={
+            "n_estimators": 100,
+            "max_depth": 15,
+            "random_state": 42,
+            "min_samples_split": 5,
+        },  # Deep for text features
         dataset_name=SklearnDatasetName.NEWSGROUPS_20,
     ),
     RandomForestRegressorModel: ExperimentConfig(
         model_class=RandomForestRegressorModel,
-        model_params={"n_estimators": 20, "max_depth": 5, "random_state": 42},
+        model_params={
+            "n_estimators": 100,
+            "max_depth": 15,
+            "random_state": 42,
+            "min_samples_split": 5,
+        },
         dataset_name=SklearnDatasetName.NEWSGROUPS_20,
     ),
     RidgeModel: ExperimentConfig(
         model_class=RidgeModel,
-        model_params={"alpha": 1.0, "random_state": 42},
+        model_params={
+            "alpha": 10.0,
+            "random_state": 42,
+            "max_iter": 2000,
+        },  # Higher regularization for text
         dataset_name=SklearnDatasetName.NEWSGROUPS_20,
     ),
     SpectralClusteringModel: ExperimentConfig(
         model_class=SpectralClusteringModel,
         model_params={
-            "n_clusters": 3,
+            "n_clusters": 8,  # Balanced for text topics
             "random_state": 42,
-            "affinity": "rbf", 
-            "gamma": 0.1,
-            "assign_labels": "discretize",
-            "n_init": 1,
+            "affinity": "rbf",  # Suitable for dense text features
+            "gamma": 0.1,  # Conservative gamma for text
+            "assign_labels": "kmeans",  # Stable assignment for text
         },
         dataset_name=SklearnDatasetName.NEWSGROUPS_20,
     ),

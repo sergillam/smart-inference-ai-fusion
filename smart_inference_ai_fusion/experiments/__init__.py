@@ -146,18 +146,28 @@ def run_all_experiments(dataset_name: Optional[str] = None) -> bool:
 
     total_success = 0
     total_failed = 0
+    failed_experiments = []
 
     for dataset in datasets:
         success, failed = _run_experiments_for_dataset(dataset)
         total_success += success
         total_failed += failed
+        if failed > 0:
+            failed_experiments.append(dataset)
 
-    # Final Summary
-    logger.info("=" * 60)
+    # Final Summary matching run_experiment.py format
+    logger.info("-" * 60)
     logger.info("🏁 Execution Summary:")
+    logger.info("   Total experiments executed: %d", total_success + total_failed)
     logger.info("   ✅ Succeeded: %d", total_success)
-    logger.info("   ❌ Failed: %d", total_failed)
-    logger.info("=" * 60)
+
+    if failed_experiments:
+        failed_list = ", ".join(failed_experiments)
+        logger.info("   ❌ Failed: %d (%s)", total_failed, failed_list)
+    else:
+        logger.info("   ❌ Failed: %d", total_failed)
+
+    logger.info("-" * 60)
 
     return total_failed == 0
 

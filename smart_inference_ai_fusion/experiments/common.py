@@ -1,5 +1,6 @@
 """Common utilities for experiment scripts."""
 
+import time
 from typing import Callable, Dict, Optional, Type, Union
 
 from smart_inference_ai_fusion.core.base_model import BaseModel
@@ -22,7 +23,10 @@ from smart_inference_ai_fusion.models.random_forest_regressor_model import (
 )
 from smart_inference_ai_fusion.models.ridge_model import RidgeModel
 from smart_inference_ai_fusion.models.spectral_clustering_model import SpectralClusteringModel
-from smart_inference_ai_fusion.utils.preprocessing import filter_sklearn_params
+from smart_inference_ai_fusion.utils.preprocessing import (
+    filter_sklearn_params,
+    validate_sklearn_params,
+)
 from smart_inference_ai_fusion.utils.report import (
     ReportMode,
     generate_experiment_filename,
@@ -390,7 +394,10 @@ def run_baseline_experiment(
     Returns:
         dict: Experiment results.
     """
-    report_data(f"=== {model_name} WITHOUT INFERENCE ===", mode=ReportMode.PRINT)
+    # Start timing
+    start_time = time.time()
+
+    report_data(f"=== {dataset_name} WITHOUT INFERENCE {model_name} ===", mode=ReportMode.PRINT)
 
     # Create dataset and model using generic function
     dataset = create_dataset(dataset_source, dataset_name)
@@ -403,20 +410,17 @@ def run_baseline_experiment(
     experiment = Experiment(model=model, dataset=dataset)
     metrics = experiment.run(X_train, X_test, y_train, y_test)
 
+    # Calculate execution time
+    execution_time = time.time() - start_time
+
     report_data("Evaluation metrics (no inference):", mode=ReportMode.PRINT)
     report_data(metrics, mode=ReportMode.PRINT)
+    report_data(f"Execution time: {execution_time:.2f} seconds", mode=ReportMode.PRINT)
 
-    # Generate dataset identifier for filename
-    dataset_id = (
-        dataset_name.value if isinstance(dataset_name, SklearnDatasetName) else str(dataset_name)
-    )
+    # Add execution time to metrics
+    metrics["execution_time_seconds"] = execution_time
 
-    # Report results
-    report_data(
-        content=metrics,
-        name_output=generate_experiment_filename(model_class, dataset_id, "no-inference"),
-        mode=ReportMode.JSON_RESULT,
-    )
+    # Note: Individual JSON files no longer generated - results will be in consolidated format
 
     return metrics
 
@@ -440,8 +444,12 @@ def run_inference_experiment(
     Returns:
         dict: Experiment results.
     """
+    # Start timing
+    start_time = time.time()
+
     report_data(
-        f"=== {model_name} WITH INFERENCE (data + param + label) ===", mode=ReportMode.PRINT
+        f"=== {dataset_name} WITH INFERENCE (data + param + label) {model_name} ===",
+        mode=ReportMode.PRINT,
     )
 
     # Create base configurations - use dataset specific config if needed
@@ -482,24 +490,35 @@ def run_inference_experiment(
     # Apply parameter inference and create model
     model, _ = pipeline.apply_param_inference(model_class, params)  # param_info is unused
 
+    # Validate and fix any invalid parameters that may have been introduced by inference
+    if (
+        hasattr(model, "model")
+        and model.model is not None
+        and hasattr(model.model, "get_params")
+        and hasattr(model.model, "__class__")
+    ):
+        # Get the actual sklearn model parameters
+        sklearn_params = model.model.get_params()
+        validated_params = validate_sklearn_params(sklearn_params, model.model.__class__)
+        # Update the model if any corrections were made
+        if validated_params != sklearn_params:
+            model.model.set_params(**validated_params)
+
     # Run experiment
     experiment = Experiment(model=model, dataset=dataset)
     metrics = experiment.run(X_train, X_test, y_train, y_test)
 
+    # Calculate execution time
+    execution_time = time.time() - start_time
+
     report_data("Evaluation metrics (with inference):", mode=ReportMode.PRINT)
     report_data(metrics, mode=ReportMode.PRINT)
+    report_data(f"Execution time: {execution_time:.2f} seconds", mode=ReportMode.PRINT)
 
-    # Generate dataset identifier for filename
-    dataset_id = (
-        dataset_name.value if isinstance(dataset_name, SklearnDatasetName) else str(dataset_name)
-    )
+    # Add execution time to metrics
+    metrics["execution_time_seconds"] = execution_time
 
-    # Report results
-    report_data(
-        content=metrics,
-        name_output=generate_experiment_filename(model_class, dataset_id, "with-inference"),
-        mode=ReportMode.JSON_RESULT,
-    )
+    # Note: Individual JSON files no longer generated - results will be in consolidated format
 
     return metrics
 
@@ -548,6 +567,9 @@ def run_standard_experiment(
         ...     "titanic"
         ... )
     """
+    # Start timing for total experiment duration
+    total_start_time = time.time()
+
     # Filter parameters if it's a scikit-learn compatible model wrapper
     filtered_params = model_params
     if model_params:
@@ -566,6 +588,86 @@ def run_standard_experiment(
     )
     inference_metrics = run_inference_experiment(
         model_class, model_name, dataset_source, dataset_name, filtered_params
+    )
+
+    # Calculate total execution time
+    total_execution_time = time.time() - total_start_time
+
+    # Report total execution summary
+    report_data(
+        f"\n=== EXPERIMENT SUMMARY FOR {model_name} on {dataset_name} ===", mode=ReportMode.PRINT
+    )
+    report_data(
+        f"Baseline execution time: {baseline_metrics.get('execution_time_seconds', 0):.2f} seconds",
+        mode=ReportMode.PRINT,
+    )
+    inference_time = inference_metrics.get("execution_time_seconds", 0)
+    report_data(
+        f"Inference execution time: {inference_time:.2f} seconds",
+        mode=ReportMode.PRINT,
+    )
+    report_data(
+        f"Total experiment time: {total_execution_time:.2f} seconds",
+        mode=ReportMode.PRINT,
+    )
+
+    # Create comprehensive consolidated results
+    baseline_time = baseline_metrics.get("execution_time_seconds", 0)
+    inference_time = inference_metrics.get("execution_time_seconds", 0)
+
+    consolidated_results = {
+        "experiment_info": {
+            "model_name": model_name,
+            "model_class": model_class.__name__,
+            "dataset_name": str(dataset_name),
+            "dataset_source": (
+                dataset_source.value if hasattr(dataset_source, "value") else str(dataset_source)
+            ),
+            "model_params": filtered_params or {},
+            "timestamp": baseline_metrics.get("timestamp") or inference_metrics.get("timestamp"),
+        },
+        "results": {
+            "without_inference": {
+                "metrics": {
+                    k: v for k, v in baseline_metrics.items() if k != "execution_time_seconds"
+                },
+                "execution_time_seconds": baseline_time,
+            },
+            "with_inference": {
+                "metrics": {
+                    k: v for k, v in inference_metrics.items() if k != "execution_time_seconds"
+                },
+                "execution_time_seconds": inference_time,
+            },
+        },
+        "timing_analysis": {
+            "baseline_time_seconds": baseline_time,
+            "inference_time_seconds": inference_time,
+            "total_experiment_time_seconds": total_execution_time,
+            "inference_overhead_seconds": inference_time - baseline_time,
+            "inference_overhead_percentage": (
+                (inference_time - baseline_time) / max(baseline_time, 0.001)
+            )
+            * 100,
+            "time_comparison": {
+                "faster_approach": "baseline" if baseline_time < inference_time else "inference",
+                "time_difference_seconds": abs(inference_time - baseline_time),
+                "speed_ratio": max(inference_time, baseline_time)
+                / max(min(inference_time, baseline_time), 0.001),
+            },
+        },
+    }
+
+    # Generate dataset identifier for filename
+    dataset_id = (
+        dataset_name.value if isinstance(dataset_name, SklearnDatasetName) else str(dataset_name)
+    )
+
+    # Save comprehensive consolidated results
+    report_data(
+        content=consolidated_results,
+        name_output=generate_experiment_filename(model_class, dataset_id, "complete-results"),
+        mode=ReportMode.JSON_RESULT,
     )
 
     return baseline_metrics, inference_metrics

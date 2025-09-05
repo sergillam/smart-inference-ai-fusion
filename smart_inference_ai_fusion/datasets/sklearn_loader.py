@@ -11,9 +11,10 @@ from sklearn.datasets import (
     load_wine,
     make_moons,
 )
-from sklearn.model_selection import train_test_split
 from sklearn.decomposition import TruncatedSVD
 from sklearn.feature_selection import SelectKBest, chi2
+from sklearn.model_selection import train_test_split
+
 from smart_inference_ai_fusion.core.base_dataset import BaseDataset
 from smart_inference_ai_fusion.utils.types import SklearnDatasetName
 
@@ -87,13 +88,14 @@ class SklearnDatasetLoader(BaseDataset):
         )
 
     def _load_lfw_people(self):
-        """Load LFW People dataset with optimized settings.
+        """Load LFW People dataset with optimized settings for faster experiments.
 
         Returns:
             Bunch object with data and target attributes.
         """
-        # Use subset of people to avoid excessive memory usage
-        return fetch_lfw_people(min_faces_per_person=20, resize=0.4)
+        # Use smaller subset for faster experiments - min_faces_per_person=50 reduces to ~5 people
+        # resize=0.3 further reduces image size for speed
+        return fetch_lfw_people(min_faces_per_person=50, resize=0.3)
 
     def _load_make_moons(self):
         """Load synthetic make_moons dataset.

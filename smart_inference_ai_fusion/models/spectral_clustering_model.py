@@ -3,10 +3,11 @@
 This module defines the SpectralClusteringModel class, a wrapper for scikit-learn's
 SpectralClustering compatible with the BaseModel interface.
 """
-from typing import Any, Optional
-import numpy as np
 
-from sklearn.cluster import SpectralClustering
+from typing import Any, Optional
+
+import numpy as np
+from sklearn.cluster import KMeans, SpectralClustering
 from sklearn.preprocessing import MinMaxScaler
 
 from smart_inference_ai_fusion.core.base_clustering_model import BaseClusteringModel
@@ -22,8 +23,16 @@ class SpectralClusteringModel(BaseClusteringModel):
     """
 
     def train(self, X_train, y_train=None):
-        """Override train to ensure non-negative data for SpectralClustering."""
-        # If there are negative values, apply minmaxscaler and log warning
+        """Train the spectral clustering model with robustness checks.
+
+        Implements validation and fallback mechanisms to prevent crashes,
+        particularly important for negative values and parameter validation.
+        """
+        logger.debug(
+            "[DEBUG] X_train shape: %s, contains NaN: %s", X_train.shape, np.isnan(X_train).any()
+        )
+
+        # Verificar e corrigir valores negativos para SpectralClustering
         if np.min(X_train) < 0:
             logger.warning(
                 "[Robustness] Input data for SpectralClustering contained negative values. "
@@ -31,11 +40,67 @@ class SpectralClusteringModel(BaseClusteringModel):
             )
             scaler = MinMaxScaler()
             X_train = scaler.fit_transform(X_train)
-        super().train(X_train, y_train)
+            self._scaler = scaler
+
+        # Validar parâmetros para o tamanho do dataset
+        n_samples = X_train.shape[0]
+
+        # Ajustar n_neighbors se necessário (para affinity='nearest_neighbors')
+        if hasattr(self.model, "n_neighbors") and self.model.n_neighbors is not None:
+            if self.model.n_neighbors >= n_samples:
+                new_n_neighbors = max(1, n_samples - 1)
+                logger.warning(
+                    "n_neighbors (%s) >= n_samples (%s). Adjusting to %s",
+                    self.model.n_neighbors,
+                    n_samples,
+                    new_n_neighbors,
+                )
+                self.model.n_neighbors = new_n_neighbors
+
+        # Validar n_clusters
+        if self.model.n_clusters >= n_samples:
+            new_n_clusters = max(2, min(3, n_samples // 2))
+            logger.warning(
+                "n_clusters (%s) >= n_samples (%s). Adjusting to %s",
+                self.model.n_clusters,
+                n_samples,
+                new_n_clusters,
+            )
+            self.model.n_clusters = new_n_clusters
+
+        try:
+            super().train(X_train, y_train)
+
+            # Validar resultado do clustering
+            if hasattr(self, "_fitted_labels"):
+                n_unique_labels = len(np.unique(self._fitted_labels))
+                if n_unique_labels == 1:
+                    logger.warning(
+                        "SpectralClustering produced only %s cluster. "
+                        "This may indicate poor parameter settings or data issues.",
+                        n_unique_labels,
+                    )
+                elif n_unique_labels < self.model.n_clusters:
+                    logger.warning(
+                        "SpectralClustering produced %s clusters instead of expected %s",
+                        n_unique_labels,
+                        self.model.n_clusters,
+                    )
+
+        except (ValueError, RuntimeError, np.linalg.LinAlgError) as e:
+            logger.error("SpectralClustering failed with error: %s", e)
+            # Fallback: usar KMeans simples como backup
+            logger.warning("Falling back to KMeans clustering due to SpectralClustering failure")
+            kmeans = KMeans(n_clusters=self.model.n_clusters, random_state=42)
+            self._fitted_labels = kmeans.fit_predict(X_train)
 
     def __init__(self, params: Optional[dict] = None, **kwargs: Any) -> None:
         """Initialize the SpectralClusteringModel."""
         super().__init__()
+
+        # Initialize scaler attribute
+        self._scaler = None
+
         if params is None:
             params = {}
         params.update(kwargs)
