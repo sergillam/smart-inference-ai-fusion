@@ -56,7 +56,7 @@ class ExperimentConfig:
 DIGITS_EXPERIMENTS = {
     AgglomerativeClusteringModel: ExperimentConfig(
         model_class=AgglomerativeClusteringModel,
-        model_params={"n_clusters": 10},
+        model_params={"n_clusters": 3},
     ),
     FastICAModel: ExperimentConfig(
         model_class=FastICAModel,
@@ -68,23 +68,23 @@ DIGITS_EXPERIMENTS = {
     ),
     GradientBoostingModel: ExperimentConfig(
         model_class=GradientBoostingModel,
-        model_params={"n_estimators": 100, "random_state": 42},
+        model_params={"n_estimators": 20, "random_state": 42},
     ),
     MiniBatchKMeansModel: ExperimentConfig(
         model_class=MiniBatchKMeansModel,
-        model_params={"n_clusters": 10, "random_state": 42, "batch_size": 100},
+        model_params={"n_clusters": 3, "random_state": 42, "batch_size": 100},
     ),
     MLPModel: ExperimentConfig(
         model_class=MLPModel,
-        model_params={"hidden_layer_sizes": (100,), "random_state": 42, "max_iter": 500},
+        model_params={"hidden_layer_sizes": (100,), "random_state": 42, "max_iter": 200},
     ),
     RandomForestClassifierModel: ExperimentConfig(
         model_class=RandomForestClassifierModel,
-        model_params={"n_estimators": 100, "random_state": 42},
+        model_params={"n_estimators": 20, "random_state": 42},
     ),
     RandomForestRegressorModel: ExperimentConfig(
         model_class=RandomForestRegressorModel,
-        model_params={"n_estimators": 100, "random_state": 42},
+        model_params={"n_estimators": 20, "random_state": 42},
     ),
     RidgeModel: ExperimentConfig(
         model_class=RidgeModel,
@@ -93,7 +93,7 @@ DIGITS_EXPERIMENTS = {
     SpectralClusteringModel: ExperimentConfig(
         model_class=SpectralClusteringModel,
         model_params={
-            "n_clusters": 10,
+            "n_clusters": 3,
             "random_state": 42,
             "affinity": "nearest_neighbors",
             "n_neighbors": 10,
@@ -112,15 +112,15 @@ WINE_EXPERIMENTS = {
     ),
     FastICAModel: ExperimentConfig(
         model_class=FastICAModel,
-        model_params={"n_components": 3, "random_state": 42},
+        model_params={"n_components": 10, "random_state": 42},
     ),
     GaussianMixtureModel: ExperimentConfig(
         model_class=GaussianMixtureModel,
-        model_params={"n_components": 3, "random_state": 42},
+        model_params={"n_components": 10, "random_state": 42},
     ),
     GradientBoostingModel: ExperimentConfig(
         model_class=GradientBoostingModel,
-        model_params={"n_estimators": 100, "random_state": 42},
+        model_params={"n_estimators": 20, "random_state": 42},
     ),
     MiniBatchKMeansModel: ExperimentConfig(
         model_class=MiniBatchKMeansModel,
@@ -135,16 +135,16 @@ WINE_EXPERIMENTS = {
         model_params={
             "hidden_layer_sizes": (50,),
             "random_state": 42,
-            "max_iter": 500,
+            "max_iter": 200,
         },  # Smaller hidden layer
     ),
     RandomForestClassifierModel: ExperimentConfig(
         model_class=RandomForestClassifierModel,
-        model_params={"n_estimators": 100, "random_state": 42},
+        model_params={"n_estimators": 20, "random_state": 42},
     ),
     RandomForestRegressorModel: ExperimentConfig(
         model_class=RandomForestRegressorModel,
-        model_params={"n_estimators": 100, "random_state": 42},
+        model_params={"n_estimators": 20, "random_state": 42},
     ),
     RidgeModel: ExperimentConfig(
         model_class=RidgeModel,
@@ -168,7 +168,7 @@ WINE_EXPERIMENTS = {
 LFW_PEOPLE_EXPERIMENTS = {
     RandomForestClassifierModel: ExperimentConfig(
         model_class=RandomForestClassifierModel,
-        model_params={"n_estimators": 50, "random_state": 42},  # Reduced for high-dim data
+        model_params={"n_estimators": 20, "random_state": 42},  # Reduced for high-dim data
     ),
     MLPModel: ExperimentConfig(
         model_class=MLPModel,
@@ -181,13 +181,13 @@ LFW_PEOPLE_EXPERIMENTS = {
     # Dimensionality reduction
     FastICAModel: ExperimentConfig(
         model_class=FastICAModel,
-        model_params={"n_components": 50, "random_state": 42},  # Reduce from high dimensions
+        model_params={"n_components": 10, "random_state": 42},  # Reduce from high dimensions
     ),
     # Additional models for 10 experiments total
     GradientBoostingModel: ExperimentConfig(
         model_class=GradientBoostingModel,
         model_params={
-            "n_estimators": 10,  # Extremamente reduzido para alta dimensionalidade
+            "n_estimators": 20,  # Extremamente reduzido para alta dimensionalidade
             "random_state": 42,
             "max_depth": 5,  # Muito raso para evitar overfitting
             "learning_rate": 0.6,  # Learning rate maior para convergir mais rápido
@@ -197,16 +197,16 @@ LFW_PEOPLE_EXPERIMENTS = {
     ),
     RandomForestRegressorModel: ExperimentConfig(
         model_class=RandomForestRegressorModel,
-        model_params={"n_estimators": 50, "random_state": 42},  # Reduced for high-dim data
+        model_params={"n_estimators": 20, "random_state": 42},  # Reduced for high-dim data
     ),
     # Clustering for face analysis
     AgglomerativeClusteringModel: ExperimentConfig(
         model_class=AgglomerativeClusteringModel,
-        model_params={"n_clusters": 10},  # Multiple people clusters
+        model_params={"n_clusters": 3},  # Multiple people clusters
     ),
     MiniBatchKMeansModel: ExperimentConfig(
         model_class=MiniBatchKMeansModel,
-        model_params={"n_clusters": 10, "random_state": 42, "batch_size": 100},  # Face clustering
+        model_params={"n_clusters": 3, "random_state": 42, "batch_size": 100},  # Face clustering
     ),
     GaussianMixtureModel: ExperimentConfig(
         model_class=GaussianMixtureModel,
@@ -215,7 +215,7 @@ LFW_PEOPLE_EXPERIMENTS = {
     SpectralClusteringModel: ExperimentConfig(
         model_class=SpectralClusteringModel,
         model_params={
-            "n_clusters": 10,
+            "n_clusters": 3,
             "random_state": 42,
             "affinity": "nearest_neighbors",
             "n_neighbors": 10,
@@ -231,7 +231,7 @@ MAKE_MOONS_EXPERIMENTS = {
     SpectralClusteringModel: ExperimentConfig(
         model_class=SpectralClusteringModel,
         model_params={
-            "n_clusters": 2,
+            "n_clusters": 3,
             "random_state": 42,
             "affinity": "nearest_neighbors",
             "n_neighbors": 10,
@@ -241,33 +241,33 @@ MAKE_MOONS_EXPERIMENTS = {
     ),
     AgglomerativeClusteringModel: ExperimentConfig(
         model_class=AgglomerativeClusteringModel,
-        model_params={"n_clusters": 2},
+        model_params={"n_clusters": 3},
     ),
     MiniBatchKMeansModel: ExperimentConfig(
         model_class=MiniBatchKMeansModel,
-        model_params={"n_clusters": 2, "random_state": 42, "batch_size": 100},
+        model_params={"n_clusters": 3, "random_state": 42, "batch_size": 100},
     ),
     GaussianMixtureModel: ExperimentConfig(
         model_class=GaussianMixtureModel,
-        model_params={"n_components": 2, "random_state": 42},
+        model_params={"n_components": 10, "random_state": 42},
     ),
     # Classification algorithms to compare with clustering
     RandomForestClassifierModel: ExperimentConfig(
         model_class=RandomForestClassifierModel,
-        model_params={"n_estimators": 100, "random_state": 42},
+        model_params={"n_estimators": 20, "random_state": 42},
     ),
     MLPModel: ExperimentConfig(
         model_class=MLPModel,
-        model_params={"hidden_layer_sizes": (50,), "random_state": 42, "max_iter": 500},
+        model_params={"hidden_layer_sizes": (50,), "random_state": 42, "max_iter": 200},
     ),
     # Additional models for 10 experiments total
     GradientBoostingModel: ExperimentConfig(
         model_class=GradientBoostingModel,
-        model_params={"n_estimators": 50, "random_state": 42},  # Reduced for 2D dataset
+        model_params={"n_estimators": 20, "random_state": 42},  # Reduced for 2D dataset
     ),
     FastICAModel: ExperimentConfig(
         model_class=FastICAModel,
-        model_params={"n_components": 2, "random_state": 42},  # 2 components for 2D dataset
+        model_params={"n_components": 10, "random_state": 42},  # 10 components for 2D dataset
     ),
     RidgeModel: ExperimentConfig(
         model_class=RidgeModel,
@@ -275,7 +275,77 @@ MAKE_MOONS_EXPERIMENTS = {
     ),
     RandomForestRegressorModel: ExperimentConfig(
         model_class=RandomForestRegressorModel,
-        model_params={"n_estimators": 50, "random_state": 42},  # Reduced for 2D dataset
+        model_params={"n_estimators": 20, "random_state": 42},  # Reduced for 2D dataset
+    ),
+}
+
+
+# Registry of experiment configurations for the 20 Newsgroups dataset
+NEWSGROUPS_20_EXPERIMENTS = {
+    AgglomerativeClusteringModel: ExperimentConfig(
+        model_class=AgglomerativeClusteringModel,
+        model_params={"n_clusters": 20, "linkage": "ward"},
+        dataset_name=SklearnDatasetName.NEWSGROUPS_20,
+    ),
+    FastICAModel: ExperimentConfig(
+        model_class=FastICAModel,
+        model_params={"n_components": 10, "random_state": 42},
+        dataset_name=SklearnDatasetName.NEWSGROUPS_20,
+    ),
+    GaussianMixtureModel: ExperimentConfig(
+        model_class=GaussianMixtureModel,
+        model_params={"n_components": 10, "random_state": 42},
+        dataset_name=SklearnDatasetName.NEWSGROUPS_20,
+    ),
+    GradientBoostingModel: ExperimentConfig(
+        model_class=GradientBoostingModel,
+        model_params={"n_estimators": 20, "max_depth": 5, "learning_rate": 0.1, "random_state": 42},
+        dataset_name=SklearnDatasetName.NEWSGROUPS_20,
+    ),
+    MiniBatchKMeansModel: ExperimentConfig(
+        model_class=MiniBatchKMeansModel,
+        model_params={
+        "n_clusters": 20,
+        "random_state": 42,
+        "batch_size": 2048,
+        "max_iter": 200,
+        "n_init": 10,
+        "reassignment_ratio": 0.1,
+        "tol": 1e-3,
+    },
+        dataset_name=SklearnDatasetName.NEWSGROUPS_20,
+    ),
+    MLPModel: ExperimentConfig(
+        model_class=MLPModel,
+        model_params={"hidden_layer_sizes": (50,), "random_state": 42, "max_iter": 200, "alpha": 0.01},
+        dataset_name=SklearnDatasetName.NEWSGROUPS_20,
+    ),
+    RandomForestClassifierModel: ExperimentConfig(
+        model_class=RandomForestClassifierModel,
+        model_params={"n_estimators": 20, "max_depth": 5, "random_state": 42},
+        dataset_name=SklearnDatasetName.NEWSGROUPS_20,
+    ),
+    RandomForestRegressorModel: ExperimentConfig(
+        model_class=RandomForestRegressorModel,
+        model_params={"n_estimators": 20, "max_depth": 5, "random_state": 42},
+        dataset_name=SklearnDatasetName.NEWSGROUPS_20,
+    ),
+    RidgeModel: ExperimentConfig(
+        model_class=RidgeModel,
+        model_params={"alpha": 1.0, "random_state": 42},
+        dataset_name=SklearnDatasetName.NEWSGROUPS_20,
+    ),
+    SpectralClusteringModel: ExperimentConfig(
+        model_class=SpectralClusteringModel,
+        model_params={
+            "n_clusters": 3,
+            "random_state": 42,
+            "affinity": "rbf", 
+            "gamma": 0.1,
+            "assign_labels": "discretize",
+            "n_init": 1,
+        },
+        dataset_name=SklearnDatasetName.NEWSGROUPS_20,
     ),
 }
 
@@ -305,8 +375,12 @@ def run_experiment_by_name(
         registry = LFW_PEOPLE_EXPERIMENTS
     elif dataset_name == SklearnDatasetName.MAKE_MOONS:
         registry = MAKE_MOONS_EXPERIMENTS
-    else:
+    elif dataset_name == SklearnDatasetName.NEWSGROUPS_20:
+        registry = NEWSGROUPS_20_EXPERIMENTS
+    elif dataset_name == SklearnDatasetName.DIGITS:
         registry = DIGITS_EXPERIMENTS
+    else:
+        raise ValueError(f"Unsupported dataset: {dataset_name}")
 
     if experiment_name not in registry:
         available = ", ".join(registry.keys())
@@ -350,8 +424,12 @@ def run_experiment_by_model(
         registry = LFW_PEOPLE_EXPERIMENTS
     elif dataset_name == SklearnDatasetName.MAKE_MOONS:
         registry = MAKE_MOONS_EXPERIMENTS
+    elif dataset_name == SklearnDatasetName.NEWSGROUPS_20:
+        registry = NEWSGROUPS_20_EXPERIMENTS
     elif dataset_name == SklearnDatasetName.DIGITS:
         registry = DIGITS_EXPERIMENTS
+    else:
+        raise ValueError(f"Unsupported dataset: {dataset_name}")
 
     # Get configuration directly using model class as key
     if model_class not in registry:

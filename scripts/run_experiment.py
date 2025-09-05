@@ -10,12 +10,8 @@ from datetime import datetime
 from types import ModuleType
 from typing import List
 
-# Configure console logging only (no file by default)
-logging.basicConfig(
-    level=logging.INFO,
-    format="[%(asctime)s] [%(levelname)-8s] --- %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
+# Import custom logging setup (no basicConfig to avoid duplication)
+from smart_inference_ai_fusion.utils.logging import logger
 
 
 def save_error_to_log(module_name: str, error_message: str, full_traceback: str):
@@ -83,13 +79,13 @@ def execute_module(module_name: str) -> tuple[bool, str]:
         tuple[bool, str]: (success_status, error_log_file_path_if_failed)
     """
     try:
-        logging.info("▶️  Executing module: %s", module_name)
+        logger.info("▶️  Executing module: %s", module_name)
         runpy.run_module(module_name, run_name="__main__")
         return True, ""
     except Exception as e:
         # Log error to console as before
-        logging.error("❌ Failed to execute module: %s", module_name)
-        logging.exception(e)
+        logger.error("❌ Failed to execute module: %s", module_name)
+        logger.exception(e)
         
         # Capture full traceback for file logging
         import traceback
@@ -98,7 +94,7 @@ def execute_module(module_name: str) -> tuple[bool, str]:
         
         # Save error details to file
         error_log_file = save_error_to_log(module_name, error_message, full_traceback)
-        logging.error("💾 Error details saved to: %s", error_log_file)
+        logger.error("💾 Error details saved to: %s", error_log_file)
         
         return False, error_log_file
 
@@ -115,7 +111,7 @@ def discover_submodules(module: ModuleType) -> List[str]:
     if not hasattr(module, "__path__"):
         return []
 
-    logging.info("📦 '%s' is a package, discovering sub-modules...", module.__name__)
+    logger.info("📦 '%s' is a package, discovering sub-modules...", module.__name__)
     sub_modules = [
         info.name for info in pkgutil.iter_modules(module.__path__, module.__name__ + '.')
     ]
@@ -138,11 +134,11 @@ def main() -> int:
     failed_experiments = []  # Track which experiments failed
     error_log_files = []  # Track error log files created
 
-    logging.info("🔎 Importing target: '%s'", args.target)
+    logger.info("🔎 Importing target: '%s'", args.target)
     try:
         target_module = importlib.import_module(args.target)
     except ImportError as e:
-        logging.error("❌ Could not import target '%s': %s", args.target, e)
+        logger.error("❌ Could not import target '%s': %s", args.target, e)
         return 1
 
     # Determine which modules to run
@@ -159,29 +155,29 @@ def main() -> int:
             if error_log_file:
                 error_log_files.append(error_log_file)
             if args.fail_fast:
-                logging.error("🔥 --fail-fast enabled. Halting execution.")
+                logger.error("🔥 --fail-fast enabled. Halting execution.")
                 break
     
     # --- Final Report ---
-    logging.info("-" * 60)
-    logging.info("🏁 Execution Summary:")
-    logging.info("   Total experiments executed: %d", total_modules)
-    logging.info("   ✅ Succeeded: %d", succeeded_count)
+    logger.info("-" * 60)
+    logger.info("🏁 Execution Summary:")
+    logger.info("   Total experiments executed: %d", total_modules)
+    logger.info("   ✅ Succeeded: %d", succeeded_count)
     
     # Enhanced failed experiments report
     if failed_experiments:
         failed_list = ", ".join(failed_experiments)
-        logging.info("   ❌ Failed: %d (%s)", failed_count, failed_list)
+        logger.info("   ❌ Failed: %d (%s)", failed_count, failed_list)
         
         # Show error log files created
         if error_log_files:
-            logging.info("   💾 Error logs saved:")
+            logger.info("   💾 Error logs saved:")
             for log_file in error_log_files:
-                logging.info("      - %s", log_file)
+                logger.info("      - %s", log_file)
     else:
-        logging.info("   ❌ Failed: %d", failed_count)
+        logger.info("   ❌ Failed: %d", failed_count)
     
-    logging.info("-" * 60)
+    logger.info("-" * 60)
 
 
     return 1 if failed_count > 0 else 0

@@ -3,6 +3,7 @@
 from typing import Tuple
 
 from sklearn.datasets import (
+    fetch_20newsgroups_vectorized,
     fetch_lfw_people,
     load_breast_cancer,
     load_digits,
@@ -11,7 +12,8 @@ from sklearn.datasets import (
     make_moons,
 )
 from sklearn.model_selection import train_test_split
-
+from sklearn.decomposition import TruncatedSVD
+from sklearn.feature_selection import SelectKBest, chi2
 from smart_inference_ai_fusion.core.base_dataset import BaseDataset
 from smart_inference_ai_fusion.utils.types import SklearnDatasetName
 
@@ -44,7 +46,28 @@ class SklearnDatasetLoader(BaseDataset):
             SklearnDatasetName.DIGITS: load_digits,
             SklearnDatasetName.LFW_PEOPLE: self._load_lfw_people,
             SklearnDatasetName.MAKE_MOONS: self._load_make_moons,
+            SklearnDatasetName.NEWSGROUPS_20: self._load_newsgroups_20,
         }
+
+    def _load_newsgroups_20(self):
+        """Load the 20 Newsgroups dataset with dimensionality reduction to avoid OOM.
+
+        Returns:
+            Bunch object with data and target attributes.
+        """
+        data = fetch_20newsgroups_vectorized(subset="all")
+
+        # Apply feature selection first to reduce memory usage
+        # Select top 5000 features using chi2
+        selector = SelectKBest(chi2, k=min(5000, data.data.shape[1]))
+        x_selected = selector.fit_transform(data.data, data.target)
+
+        # Apply TruncatedSVD for further dimensionality reduction
+        # Reduce to 200 components (manageable for clustering)
+        svd = TruncatedSVD(n_components=min(200, x_selected.shape[1]), random_state=42)
+        x_reduced = svd.fit_transform(x_selected)
+
+        return type("Bunch", (), {"data": x_reduced, "target": data.target})()
 
     def load_data(self) -> Tuple:
         """Loads the dataset and returns the train/test split.

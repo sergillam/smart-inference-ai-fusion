@@ -44,6 +44,7 @@ class SklearnDatasetName(Enum):
         DIGITS: Handwritten digits dataset.
         LFW_PEOPLE: Labeled Faces in the Wild people dataset.
         MAKE_MOONS: Synthetic make_moons dataset for clustering.
+        NEWSGROUPS_20: 20 Newsgroups text classification dataset.
     """
 
     IRIS = "iris"
@@ -52,6 +53,7 @@ class SklearnDatasetName(Enum):
     DIGITS = "digits"
     LFW_PEOPLE = "lfw_people"
     MAKE_MOONS = "make_moons"
+    NEWSGROUPS_20 = "newsgroups_20"
 
 
 class DataNoiseConfig(BaseModel):

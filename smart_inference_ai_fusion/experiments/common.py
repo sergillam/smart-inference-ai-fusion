@@ -37,8 +37,8 @@ from smart_inference_ai_fusion.utils.types import (
 )
 
 
-def _create_random_forest_label_config() -> LabelNoiseConfig:
-    """Create custom label configuration for RandomForestClassifier.
+def _create_classification_label_config() -> LabelNoiseConfig:
+    """Create custom label configuration for classification models.
 
     Removes flip_near_border_fraction to avoid convergence issues.
     """
@@ -47,6 +47,30 @@ def _create_random_forest_label_config() -> LabelNoiseConfig:
         partial_label_fraction=0.1,
         swap_within_class_fraction=0.1,
     )
+
+
+def _create_random_forest_label_config() -> LabelNoiseConfig:
+    """Create custom label configuration for RandomForestClassifier.
+
+    Removes flip_near_border_fraction to avoid convergence issues.
+    """
+    return _create_classification_label_config()
+
+
+def _create_mlp_label_config() -> LabelNoiseConfig:
+    """Create custom label configuration for MLPModel.
+
+    Uses same configuration as other classification models.
+    """
+    return _create_classification_label_config()
+
+
+def _create_gradient_boosting_label_config() -> LabelNoiseConfig:
+    """Create custom label configuration for GradientBoostingModel.
+
+    Uses same configuration as other classification models.
+    """
+    return _create_classification_label_config()
 
 
 def _create_random_forest_regressor_label_config() -> LabelNoiseConfig:
@@ -98,10 +122,10 @@ MODEL_CONFIG_OVERRIDES: Dict[Type[BaseModel], Dict[str, Callable]] = {
         "label_config": _create_random_forest_label_config,
     },
     MLPModel: {
-        "label_config": _create_random_forest_label_config,  # Same as classifier
+        "label_config": _create_mlp_label_config,
     },
     GradientBoostingModel: {
-        "label_config": _create_random_forest_label_config,  # Same as classifier
+        "label_config": _create_gradient_boosting_label_config,
     },
     # Regression models (no predict_proba)
     RandomForestRegressorModel: {
