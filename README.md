@@ -29,6 +29,10 @@ Um framework modular e extensível para experimentos de inferência sintética e
 └── tests/                       # Testes unitários do framework
 ```
 
+- **MLPModel**: Otimizado para datasets grandes (NEWSGROUPS_20) com arquiteturas simplificadas e early stopping
+- **Paralelização Inteligente**: `n_jobs=-1` automático quando aplicável, com proteção contra valores inválidos
+- **Configurações Adaptativas**: Parâmetros ajustados automaticamente baseados no dataset (alta dimensionalidade vs. poucos samples)
+
 ## 🚀 Guia de Instalação e Execução
 ### Este guia assume que você está em um ambiente `Linux` ou `MacOS`.
 #### **Pré-requisitos**:
@@ -79,14 +83,14 @@ Use `make run` para executar os scripts. A variável `EXP` define o alvo.
     
     Roda todos os experimentos de um diretório específico.
     ```bash
-    make run EXP=smart_inference_ai_fusion.experiments.name_data_set
+    make run EXP=name_data_set
     ```
 
 3. **Executar um Único Experimentos**
     
     Roda um único arquivo de experimento.
     ```bash
-    make run EXP=smart_inference_ai_fusion.experiments.name_data_set.name_experiments
+    make run EXP=name_data_set.name_experiments
     ```
 
 4. **Passando Argumentos para os Scripts**
@@ -107,11 +111,35 @@ Use `make run` para executar os scripts. A variável `EXP` define o alvo.
 
 O `Makefile` inclui vários comandos para garantir a qualidade e a manutenção do código.
 
+**Comandos de Qualidade de Código:**
 - `make check`: Roda todas as verificações de qualidade (formatação, linting e estilo de docstrings).
-- `make format`: Formata o código automaticamente.
-- `make test`: Roda a suíte de testes unitários.
+- `make format`: Formata o código automaticamente com `black` e `isort`.
+- `make check-format`: Verifica formatação sem fazer alterações.
+- `make lint`: Executa análise de código com `pylint`.
+- `make style`: Verifica docstrings no estilo Google.
+- `make test`: Roda a suíte de testes unitários com `pytest`.
+
+**Comandos de Limpeza:**
+- `make clean`: Remove arquivos de cache e build do Python.
 - `make clean-outputs`: Limpa as pastas de `logs` e `results` (útil para garantir uma execução limpa).
+- `make clean-pyc`: Remove apenas arquivos de bytecode Python.
+- `make clean-all`: Executa todas as tarefas de limpeza.
+- `make clean-venv`: Remove o ambiente virtual `.venv`.
+
+**Comandos de Dependências:**
+- `make compile-reqs`: Gera `requirements.txt` a partir do `pyproject.toml`.
+- `make compile-reqs-dev`: Gera `requirements-dev.txt` (inclui dependências de desenvolvimento).
+- `make freeze`: Gera `requirements-freeze.txt` (snapshot do ambiente atual).
+
+**Comandos de CI/CD:**
+- `make ci`: Executa o pipeline completo (qualidade, testes e execução).
+- `make build`: Constrói pacotes wheel e sdist.
+- `make publish`: Publica no TestPyPI.
+- `make publish-prod`: Publica no PyPI oficial.
+
+**Utilitários:**
 - `make help`: Lista todos os comandos disponíveis e o que eles fazem.
+- `make print-VARIAVEL`: Debug de variáveis do Makefile (ex: `make print-PKG`).
 
 #### **Instalação Manual (Alternativa)**
 Para usuários de `Windows` ou que não desejam usar `make`.
