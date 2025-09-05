@@ -379,6 +379,15 @@ MAKE_MOONS_EXPERIMENTS = {
             "min_samples_split": 5,
         },  # Simple for 2D data
     ),
+    RandomForestRegressorModel: ExperimentConfig(
+        model_class=RandomForestRegressorModel,
+        model_params={
+            "n_estimators": 100,
+            "max_depth": 5,
+            "random_state": 42,
+            "min_samples_split": 5,
+        },  # Simple for 2D data
+    ),
     MLPModel: ExperimentConfig(
         model_class=MLPModel,
         model_params={
@@ -472,40 +481,46 @@ NEWSGROUPS_20_EXPERIMENTS = {
     MLPModel: ExperimentConfig(
         model_class=MLPModel,
         model_params={
-            "hidden_layer_sizes": (100, 50),
+            "hidden_layer_sizes": (64,),  # Rede mais simples para texto
             "random_state": 42,
-            "max_iter": 200,
-            "alpha": 0.01,
-        },  # Deep for text classification
+            "max_iter": 50,  # Reduzido drasticamente para velocidade
+            "alpha": 0.1,  # Maior regularização para evitar overfitting
+            "solver": "adam",  # Otimizador Adam (mais eficiente)
+            "learning_rate": "adaptive",  # Taxa de aprendizado adaptativa
+        },  # Otimizado para texto (sem early_stopping para evitar erro de tipo)
         dataset_name=SklearnDatasetName.NEWSGROUPS_20,
     ),
     RandomForestClassifierModel: ExperimentConfig(
         model_class=RandomForestClassifierModel,
         model_params={
-            "n_estimators": 100,
-            "max_depth": 15,
+            "n_estimators": 50,  # Reduzido para velocidade em texto
+            "max_depth": 10,  # Menos profundo para evitar overfitting
             "random_state": 42,
-            "min_samples_split": 5,
-        },  # Deep for text features
+            "min_samples_split": 10,  # Maior para reduzir complexidade
+            "max_features": "sqrt",  # Reduz features por árvore
+            "n_jobs": -1,  # Paralelização para velocidade
+        },  # Otimizado para texto de alta dimensionalidade
         dataset_name=SklearnDatasetName.NEWSGROUPS_20,
     ),
     RandomForestRegressorModel: ExperimentConfig(
         model_class=RandomForestRegressorModel,
         model_params={
-            "n_estimators": 100,
-            "max_depth": 15,
+            "n_estimators": 50,  # Reduzido para velocidade
+            "max_depth": 10,  # Controlado para texto
             "random_state": 42,
-            "min_samples_split": 5,
-        },
+            "min_samples_split": 10,  # Maior para simplicidade
+            "max_features": "sqrt",  # Reduz features por árvore
+        },  # Otimizado para regressão em texto (sem n_jobs para evitar erro)
         dataset_name=SklearnDatasetName.NEWSGROUPS_20,
     ),
     RidgeModel: ExperimentConfig(
         model_class=RidgeModel,
         model_params={
-            "alpha": 10.0,
+            "alpha": 50.0,  # Regularização ainda maior para texto
             "random_state": 42,
-            "max_iter": 2000,
-        },  # Higher regularization for text
+            "max_iter": 1000,  # Reduzido de 2000 para velocidade
+            "solver": "saga",  # Solver compatível para classificação
+        },  # Regularização forte para alta dimensionalidade
         dataset_name=SklearnDatasetName.NEWSGROUPS_20,
     ),
     SpectralClusteringModel: ExperimentConfig(
@@ -513,10 +528,11 @@ NEWSGROUPS_20_EXPERIMENTS = {
         model_params={
             "n_clusters": 8,  # Balanced for text topics
             "random_state": 42,
-            "affinity": "rbf",  # Suitable for dense text features
-            "gamma": 0.1,  # Conservative gamma for text
-            "assign_labels": "kmeans",  # Stable assignment for text
-        },
+            "affinity": "nearest_neighbors",  # Mais eficiente que RBF para texto
+            "n_neighbors": 5,  # Reduzido para velocidade
+            "assign_labels": "kmeans",  # Mantém estável
+            "n_jobs": -1,  # Paralelização quando possível
+        },  # Otimizado para clustering de texto de alta dimensão
         dataset_name=SklearnDatasetName.NEWSGROUPS_20,
     ),
 }

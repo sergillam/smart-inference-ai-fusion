@@ -3,6 +3,8 @@
 import logging
 import random
 
+from smart_inference_ai_fusion.utils.report import ReportMode, report_data
+
 from .base import ParameterTransformation
 
 logger = logging.getLogger(__name__)
@@ -56,54 +58,104 @@ class StringMutator(ParameterTransformation):
             # Use parameter-specific options if available
             self.options = self.PARAMETER_OPTIONS.get(key, ["gini", "entropy", "log_loss"])
 
+    def _handle_max_features_protection(self, params: dict, current) -> dict:
+        """Handle GradientBoosting max_features protection."""
+        gb_indicators = {"learning_rate", "subsample", "n_estimators"}
+        if any(indicator in params for indicator in gb_indicators):
+            safe_options = ["sqrt", "log2", None]
+            if current not in safe_options:
+                new_value = random.choice(safe_options)
+                logger.warning(
+                    "🧪 SCIENTIFIC PROTECTION: GradientBoosting detected, using safe "
+                    "max_features '%s' -> '%s' (preventing InvalidParameterError)",
+                    current,
+                    new_value,
+                )
+                params[self.key] = new_value
+                return params
+        return None
+
+    def _handle_solver_protection(self, params: dict, current) -> dict:
+        """Handle MLPClassifier and RidgeClassifier solver protection."""
+        # MLPClassifier has hidden_layer_sizes (unique identifier)
+        if "hidden_layer_sizes" in params:
+            safe_options = ["adam", "lbfgs", "sgd"]
+            if current not in safe_options:
+                new_value = random.choice(safe_options)
+                report_data(
+                    f"🧪 SCIENTIFIC PROTECTION: MLPClassifier detected, using safe "
+                    f"solver '{current}' -> '{new_value}' (preventing InvalidParameterError)",
+                    mode=ReportMode.PRINT,
+                )
+                params[self.key] = new_value
+                return params
+        # RidgeClassifier detection (has alpha but NOT hidden_layer_sizes)
+        elif "alpha" in params and "hidden_layer_sizes" not in params:
+            safe_options = ["saga", "lbfgs", "auto", "svd", "cholesky", "sag", "lsqr", "sparse_cg"]
+            if current not in safe_options:
+                new_value = random.choice(safe_options)
+                report_data(
+                    f"🧪 SCIENTIFIC PROTECTION: RidgeClassifier detected, using safe "
+                    f"solver '{current}' -> '{new_value}' (preventing InvalidParameterError)",
+                    mode=ReportMode.PRINT,
+                )
+                params[self.key] = new_value
+                return params
+            # Valid MLP solver, allow mutation within safe options
+            choices = [opt for opt in safe_options if opt != current]
+            if choices:
+                new_value = random.choice(choices)
+                report_data(
+                    f"🧪 SCIENTIFIC PERTURBATION: Applying MLP solver mutation "
+                    f"solver='{current}' -> '{new_value}' (testing robustness)",
+                    mode=ReportMode.PRINT,
+                )
+                params[self.key] = new_value
+                return params
+        # For non-MLP models with solver param, skip mutation to avoid confusion
+        return params
+
     def apply(self, params: dict) -> dict:
-        """Mutates the value of the string hyperparameter if present.
+        """Apply string mutation to hyperparameters.
 
         Args:
-            params (dict): Model hyperparameters.
+            params (dict): Dictionary of model hyperparameters.
 
         Returns:
-            dict: Updated hyperparameters with the mutated value, if applicable.
+            dict: Modified hyperparameters with mutations applied.
         """
-        if self.key in params and isinstance(params[self.key], str) and self.options:
-            current = params[self.key]
+        current = params.get(self.key)
+        if current is None or not isinstance(current, str):
+            return params
 
-            # 🧪 SCIENTIFIC PROTECTION: GradientBoosting max_features compatibility
-            if self.key == "max_features":
-                # Check if this looks like a GradientBoosting context
-                gb_indicators = {"learning_rate", "subsample", "n_estimators"}
-                if any(indicator in params for indicator in gb_indicators):
-                    # Use GradientBoosting-safe max_features only
-                    safe_options = ["sqrt", "log2", None]
-                    if current not in safe_options:
-                        new_value = random.choice(safe_options)
-                        logger.warning(
-                            "🧪 SCIENTIFIC PROTECTION: GradientBoosting detected, using safe "
-                            "max_features '%s' -> '%s' (preventing InvalidParameterError)",
-                            current,
-                            new_value,
-                        )
-                        params[self.key] = new_value
-                        return params
+        # Apply specific protections
+        if self.key == "max_features":
+            result = self._handle_max_features_protection(params, current)
+            if result is not None:
+                return result
 
-            # Only mutate if current value is in our known options
-            if current in self.options:
-                choices = [opt for opt in self.options if opt != current]
-                if choices:
-                    new_value = random.choice(choices)
-                    params[self.key] = new_value
-            else:
-                # Scientific interest: apply potentially invalid mutations
-                if self.options:
-                    new_value = random.choice(self.options)
-                    logger.warning(
-                        "🧪 SCIENTIFIC PERTURBATION: Applying potentially invalid mutation "
-                        "%s='%s' -> '%s' (testing robustness to invalid parameters)",
-                        self.key,
-                        current,
-                        new_value,
-                    )
-                    params[self.key] = new_value
+        if self.key == "solver":
+            return self._handle_solver_protection(params, current)
+
+        # Standard mutation logic
+        if current in self.options:
+            choices = [opt for opt in self.options if opt != current]
+            if choices:
+                new_value = random.choice(choices)
+                params[self.key] = new_value
+        else:
+            # Scientific interest: apply potentially invalid mutations
+            if self.options:
+                new_value = random.choice(self.options)
+                logger.warning(
+                    "🧪 SCIENTIFIC PERTURBATION: Applying potentially invalid mutation "
+                    "%s='%s' -> '%s' (testing robustness to invalid parameters)",
+                    self.key,
+                    current,
+                    new_value,
+                )
+                params[self.key] = new_value
+
         return params
 
     @staticmethod

@@ -1,5 +1,7 @@
 """Parameter transformation that performs semantic-level replacements for string hyperparameters."""
 
+from smart_inference_ai_fusion.utils.report import ReportMode, report_data
+
 from .base import ParameterTransformation
 
 
@@ -54,19 +56,90 @@ class SemanticMutation(ParameterTransformation):
         """
         self.key = key
 
-    def apply(self, params: dict) -> str | None:
-        """Applies the semantic mutation to the parameter if defined in SEMANTIC_MAP.
+    def apply(self, params: dict) -> str:
+        """Apply semantic mutation to a string parameter.
 
         Args:
-            params (dict): Dictionary of model hyperparameters.
+            params (dict): Dictionary containing all parameters.
 
         Returns:
-            str | None: The mutated value if applicable, otherwise None.
+            str or None: The mutated value or None if not applicable.
         """
-        value = params.get(self.key)
-        if value in self.SEMANTIC_MAP.get(self.key, {}):
-            return self.SEMANTIC_MAP[self.key][value]
+        if self.key not in params:
+            return None
+
+        value = params[self.key]
+        if not isinstance(value, str) or self.key not in self.SEMANTIC_MAP:
+            return None
+
+        # Handle solver protection for specific models
+        if self.key == "solver":
+            return self._handle_solver_mutation(params, value)
+
+        # Standard semantic mutation for other parameters
+        return self._apply_standard_mutation(value)
+
+    def _handle_solver_mutation(self, params: dict, value: str) -> str | None:
+        """Handle model-specific solver mutation.
+
+        Args:
+            params (dict): Dictionary containing all parameters.
+            value (str): Current solver value.
+
+        Returns:
+            str | None: New solver value or None.
+        """
+        # MLPClassifier has hidden_layer_sizes (unique identifier)
+        if "hidden_layer_sizes" in params:
+            mlp_solvers = {"adam": "lbfgs", "lbfgs": "sgd", "sgd": "adam"}
+            if value in mlp_solvers:
+                new_value = mlp_solvers[value]
+                report_data(
+                    f"🧪 SCIENTIFIC PERTURBATION: Applying MLP semantic mutation "
+                    f"solver='{value}' -> '{new_value}' (testing algorithmic robustness)",
+                    mode=ReportMode.PRINT,
+                )
+                return new_value
+            return None
+
+        # RidgeClassifier detection (has alpha but NOT hidden_layer_sizes)
+        if "alpha" in params and "hidden_layer_sizes" not in params:
+            ridge_solvers = {"saga": "lbfgs", "lbfgs": "auto", "auto": "svd", "svd": "saga"}
+            if value in ridge_solvers:
+                new_value = ridge_solvers[value]
+                report_data(
+                    f"🧪 SCIENTIFIC PERTURBATION: Applying Ridge semantic mutation "
+                    f"solver='{value}' -> '{new_value}' (testing algorithmic robustness)",
+                    mode=ReportMode.PRINT,
+                )
+                return new_value
+            return None
+
+        # For other models, return None
         return None
+
+    def _apply_standard_mutation(self, value: str) -> str | None:
+        """Apply standard semantic mutation.
+
+        Args:
+            value (str): Current parameter value.
+
+        Returns:
+            str | None: New parameter value or None.
+        """
+        if value not in self.SEMANTIC_MAP[self.key]:
+            return None
+
+        new_value = self.SEMANTIC_MAP[self.key][value]
+
+        # Add scientific perturbation message for solver changes
+        if self.key == "solver":
+            report_data(
+                f"🧪 SCIENTIFIC PERTURBATION: Applying semantic mutation "
+                f"solver='{value}' -> '{new_value}' (testing algorithmic robustness)",
+                mode=ReportMode.PRINT,
+            )
+        return new_value
 
     @staticmethod
     def supports(value) -> bool:

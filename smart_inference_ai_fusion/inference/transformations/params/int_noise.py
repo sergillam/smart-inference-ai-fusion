@@ -3,6 +3,8 @@
 import logging
 import random
 
+from smart_inference_ai_fusion.utils.report import ReportMode, report_data
+
 from .base import ParameterTransformation
 
 logger = logging.getLogger(__name__)
@@ -47,8 +49,26 @@ class IntegerNoise(ParameterTransformation):
             "alpha": (0.0, float("inf")),  # Regularization parameters must be positive
         }
 
+        # 🧪 SCIENTIFIC PROTECTION: Parameters that should not get integer noise
+        protected_int_params = {
+            "n_jobs",  # n_jobs=0 is invalid, only -1, 1, 2, ... are valid
+            "n_clusters",  # n_clusters must be >= 1
+            "n_components",  # n_components must be >= 1
+            "n_estimators",  # n_estimators must be >= 1
+            "max_depth",  # max_depth must be >= 1 or None
+        }
+
         if self.key in params and isinstance(params[self.key], (int, float)):
             original_value = params[self.key]
+
+            # Check if this is a protected integer parameter
+            if self.key in protected_int_params:
+                report_data(
+                    f"🧪 SCIENTIFIC PROTECTION: Parameter {self.key}={original_value} "
+                    f"is protected from integer noise (avoiding invalid values)",
+                    mode=ReportMode.PRINT,
+                )
+                return params
 
             # Check if this is a float parameter that should not get integer noise
             if self.key in float_range_params:
