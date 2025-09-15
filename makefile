@@ -199,6 +199,29 @@ publish-prod: build ## Publishes the package to the official PyPI repository
 
 deploy: publish ## Alias for the 'publish' command
 
+# -------- Formal Verification --------
+verify-install: venv ## Install formal verification dependencies
+	@echo "🔧 Installing formal verification dependencies..."
+	$(PIP) install z3-solver
+	@echo "✅ Formal verification dependencies installed."
+
+verify-test: venv ## Test formal verification system
+	@echo "🧪 Testing formal verification system..."
+	PYTHONPATH=$(PWD) $(PY) scripts/test_formal_verification.py
+
+verify-z3: verify-install ## Test Z3 capabilities specifically
+	@echo "🧠 Testing Z3 SMT solver capabilities..."
+	PYTHONPATH=$(PWD) $(PY) scripts/test_formal_verification.py
+
+verify-list: venv ## List available formal verifiers
+	@echo "📋 Listing formal verification plugins..."
+	PYTHONPATH=$(PWD) $(PY) -c "\
+from smart_inference_ai_fusion.verification import list_verifiers; \
+verifiers = list_verifiers(); \
+print('Available Formal Verifiers:'); \
+[print(f'  {name}: {\"🟢 Available\" if info[\"available\"] else \"🔴 Unavailable\"}, {\"✅ Enabled\" if info[\"enabled\"] else \"❌ Disabled\"}') for name, info in verifiers.items()]; \
+"
+
 # --- Internal Utility ---
 # Utility for debugging make variables (e.g., make print-PKG)
 print-%:
