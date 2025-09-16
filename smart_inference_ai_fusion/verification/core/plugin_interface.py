@@ -100,7 +100,19 @@ class FormalVerifier(ABC):
             return False
         
         supported = self.supported_constraints()
-        return any(constraint_type in supported for constraint_type in constraints.keys())
+        constraint_keys = list(constraints.keys())
+        can_verify_result = any(constraint_type in supported for constraint_type in constraint_keys)
+        
+        # DEBUG: Log para debugging
+        if self.name == "Z3":
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"Z3 can_verify DEBUG:")
+            logger.info(f"  - Constraints recebidas: {constraint_keys}")
+            logger.info(f"  - Constraints suportadas: {supported}")
+            logger.info(f"  - Pode verificar: {can_verify_result}")
+        
+        return can_verify_result
 
 
 class VerifierRegistry:

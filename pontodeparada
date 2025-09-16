@@ -4,7 +4,50 @@ Melhorias
 remover os warnings 
 :# pylint: disable=duplicate-code (models e experiments)
 :# pylint: disable=too-many-positional-arguments(inferencia)
+----------------------
+PONTOS A CORRIGIR
+Pontos Válidos Mencionados:
+Corrigir constraints bounds e range_check - ✅ Válido
+Adicionar mais constraints específicos - ✅ Válido
+Melhorar formato dos relatórios - ✅ Válido
+Contra prova - ✅ Válido (implementar verificação de contra-exemplos)
+📋 Lista Completa de Melhorias Identificadas:
+🔧 Correções Técnicas
+ Corrigir constraints bounds e range_check para aceitar dados estruturados
+ Remover warnings pylint (duplicate-code, too-many-positional-arguments)
+ Implementar contra-prova/contra-exemplos no Z3
+ Corrigir imports faltantes (logging em formal_verification.py)
+📊 Verificação Formal
+ Adicionar constraints específicos (invariantes, pré/pós-condições)
+ Melhorar formato dos relatórios de verificação
+ Implementar verificação de propriedades de modelo
+ Adicionar outros solvers (CVC5, Yices)
+ Implementar verificação de robustez
+🤖 Algoritmos
+ Implementar algoritmos supervisionados (Random Forest, GBDT, MLP, Ridge)
+ Implementar algoritmos não supervisionados (Mini-Batch k-Means, Spectral, GMM, Agglomerative, FastICA)
+ Adicionar novos datasets (California Housing, LFW People, Make Moons)
+📚 Documentação
+ Atualizar README.md (PT/EN)
+ Documentar sistema de verificação formal
+ Criar guias de uso para novos algoritmos
+ Documentar arquitetura de plugins
+🧪 Testes
+ Implementar testes unitários para verificação formal
+ Testes para novos algoritmos
+ Testes de integração do pipeline
+ Testes de performance
+📝 Pesquisa
+ Iniciar artigo 2
+ Escrever artigo sobre verificação formal em ML
+ Análise comparativa de algoritmos
+⚡ Performance & UX
+ Otimizar tempo de verificação Z3
+ Melhorar logs e relatórios
+ Adicionar barra de progresso
+ Cache de resultados de verificação
 
+----------------------
 
 Iniciar artigo 2
 

@@ -1,41 +1,41 @@
 # ===========================
-# smart-inference-ai-fusion - Makefile
+# Smart Inference AI Fusion - Makefile
 # ===========================
 .SHELLFLAGS := -eu -o pipefail -c
 SHELL := /bin/bash
 .ONESHELL:
 
 # -------- Variables --------
-PKG              ?= smart_inference_ai_fusion
-SRC_DIR          ?= $(PKG)
-TESTS_DIR        ?= tests
-VENV             ?= .venv
-LOGS_DIR         ?= logs
-RESULTS_DIR      ?= results
+PYTHON := python3
+VENV_DIR := .venv
+VENV_BIN := $(VENV_DIR)/bin
+PIP := $(VENV_BIN)/pip
+PYTHON_VENV := $(VENV_BIN)/python
+PKG_NAME := smart_inference_ai_fusion
+SRC_DIR := $(PKG_NAME)
+MAIN_MODULE := $(PKG_NAME).experiments
+PYTHONPATH := .
+REQUIREMENTS_DEV := requirements-dev.txt
+REQUIREMENTS_FREEZE := requirements-freeze.txt
 
-# Prioritizes python3.10, falls back to python3
-PYTHON_310       := $(shell command -v python3.10 2>/dev/null || true)
-PYTHON           ?= $(if $(PYTHON_310),$(PYTHON_310),python3)
+# Set DIST_DIR based on PyPI target
+ifeq ($(PYPI_TARGET),prod)
+DIST_DIR := pypi-prod
+else
+DIST_DIR := pypi-test
+endif
 
-# Venv binaries
-PY               := $(VENV)/bin/python
-PIP              := $(VENV)/bin/pip
+# Set verification environment variables
+VERIFICATION_ENABLED ?= false
+VERIFICATION_STRICT ?= false
+LOG_LEVEL ?= INFO
 
-# Allows passing arguments: make run ARGS="--dataset digits"
-ARGS            ?=
+# Get the current user's primary group
+USER_GROUP := $(shell id -gn)
 
-# Configurable flags
-LINT_PATHS       ?= $(SRC_DIR) $(TESTS_DIR)
-PYLINT_ARGS      ?=
-PYDOCSTYLE_ARGS  ?= --convention=google
-PYTEST_ARGS      ?=
-
-.DEFAULT_GOAL := help
-.PHONY: help venv ensure-venv-py310 install install-dev uninstall run debug \
-        lint style check test clean clean-pyc clean-all clean-venv \
-        freeze compile-reqs compile-reqs-dev ci print-% \
-        build publish publish-prod deploy check-clean check-version default \
-        format check-format clean-outputs
+# Experiment settings
+EXP ?= wine
+ARGS ?=
 
 # -------- Help (Self-documenting) --------
 help: ## Shows this help message
@@ -44,185 +44,255 @@ help: ## Shows this help message
 	@echo "======================================"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2}'
 	@echo ""
-	@echo "🔹 Tip: You don't need to 'activate' the venv to use 'make' — targets use .venv automatically."
-	@echo "🔹 Ex.: make run EXP=$(PKG).experiments.digits ARGS=\"--seed 42\""
-
+	@echo "🔹 Installation options:"
+	@echo "   make install              # Basic runtime dependencies"
+	@echo "   make install-dev          # Development dependencies"  
+	@echo "   make install-verification # Verification support (Z3)"
+	@echo "   make install-full         # Everything (dev + verification)"
+	@echo ""
+	@echo "🔹 Basic usage:"
+	@echo "   make run                    # Normal experiments"
+	@echo "   make run EXP=wine           # Specific dataset experiments"
+	@echo ""
+	@echo "🔍 Formal Verification:"
+	@echo "   make run-verification       # Run with verification enabled"
+	@echo "   make verification-example   # Run verification integration example"
+	@echo "   make verify-example         # Run env-based verification example"
+	@echo "   make verify-all            # Run with strict verification"
+	@echo ""
+	@echo "🔹 Tip: Targets automatically set up venv and install dependencies."
 
 # -------- Environment Setup --------
 venv: ## Creates and prepares the virtualenv using $(PYTHON)
-	@if [ ! -d "$(VENV)" ]; then \
-		echo "🐍 Creating venv with $(PYTHON) in $(VENV)"; \
-		"$(PYTHON)" -m venv "$(VENV)"; \
+	@echo "🔧 Setting up Python virtual environment..."
+	@if [ ! -d "$(VENV_DIR)" ]; then \
+		$(PYTHON) -m venv $(VENV_DIR); \
+		echo "✅ Virtual environment created at $(VENV_DIR)"; \
+	else \
+		echo "✅ Virtual environment already exists"; \
 	fi
-	@echo "✅ venv ready in $(VENV)"
-	@$(PIP) --version >/dev/null
+	@$(PIP) install --upgrade pip setuptools wheel
+	@echo "✅ Virtual environment ready"
 
-ensure-venv-py310: ## Checks if the venv is running on Python 3.10
-	@v="$$( $(PY) -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")' )"; \
-	if [ "$$v" != "3.10" ]; then \
-		echo "❌ The venv is not Python 3.10 (current: $$v). Recreate it with: python3.10 -m venv .venv"; \
-		exit 2; \
-	fi
-
-# -------- Installation --------
 install: venv ## Installs runtime dependencies from pyproject.toml
-	@echo "📦 Installing package for RUNTIME..."
-	$(PIP) install --upgrade pip setuptools wheel
-	$(PIP) install -e .
-	@echo "✅ Runtime installation complete."
+	@echo "📦 Installing runtime dependencies..."
+	@if ! $(PIP) show $(PKG_NAME) > /dev/null 2>&1; then \
+		$(PIP) install -e .; \
+		echo "✅ Runtime dependencies installed"; \
+	else \
+		echo "✅ Runtime dependencies already installed"; \
+	fi
 
 install-dev: venv ## Installs all dependencies for development (including dev extras)
-	@echo "📦 Installing package for DEVELOPMENT..."
-	$(PIP) install --upgrade pip setuptools wheel
-	$(PIP) install -e .[dev]
-	@echo "✅ Development installation complete."
-
-uninstall: venv ## Removes the installed package from the venv
-	@echo "🧹 Removing installed package..."
-	-$(PIP) uninstall -y $(PKG) || true
-	@echo "✅ Removed."
-
-# -------- Execution --------
-run: venv ensure-venv-py310 ## Runs experiments. Use EXP=<module|package> and ARGS="<options>"
-	@if [ -z "$(EXP)" ]; then \
-		echo "🚀 Running ALL experiments via auto-discovery…"; \
-		$(PY) -m $(PKG).experiments $(ARGS); \
+	@echo "📦 Installing development dependencies..."
+	@if ! $(PIP) show pytest > /dev/null 2>&1; then \
+		$(PIP) install -e ".[dev]"; \
+		echo "✅ Development dependencies installed"; \
 	else \
-		# Se EXP já começa com smart_inference_ai_fusion.experiments., usa direto; senão, monta o caminho completo
-		if echo "$(EXP)" | grep -q '^smart_inference_ai_fusion\.experiments\.'; then \
-			EXP_MODULE="$(EXP)"; \
-		else \
-			EXP_MODULE="smart_inference_ai_fusion.experiments.$(EXP)"; \
-		fi; \
-		echo "🚀 Running specific target EXP='$$EXP_MODULE' with ARGS='$(ARGS)'…"; \
-		$(PY) scripts/run_experiment.py "$$EXP_MODULE" $(ARGS); \
+		echo "✅ Development dependencies already installed"; \
 	fi
-	@echo "✅ Done."
 
-debug: venv ensure-venv-py310 ## Runs the main experiment orchestrator in DEBUG mode
-	@echo "🐞 Running in DEBUG mode (LOG_LEVEL=DEBUG)…"
-	LOG_LEVEL=DEBUG $(PY) -m $(PKG).experiments $(ARGS)
-	@echo "✅ Done (debug)."
+install-verification: venv ## Installs package with formal verification support (Z3)
+	@echo "📦 Installing verification dependencies..."
+	@if ! $(PIP) show z3-solver > /dev/null 2>&1; then \
+		$(PIP) install -e ".[verification]"; \
+		echo "✅ Verification dependencies installed"; \
+	else \
+		echo "✅ Verification dependencies already installed"; \
+	fi
 
-# -------- Code Quality & Testing --------
+install-full: venv ## Installs package with all features (dev + verification)
+	@echo "📦 Installing all dependencies..."
+	@$(PIP) install -e ".[dev,verification]"
+	@echo "✅ All dependencies installed"
+
+uninstall: ## Removes the installed package from the venv
+	@if [ -d "$(VENV_DIR)" ]; then \
+		$(PIP) uninstall -y $(PKG_NAME) || true; \
+		echo "✅ Package uninstalled"; \
+	else \
+		echo "❌ Virtual environment not found"; \
+	fi
+
+# -------- Experiments --------
+run: install ## Runs experiments. Use EXP=<module|package> and ARGS="<options>"
+	@echo "🚀 Running experiments (dataset: $(EXP))..."
+	@cd $(shell pwd) && \
+		export PYTHONPATH="$(PYTHONPATH)" && \
+		export LOG_LEVEL="$(LOG_LEVEL)" && \
+		$(PYTHON_VENV) -m $(MAIN_MODULE) $(EXP) $(ARGS)
+
+debug: install ## Runs the main experiment orchestrator in DEBUG mode
+	@echo "🐛 Running in DEBUG mode..."
+	@cd $(shell pwd) && \
+		export PYTHONPATH="$(PYTHONPATH)" && \
+		export LOG_LEVEL="DEBUG" && \
+		$(PYTHON_VENV) -m $(MAIN_MODULE) $(EXP) $(ARGS)
+
+run-verification: install-verification ## Runs experiments with formal verification enabled
+	@echo "🔍 Running experiments with formal verification enabled..."
+	@cd $(shell pwd) && \
+		export PYTHONPATH="$(PYTHONPATH)" && \
+		export LOG_LEVEL="$(LOG_LEVEL)" && \
+		export VERIFICATION_ENABLED="true" && \
+		$(PYTHON_VENV) -m $(MAIN_MODULE) $(EXP) $(ARGS)
+
+# -------- Formal Verification Commands --------
+verification-example: install-verification ## Runs the formal verification integration example
+	@echo "🔬 Running formal verification integration example..."
+	@cd $(shell pwd) && \
+		export PYTHONPATH="$(PYTHONPATH)" && \
+		$(PYTHON_VENV) examples/formal_verification_usage.py
+
+verify-example: install-verification ## Runs the environment-based verification example
+	@echo "🔬 Running environment-based verification example..."
+	@cd $(shell pwd) && \
+		export PYTHONPATH="$(PYTHONPATH)" && \
+		export VERIFICATION_ENABLED="true" && \
+		$(PYTHON_VENV) examples/verification_integration_example.py
+
+verify-all: install-verification ## Runs all experiments with strict verification (fail on errors)
+	@echo "🔍 Running experiments with strict verification..."
+	@cd $(shell pwd) && \
+		export PYTHONPATH="$(PYTHONPATH)" && \
+		export LOG_LEVEL="$(LOG_LEVEL)" && \
+		export VERIFICATION_ENABLED="true" && \
+		export VERIFICATION_STRICT="true" && \
+		$(PYTHON_VENV) -m $(MAIN_MODULE) $(EXP) $(ARGS)
+
+verify-install: install-verification ## Install formal verification dependencies
+	@echo "🔧 Installing formal verification dependencies..."
+	@$(PIP) show z3-solver > /dev/null 2>&1 && echo "✅ Z3-solver already installed" || $(PIP) install z3-solver
+	@echo "✅ Verification dependencies ready"
+
+verify-list: install-verification ## List available formal verifiers
+	@echo "📋 Available formal verifiers:"
+	@cd $(shell pwd) && \
+		export PYTHONPATH="$(PYTHONPATH)" && \
+		$(PYTHON_VENV) -c "from $(PKG_NAME).verification.plugin_interface import get_available_verifiers; print('\n'.join(f'  - {v}' for v in get_available_verifiers()))"
+
+verify-test: install-verification ## Test formal verification system
+	@echo "🧪 Testing formal verification system..."
+	@cd $(shell pwd) && \
+		export PYTHONPATH="$(PYTHONPATH)" && \
+		$(PYTHON_VENV) scripts/test_formal_verification.py
+
+verify-solver-details: install-verification ## Test Z3 solver with detailed results reporting
+	@echo "🔬 Testing Z3 solver with detailed results reporting..."
+	@cd $(shell pwd) && \
+		export PYTHONPATH="$(PYTHONPATH)" && \
+		export LOG_LEVEL="DEBUG" && \
+		export VERIFICATION_ENABLED="true" && \
+		$(PYTHON_VENV) -c "from $(PKG_NAME).utils.verification_report import *; from $(PKG_NAME).verification import verify; result = verify('test_solver_details', {'bounds': {'min': 0, 'max': 10}, 'linear_arithmetic': {'coefficients': [1, -1], 'constant': 0}}); report_verification_results(result, 'TestModel', 'TestDataset', 'solver_test')"
+
+# -------- Code Quality --------
 format: install-dev ## Formats code with black and isort
 	@echo "🎨 Formatting code..."
-	$(PY) -m isort $(SRC_DIR) $(TESTS_DIR)
-	$(PY) -m black $(SRC_DIR) $(TESTS_DIR)
-	@echo "✅ Code formatted."
+	@$(PYTHON_VENV) -m black $(SRC_DIR)/ tests/
+	@$(PYTHON_VENV) -m isort $(SRC_DIR)/ tests/
+	@echo "✅ Code formatted"
 
 check-format: install-dev ## Checks code formatting without making changes
-	@echo "🔍 Checking formatting (black and isort)..."
-	$(PY) -m black --check $(SRC_DIR) $(TESTS_DIR)
-	$(PY) -m isort --check-only $(SRC_DIR) $(TESTS_DIR)
-	@echo "✅ Formatting OK."
+	@echo "🔍 Checking code format..."
+	@$(PYTHON_VENV) -m black --check $(SRC_DIR)/ tests/
+	@$(PYTHON_VENV) -m isort --check-only $(SRC_DIR)/ tests/
+	@echo "✅ Code format OK"
 
 lint: install-dev ## Lints code with pylint
-	@echo "🔍 Running pylint..."
-	$(PY) -m pylint $(PYLINT_ARGS) $(LINT_PATHS)
+	@echo "🔍 Linting code..."
+	@$(PYTHON_VENV) -m pylint $(SRC_DIR)/
+	@echo "✅ Linting complete"
 
 style: install-dev ## Checks docstrings (Google style)
-	@echo "📝 Checking docstrings..."
-	$(PY) -m pydocstyle $(PYDOCSTYLE_ARGS) $(LINT_PATHS)
+	@echo "📝 Checking docstring style..."
+	@$(PYTHON_VENV) -m pydocstyle --convention=google $(SRC_DIR)/
+	@echo "✅ Docstring style OK"
 
 check: check-format lint style ## Runs all code quality checks (format, lint, style)
-	@echo "✅ All code quality checks passed."
+	@echo "✅ All quality checks passed"
 
+# -------- Testing --------
 test: install-dev ## Runs unit tests with pytest
 	@echo "🧪 Running unit tests..."
-	$(PY) -m pytest -E $(PYTEST_ARGS) $(TESTS_DIR)
+	@$(PYTHON_VENV) -m pytest tests/ -v
+	@echo "✅ Tests complete"
 
-# -------- Reproducibility --------
+# -------- Requirements Management --------
 compile-reqs: venv ## Generates requirements.txt from pyproject.toml
-	@echo "🧰 Generating requirements.txt..."
-	$(PIP) install -U pip-tools
-	$(VENV)/bin/pip-compile --upgrade --output-file=requirements.txt pyproject.toml
-	@echo "✅ requirements.txt updated."
+	@echo "📋 Compiling requirements.txt..."
+	@$(PIP) install pip-tools
+	@$(VENV_BIN)/pip-compile pyproject.toml --output-file requirements.txt
+	@echo "✅ requirements.txt generated"
 
 compile-reqs-dev: venv ## Generates requirements-dev.txt (includes [dev] extras)
-	@echo "🧰 Generating requirements-dev.txt..."
-	$(PIP) install -U pip-tools
-	$(VENV)/bin/pip-compile --extra=dev --upgrade --output-file=requirements-dev.txt pyproject.toml
-	@echo "✅ requirements-dev.txt updated."
+	@echo "📋 Compiling requirements-dev.txt..."
+	@$(PIP) install pip-tools
+	@$(VENV_BIN)/pip-compile pyproject.toml --extra dev --output-file $(REQUIREMENTS_DEV)
+	@echo "✅ $(REQUIREMENTS_DEV) generated"
 
 freeze: venv ## Generates requirements-freeze.txt (a snapshot of the current venv)
-	@echo "🧊 Generating requirements-freeze.txt..."
-	$(PIP) freeze | sort > requirements-freeze.txt
-	@echo "✅ Saved to requirements-freeze.txt"
+	@echo "❄️  Freezing current environment..."
+	@$(PIP) freeze > $(REQUIREMENTS_FREEZE)
+	@echo "✅ $(REQUIREMENTS_FREEZE) generated"
 
-# -------- Maintenance --------
-clean: ## Removes build artifacts and Python cache files
-	rm -rf build/ dist/ *.egg-info .pytest_cache .coverage htmlcov
-	find . -type d -name "__pycache__" -prune -exec rm -rf {} +
-	find . -type f -name "*.pyc" -delete
-	@echo "🧼 Build and cache files cleaned."
-
-clean-outputs: ## WARNING: Deletes all generated logs and results
-	@echo "🔥 Deleting all contents of $(LOGS_DIR)/ and $(RESULTS_DIR)/..."
-	rm -rf $(LOGS_DIR)/* $(RESULTS_DIR)/* 2>/dev/null || true
-	@echo "✅ Logs and results contents have been cleared (directories preserved)."
-
-clean-pyc: ## Removes only Python bytecode cache files
-	find . -type d -name "__pycache__" -prune -exec rm -rf {} +
-	find . -type f -name "*.py[co]" -delete
-	@echo "🧼 pyc files cleaned."
-
-clean-all: clean clean-outputs clean-pyc ## Runs all clean tasks, including logs and results
-	@echo "✅ All clean tasks completed."
-
-clean-venv: ## Removes the .venv virtual environment directory
-	rm -rf $(VENV)
-	@echo "🧹 venv removed."
-
-# -------- CI/CD Pipeline --------
-ci: install-dev check test run ## Runs the complete CI pipeline (quality checks, tests, and run)
-	@echo "✅ CI pipeline completed successfully."
-
-# -------- Publishing --------
-build: venv ## Builds the wheel and sdist packages into ./dist
-	@echo "📦 Building wheel + sdist…"
-	$(PIP) install --upgrade build
-	$(PY) -m build
-	@echo "✅ Artifacts ready in ./dist"
+# -------- Build & Distribution --------
+build: install-dev ## Builds the wheel and sdist packages into ./dist
+	@echo "🏗️  Building package..."
+	@$(PYTHON_VENV) -m build
+	@echo "✅ Package built in ./dist/"
 
 publish: build ## Publishes the package to the TestPyPI repository
-	@echo "🚀 Publishing to TestPyPI…"
-	$(PIP) install --upgrade twine
-	$(PY) -m twine upload --repository testpypi dist/*
+	@echo "📤 Publishing to TestPyPI..."
+	@$(PYTHON_VENV) -m twine upload --repository testpypi dist/*
 	@echo "✅ Published to TestPyPI"
 
 publish-prod: build ## Publishes the package to the official PyPI repository
-	@echo "🚀 Publishing to PyPI…"
-	$(PIP) install --upgrade twine
-	$(PY) -m twine upload dist/*
+	@echo "📤 Publishing to PyPI..."
+	@$(PYTHON_VENV) -m twine upload dist/*
 	@echo "✅ Published to PyPI"
 
 deploy: publish ## Alias for the 'publish' command
 
-# -------- Formal Verification --------
-verify-install: venv ## Install formal verification dependencies
-	@echo "🔧 Installing formal verification dependencies..."
-	$(PIP) install z3-solver
-	@echo "✅ Formal verification dependencies installed."
+# -------- Cleanup --------
+clean-pyc: ## Removes only Python bytecode cache files
+	@echo "🧹 Cleaning Python cache files..."
+	@find . -type f -name "*.pyc" -delete
+	@find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+	@echo "✅ Python cache cleaned"
 
-verify-test: venv ## Test formal verification system
-	@echo "🧪 Testing formal verification system..."
-	PYTHONPATH=$(PWD) $(PY) scripts/test_formal_verification.py
+clean: clean-pyc ## Removes build artifacts and Python cache files
+	@echo "🧹 Cleaning build artifacts..."
+	@rm -rf build/ dist/ *.egg-info/ .pytest_cache/ .coverage htmlcov/
+	@echo "✅ Build artifacts cleaned"
 
-verify-z3: verify-install ## Test Z3 capabilities specifically
-	@echo "🧠 Testing Z3 SMT solver capabilities..."
-	PYTHONPATH=$(PWD) $(PY) scripts/test_formal_verification.py
+clean-venv: ## Removes the .venv virtual environment directory
+	@echo "🧹 Removing virtual environment..."
+	@rm -rf $(VENV_DIR)
+	@echo "✅ Virtual environment removed"
 
-verify-list: venv ## List available formal verifiers
-	@echo "📋 Listing formal verification plugins..."
-	PYTHONPATH=$(PWD) $(PY) -c "\
-from smart_inference_ai_fusion.verification import list_verifiers; \
-verifiers = list_verifiers(); \
-print('Available Formal Verifiers:'); \
-[print(f'  {name}: {\"🟢 Available\" if info[\"available\"] else \"🔴 Unavailable\"}, {\"✅ Enabled\" if info[\"enabled\"] else \"❌ Disabled\"}') for name, info in verifiers.items()]; \
-"
+clean-outputs: ## WARNING: Deletes all generated logs and results
+	@echo "⚠️  WARNING: This will delete all logs and results!"
+	@read -p "Are you sure? [y/N] " -n 1 -r && echo
+	@if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
+		rm -rf logs/ results/; \
+		echo "✅ Logs and results deleted"; \
+	else \
+		echo "❌ Operation cancelled"; \
+	fi
 
-# --- Internal Utility ---
-# Utility for debugging make variables (e.g., make print-PKG)
-print-%:
-	@echo '$*=$($*)'
+clean-all: clean clean-outputs ## Runs all clean tasks, including logs and results
+	@echo "✅ Complete cleanup finished"
+
+# -------- CI Pipeline --------
+ci: check test run ## Runs the complete CI pipeline (quality checks, tests, and run)
+	@echo "🎯 CI pipeline completed successfully"
+
+# -------- Phony Targets --------
+.PHONY: help venv install install-dev install-verification install-full uninstall
+.PHONY: run debug run-verification 
+.PHONY: verification-example verify-example verify-all verify-install verify-list verify-test
+.PHONY: format check-format lint style check test
+.PHONY: compile-reqs compile-reqs-dev freeze
+.PHONY: build publish publish-prod deploy
+.PHONY: clean-pyc clean clean-venv clean-outputs clean-all
+.PHONY: ci

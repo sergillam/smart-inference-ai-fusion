@@ -1,1 +1,0 @@
-"""LFW People experiments module."""

@@ -4,7 +4,9 @@ This module provides a centralized registry of experiment configurations
 to eliminate code duplication across experiment scripts.
 """
 
-from typing import Any, Dict, Type
+from typing import Any, Dict, Type, Optional
+import os
+import logging
 
 from smart_inference_ai_fusion.core.base_model import BaseModel
 from smart_inference_ai_fusion.experiments.common import run_standard_experiment
@@ -24,7 +26,9 @@ from smart_inference_ai_fusion.models.random_forest_regressor_model import (
 )
 from smart_inference_ai_fusion.models.ridge_model import RidgeModel
 from smart_inference_ai_fusion.models.spectral_clustering_model import SpectralClusteringModel
-from smart_inference_ai_fusion.utils.types import DatasetSourceType, SklearnDatasetName
+from smart_inference_ai_fusion.utils.types import DatasetSourceType, SklearnDatasetName, VerificationConfig
+
+logger = logging.getLogger(__name__)
 
 
 class ExperimentConfig:
@@ -36,6 +40,7 @@ class ExperimentConfig:
         model_params: Dict[str, Any],
         dataset_source: DatasetSourceType = DatasetSourceType.SKLEARN,
         dataset_name: SklearnDatasetName = SklearnDatasetName.DIGITS,
+        verification_config: Optional[VerificationConfig] = None,
     ):
         """Initialize experiment configuration.
 
@@ -44,12 +49,14 @@ class ExperimentConfig:
             model_params: Parameters to pass to the model constructor.
             dataset_source: Source type for the dataset.
             dataset_name: Name of the dataset.
+            verification_config: Configuration for formal verification.
         """
         self.model_class = model_class
         self.model_name = model_class.__name__  # Auto-generate from class name
         self.model_params = model_params
         self.dataset_source = dataset_source
         self.dataset_name = dataset_name
+        self.verification_config = verification_config
 
 
 # Registry of experiment configurations for the digits dataset
@@ -631,10 +638,34 @@ def run_experiment_by_model(
     # Use custom params if provided, otherwise use registry defaults
     params = model_params if model_params is not None else config.model_params
 
+    # Detectar configuração de verificação formal via variáveis de ambiente
+    verification_config = None
+    verification_enabled = os.getenv('VERIFICATION_ENABLED', 'false').lower() == 'true'
+    verification_strict = os.getenv('VERIFICATION_STRICT', 'false').lower() == 'true'
+    
+    if verification_enabled:
+        logger.info(f"🔍 Formal verification ENABLED for {model_class.__name__} on {dataset_name}")
+        verification_config = VerificationConfig(
+            enabled=True,
+            timeout=60.0 if verification_strict else 30.0,
+            fail_on_error=verification_strict,
+            constraints={
+                'shape_preservation': True,    # Nome compatível com Z3
+                'bounds': True,               # Nome compatível com Z3
+                'range_check': True,          # Nome compatível com Z3
+                'type_safety': True,          # Nome compatível com Z3
+                'bounds_tolerance': 0.05 if verification_strict else 0.1
+            }
+        )
+        logger.info(f"Verification mode: {'STRICT' if verification_strict else 'FLEXIBLE'}")
+    else:
+        logger.debug(f"Formal verification DISABLED for {model_class.__name__}")
+
     return run_standard_experiment(
         model_class=model_class,
         model_name=model_class.__name__,
         dataset_source=dataset_source,
         dataset_name=dataset_name,
         model_params=params,
+        verification_config=verification_config,
     )

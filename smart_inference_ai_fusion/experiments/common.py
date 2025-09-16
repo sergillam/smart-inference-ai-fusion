@@ -38,6 +38,7 @@ from smart_inference_ai_fusion.utils.types import (
     LabelNoiseConfig,
     ParameterNoiseConfig,
     SklearnDatasetName,
+    VerificationConfig,
 )
 
 
@@ -431,6 +432,7 @@ def run_inference_experiment(
     dataset_source: DatasetSourceType,
     dataset_name: Union[SklearnDatasetName, str],
     filtered_params: Optional[dict] = None,
+    verification_config: Optional[VerificationConfig] = None,
 ):
     """Run experiment with full inference pipeline.
 
@@ -440,6 +442,7 @@ def run_inference_experiment(
         dataset_source (DatasetSourceType): Source type of the dataset (SKLEARN, CSV, etc.).
         dataset_name (SklearnDatasetName | str): Name/identifier of the dataset.
         filtered_params (Optional[dict]): Optional filtered parameters for the model.
+        verification_config (Optional[VerificationConfig]): Configuration for formal verification.
 
     Returns:
         dict: Experiment results.
@@ -475,8 +478,19 @@ def run_inference_experiment(
     X_train, X_test, y_train, y_test = dataset.load_data()
 
     # Create pipeline and model
+    pipeline_verification_config = None
+    if verification_config:
+        pipeline_verification_config = {
+            'enabled': verification_config.enabled,
+            'timeout': verification_config.timeout,
+            'fail_on_error': verification_config.fail_on_error
+        }
+    
     pipeline = InferencePipeline(
-        data_noise_config=data_config, label_noise_config=label_config, X_train=X_train
+        data_noise_config=data_config, 
+        label_noise_config=label_config, 
+        X_train=X_train,
+        verification_config=pipeline_verification_config
     )
 
     params = filtered_params or {}
@@ -529,6 +543,7 @@ def run_standard_experiment(
     dataset_source: DatasetSourceType,
     dataset_name: Union[SklearnDatasetName, str],
     model_params: Optional[dict] = None,
+    verification_config: Optional[VerificationConfig] = None,
 ):
     """Run both baseline and inference experiments for a model on any dataset.
 
@@ -538,6 +553,7 @@ def run_standard_experiment(
         dataset_source (DatasetSourceType): Source type of the dataset (SKLEARN, CSV, etc.).
         dataset_name (SklearnDatasetName | str): Name/identifier of the dataset.
         model_params (Optional[dict]): Optional parameters specific to the model.
+        verification_config (Optional[VerificationConfig]): Configuration for formal verification.
 
     Returns:
         tuple: A tuple of (baseline_metrics, inference_metrics).
@@ -587,7 +603,7 @@ def run_standard_experiment(
         model_class, model_name, dataset_source, dataset_name, filtered_params
     )
     inference_metrics = run_inference_experiment(
-        model_class, model_name, dataset_source, dataset_name, filtered_params
+        model_class, model_name, dataset_source, dataset_name, filtered_params, verification_config
     )
 
     # Calculate total execution time

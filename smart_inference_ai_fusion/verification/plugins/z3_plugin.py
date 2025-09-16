@@ -142,6 +142,10 @@ class Z3Verifier(FormalVerifier):
         start_time = time.time()
         
         try:
+            # DEBUG: Log constraints recebidas
+            logger.info(f"Z3 DEBUG - Constraints recebidas: {input_data.constraints}")
+            logger.info(f"Z3 DEBUG - Constraints suportadas: {self.supported_constraints()}")
+            
             # Reinicializar solver para verificação limpa
             self.solver.reset()
             self._init_z3()
@@ -150,23 +154,31 @@ class Z3Verifier(FormalVerifier):
             constraints_checked = []
             constraints_satisfied = []
             constraints_violated = []
+            solver_details = {}
             
             for constraint_type, constraint_data in input_data.constraints.items():
                 if constraint_type in self.supported_constraints():
                     constraints_checked.append(constraint_type)
                     
                     try:
-                        satisfied = self._verify_constraint(constraint_type, constraint_data, input_data)
+                        satisfied, details = self._verify_constraint_with_details(constraint_type, constraint_data, input_data)
+                        solver_details[constraint_type] = details
+                        
                         if satisfied:
                             constraints_satisfied.append(constraint_type)
                         else:
                             constraints_violated.append(constraint_type)
                     except Exception as e:
                         constraints_violated.append(constraint_type)
+                        solver_details[constraint_type] = {"error": str(e)}
                         logger.warning(f"Failed to verify {constraint_type}: {e}")
             
             # Determinar status geral
             execution_time = time.time() - start_time
+            
+            # REPORTING DETALHADO SEMPRE ATIVO PARA VERIFICAÇÃO
+            self._report_verification_details(input_data, solver_details, constraints_satisfied, 
+                                           constraints_violated, execution_time)
             
             if constraints_violated:
                 status = VerificationStatus.FAILURE
@@ -185,7 +197,8 @@ class Z3Verifier(FormalVerifier):
                 message=message,
                 constraints_checked=constraints_checked,
                 constraints_satisfied=constraints_satisfied,
-                constraints_violated=constraints_violated
+                constraints_violated=constraints_violated,
+                details=solver_details
             )
             
         except Exception as e:
@@ -196,6 +209,64 @@ class Z3Verifier(FormalVerifier):
                 execution_time=execution_time,
                 message=f"Z3 verification error: {str(e)}"
             )
+    
+    def _verify_constraint_with_details(self, constraint_type: str, constraint_data: Any, 
+                          input_data: VerificationInput) -> tuple[bool, dict]:
+        """Verifica um constraint específico usando Z3 e retorna detalhes.
+        
+        Returns:
+            tuple: (satisfied: bool, details: dict)
+        """
+        # Reset solver para verificação limpa
+        self.solver.reset()
+        self._init_z3()
+        
+        details = {
+            "constraint_type": constraint_type,
+            "constraint_data": constraint_data,
+            "satisfiable": None,
+            "model": None,
+            "unsat_core": None,
+            "statistics": None
+        }
+        
+        try:
+            # Executar verificação específica
+            satisfied = self._verify_constraint(constraint_type, constraint_data, input_data)
+            
+            # Capturar resultado SAT/UNSAT
+            check_result = self.solver.check()
+            details["satisfiable"] = (check_result == z3.sat)
+            
+            if check_result == z3.sat:
+                # Capturar modelo se SAT
+                model = self.solver.model()
+                details["model"] = str(model) if model else None
+            elif check_result == z3.unsat:
+                # Capturar core insatisfazível se UNSAT
+                try:
+                    unsat_core = self.solver.unsat_core()
+                    details["unsat_core"] = [str(core) for core in unsat_core]
+                except:
+                    details["unsat_core"] = ["unable_to_extract"]
+            
+            # Capturar estatísticas do solver
+            try:
+                stats = self.solver.statistics()
+                details["statistics"] = {
+                    "decisions": stats.get_key_value("decisions"),
+                    "conflicts": stats.get_key_value("conflicts"),
+                    "propagations": stats.get_key_value("propagations"),
+                    "restarts": stats.get_key_value("restarts")
+                }
+            except:
+                details["statistics"] = {"error": "unable_to_extract_stats"}
+                
+            return satisfied, details
+            
+        except Exception as e:
+            details["error"] = str(e)
+            return False, details
     
     def _verify_constraint(self, constraint_type: str, constraint_data: Any, 
                           input_data: VerificationInput) -> bool:
@@ -426,6 +497,109 @@ class Z3Verifier(FormalVerifier):
         self.solver.add(p <= 1.0)
         
         return self.solver.check() == z3.sat
+    
+    def _verify_constraint_with_details(self, constraint_type: str, constraint_data: Any, 
+                                      input_data: VerificationInput) -> tuple[bool, dict]:
+        """Verifica um constraint e retorna resultado + detalhes do solver."""
+        # Limpar solver para este constraint
+        self.solver.push()
+        
+        try:
+            # Executar verificação específica
+            satisfied = self._verify_constraint(constraint_type, constraint_data, input_data)
+            
+            # Capturar detalhes do solver
+            check_result = self.solver.check()
+            
+            details = {
+                "constraint_type": constraint_type,
+                "constraint_data": constraint_data,
+                "z3_result": str(check_result),
+                "z3_satisfiable": check_result == z3.sat,
+                "z3_unsatisfiable": check_result == z3.unsat,
+                "z3_unknown": check_result == z3.unknown,
+                "satisfied": satisfied,
+                "solver_assertions": len(self.solver.assertions()),
+            }
+            
+            # Se satisfeito, tentar obter modelo
+            if check_result == z3.sat:
+                try:
+                    model = self.solver.model()
+                    if model:
+                        model_values = {}
+                        for decl in model.decls():
+                            model_values[str(decl.name())] = str(model[decl])
+                        details["z3_model"] = model_values
+                except Exception:
+                    details["z3_model"] = "Could not extract model"
+            
+            # Se insatisfeito, tentar obter core
+            elif check_result == z3.unsat:
+                try:
+                    core = self.solver.unsat_core()
+                    details["z3_unsat_core"] = [str(c) for c in core]
+                except Exception:
+                    details["z3_unsat_core"] = "Could not extract unsat core"
+            
+            return satisfied, details
+            
+        finally:
+            self.solver.pop()
+    
+    def _report_verification_details(self, input_data: VerificationInput, solver_details: dict,
+                                   constraints_satisfied: list, constraints_violated: list,
+                                   execution_time: float) -> None:
+        """Reporta detalhes completos da verificação usando report_data."""
+        from ...utils.report import report_data
+        from ...utils.types import ReportMode
+        
+        # Criar relatório detalhado
+        verification_report = {
+            "verification_session": {
+                "verifier": self.name,
+                "timestamp": input_data.name,
+                "execution_time_ms": round(execution_time * 1000, 2),
+                "total_constraints": len(input_data.constraints),
+                "constraints_satisfied": len(constraints_satisfied),
+                "constraints_violated": len(constraints_violated),
+                "success_rate": round(len(constraints_satisfied) / max(1, len(input_data.constraints)) * 100, 1)
+            },
+            "constraint_results": {
+                "satisfied": constraints_satisfied,
+                "violated": constraints_violated
+            },
+            "z3_solver_details": solver_details
+        }
+        
+        # CONSOLE: Resumo visual
+        print(f"\n🔍 Z3 SOLVER RESULTS - {input_data.name}")
+        print("=" * 60)
+        print(f"⏱️  Execution Time: {execution_time*1000:.2f}ms")
+        print(f"📊 Constraints: {len(constraints_satisfied)} ✅ / {len(constraints_violated)} ❌ / {len(input_data.constraints)} total")
+        print(f"📈 Success Rate: {verification_report['verification_session']['success_rate']}%")
+        
+        if constraints_satisfied:
+            print(f"\n✅ SATISFIED CONSTRAINTS ({len(constraints_satisfied)}):")
+            for constraint in constraints_satisfied:
+                details = solver_details.get(constraint, {})
+                z3_result = details.get('z3_result', 'unknown')
+                print(f"   • {constraint}: {z3_result}")
+                
+        if constraints_violated:
+            print(f"\n❌ VIOLATED CONSTRAINTS ({len(constraints_violated)}):")
+            for constraint in constraints_violated:
+                details = solver_details.get(constraint, {})
+                z3_result = details.get('z3_result', 'unknown')
+                print(f"   • {constraint}: {z3_result}")
+        
+        # LOGS: Report completo
+        report_data(verification_report, ReportMode.PRINT)
+        
+        # RESULTS: Salvar arquivo detalhado
+        timestamp = input_data.name.replace(":", "-").replace(" ", "_")
+        report_data(verification_report, ReportMode.JSON_RESULT, 
+                   f"z3-verification-{timestamp}")
 
 
 # Auto-registrar o verificador Z3
