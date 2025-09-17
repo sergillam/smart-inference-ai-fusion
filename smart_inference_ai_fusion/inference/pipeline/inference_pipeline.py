@@ -159,13 +159,23 @@ class InferencePipeline:
     
     def _verify_data_integrity(self, step_name: str, X_train, X_test, 
                               original_train=None, original_test=None):
-        """Verifica integridade dos dados."""
-        # Mapear para constraints compatíveis com Z3
+        """Verifica integridade dos dados com constraints estruturados."""
+        # Mapear para constraints compatíveis com Z3 com dados estruturados
         constraints = {
             'shape_preservation': True,  # Compatible with Z3
             'type_safety': True,         # Compatible with Z3
-            'bounds': True,              # Compatible with Z3
-            'range_check': True,         # Compatible with Z3
+            'bounds': {
+                'min': -1000.0,
+                'max': 1000.0,
+                'strict': False,
+                'allow_nan': False
+            },
+            'range_check': {
+                'type': 'continuous',
+                'valid_ranges': [(-100.0, 100.0)],
+                'allow_empty': False,
+                'tolerance': 1e-6
+            }
         }
         
         if original_train is not None and original_test is not None:
@@ -197,12 +207,21 @@ class InferencePipeline:
     def _verify_label_integrity(self, step_name: str, y_train, y_test,
                                original_train=None, original_test=None):
         """Verifica integridade dos labels."""
-        # Mapear para constraints compatíveis com Z3
+        # Mapear para constraints compatíveis com Z3 com dados estruturados
         constraints = {
             'shape_preservation': True,  # Compatible with Z3
             'type_safety': True,         # Compatible with Z3
-            'bounds': True,              # Compatible with Z3
-            'range_check': True,         # Compatible with Z3
+            'bounds': {
+                'min': 0,
+                'max': 10,
+                'strict': False,
+                'allow_nan': False
+            },
+            'range_check': {
+                'type': 'discrete',
+                'discrete_values': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],  # Para classificação
+                'allow_empty': False
+            }
         }
         
         if original_train is not None and original_test is not None:
@@ -233,12 +252,21 @@ class InferencePipeline:
     
     def _verify_parameters(self, step_name: str, params: Dict[str, Any], 
                           original_params: Optional[Dict[str, Any]] = None):
-        """Verifica integridade dos parâmetros."""
-        # Mapear para constraints compatíveis com Z3
+        """Verifica integridade dos parâmetros com constraints estruturados."""
+        # Mapear para constraints compatíveis com Z3 com dados estruturados
         constraints = {
             'type_safety': True,         # Compatible with Z3
-            'bounds': True,              # Compatible with Z3
-            'range_check': True,         # Compatible with Z3
+            'bounds': {
+                'min': 0.0,
+                'max': 1000.0,
+                'strict': False,
+                'allow_nan': False
+            },
+            'range_check': {
+                'type': 'continuous',
+                'valid_ranges': [(0.0, 1.0), (1.0, 100.0)],  # Para diferentes tipos de parâmetros
+                'tolerance': 1e-9
+            },
             'real_arithmetic': True,     # For numeric parameters
         }
         

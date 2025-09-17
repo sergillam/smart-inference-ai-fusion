@@ -16,8 +16,10 @@ from smart_inference_ai_fusion.models.agglomerative_clustering_model import (
 from smart_inference_ai_fusion.models.fastica_model import FastICAModel
 from smart_inference_ai_fusion.models.gaussian_mixture_model import GaussianMixtureModel
 from smart_inference_ai_fusion.models.gradient_boosting_model import GradientBoostingModel
+from smart_inference_ai_fusion.models.logistic_regression_model import LogisticRegressionModel
 from smart_inference_ai_fusion.models.minibatch_kmeans_model import MiniBatchKMeansModel
 from smart_inference_ai_fusion.models.mlp_model import MLPModel
+from smart_inference_ai_fusion.models.tree_model import DecisionTreeModel
 from smart_inference_ai_fusion.models.random_forest_classifier_model import (
     RandomForestClassifierModel,
 )
@@ -74,6 +76,16 @@ DIGITS_EXPERIMENTS = {
             "tol": 1e-4,
         },  # Scientific parameters
     ),
+    DecisionTreeModel: ExperimentConfig(
+        model_class=DecisionTreeModel,
+        model_params={
+            "max_depth": 8,
+            "random_state": 42,
+            "min_samples_split": 5,
+            "min_samples_leaf": 2,
+            "criterion": "gini",
+        },  # Balanced parameters for digit classification
+    ),
     GaussianMixtureModel: ExperimentConfig(
         model_class=GaussianMixtureModel,
         model_params={
@@ -91,6 +103,15 @@ DIGITS_EXPERIMENTS = {
             "max_depth": 3,
             "random_state": 42,
         },  # Standard parameters
+    ),
+    LogisticRegressionModel: ExperimentConfig(
+        model_class=LogisticRegressionModel,
+        model_params={
+            "random_state": 42,
+            "max_iter": 1000,
+            "solver": "lbfgs",
+            "C": 1.0,  # Standard regularization
+        },  # Optimized for digits classification
     ),
     MiniBatchKMeansModel: ExperimentConfig(
         model_class=MiniBatchKMeansModel,
@@ -165,6 +186,16 @@ WINE_EXPERIMENTS = {
             "tol": 1e-4,
         },  # Suitable for wine features
     ),
+    DecisionTreeModel: ExperimentConfig(
+        model_class=DecisionTreeModel,
+        model_params={
+            "max_depth": 5,
+            "random_state": 42,
+            "min_samples_split": 2,
+            "min_samples_leaf": 1,
+            "criterion": "gini",
+        },  # Balanced parameters for wine classification
+    ),
     GaussianMixtureModel: ExperimentConfig(
         model_class=GaussianMixtureModel,
         model_params={
@@ -182,6 +213,15 @@ WINE_EXPERIMENTS = {
             "max_depth": 3,
             "random_state": 42,
         },  # Conservative for small dataset
+    ),
+    LogisticRegressionModel: ExperimentConfig(
+        model_class=LogisticRegressionModel,
+        model_params={
+            "random_state": 42,
+            "max_iter": 1000,
+            "solver": "lbfgs",
+            "C": 1.0,  # Standard regularization
+        },  # Optimized for wine classification
     ),
     MiniBatchKMeansModel: ExperimentConfig(
         model_class=MiniBatchKMeansModel,

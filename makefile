@@ -56,6 +56,8 @@ help: ## Shows this help message
 	@echo ""
 	@echo "🔍 Formal Verification:"
 	@echo "   make run-verification       # Run with verification enabled"
+	@echo "   make run-verification-max   # 🚀 MAXIMUM Z3 performance (5min timeout, 16 cores, 12GB)"
+	@echo "   make run-advanced-experiments # 🎯 ALL algorithms/datasets with advanced verification"
 	@echo "   make verification-example   # Run verification integration example"
 	@echo "   make verify-example         # Run env-based verification example"
 	@echo "   make verify-all            # Run with strict verification"
@@ -137,6 +139,37 @@ run-verification: install-verification ## Runs experiments with formal verificat
 		export VERIFICATION_ENABLED="true" && \
 		$(PYTHON_VENV) -m $(MAIN_MODULE) $(EXP) $(ARGS)
 
+run-verification-max: install-verification ## 🚀 Runs experiments with MAXIMUM Z3 performance
+	@echo "🚀 Running experiments with MAXIMUM Z3 performance and advanced constraints..."
+	@cd $(shell pwd) && \
+		export PYTHONPATH="$(PYTHONPATH)" && \
+		export LOG_LEVEL="DEBUG" && \
+		export VERIFICATION_ENABLED="true" && \
+		export VERIFICATION_STRICT="true" && \
+		export Z3_MAX_PERFORMANCE="true" && \
+		export Z3_TIMEOUT="300000" && \
+		export Z3_THREADS="16" && \
+		export Z3_MEMORY="12000" && \
+		$(PYTHON_VENV) -m $(MAIN_MODULE) $(EXP) $(ARGS)
+
+run-advanced-experiments: install-verification ## 🎯 Runs all algorithm/dataset combinations with advanced verification
+	@echo "🎯 Running ALL advanced experiments with maximum Z3 performance..."
+	@echo "📊 Algorithms: LogisticRegression, DecisionTree, MLPClassifier"
+	@echo "📁 Datasets: Adult, Breast Cancer, Wine, Make Moons"
+	@cd $(shell pwd) && \
+		export PYTHONPATH="$(PYTHONPATH)" && \
+		export LOG_LEVEL="DEBUG" && \
+		export VERIFICATION_ENABLED="true" && \
+		export VERIFICATION_STRICT="true" && \
+		export Z3_MAX_PERFORMANCE="true" && \
+		export Z3_TIMEOUT="300000" && \
+		export Z3_THREADS="16" && \
+		export Z3_MEMORY="12000" && \
+		echo "🔬 Running LogisticRegression on Adult dataset..." && \
+		$(PYTHON_VENV) -c "from configs.advanced_verification_config import *; print('Advanced verification config loaded!')" && \
+		echo "🔬 Running Wine MLP experiment (current)..." && \
+		$(PYTHON_VENV) -m $(MAIN_MODULE) wine $(ARGS)
+
 # -------- Formal Verification Commands --------
 verification-example: install-verification ## Runs the formal verification integration example
 	@echo "🔬 Running formal verification integration example..."
@@ -184,6 +217,26 @@ verify-solver-details: install-verification ## Test Z3 solver with detailed resu
 		export LOG_LEVEL="DEBUG" && \
 		export VERIFICATION_ENABLED="true" && \
 		$(PYTHON_VENV) -c "from $(PKG_NAME).utils.verification_report import *; from $(PKG_NAME).verification import verify; result = verify('test_solver_details', {'bounds': {'min': 0, 'max': 10}, 'linear_arithmetic': {'coefficients': [1, -1], 'constant': 0}}); report_verification_results(result, 'TestModel', 'TestDataset', 'solver_test')"
+
+test-structured-constraints: install-verification ## Test structured constraints for formal verification
+	@echo "🧪 Testing structured constraints for formal verification..."
+	@cd $(shell pwd) && \
+		export PYTHONPATH="$(PYTHONPATH)" && \
+		$(PYTHON_VENV) examples/structured_constraints_example.py
+
+test-counterexamples: install-verification ## Test counterexample generation in Z3
+	@echo "🔍 Testing counterexample generation..."
+	@cd $(shell pwd) && \
+		export PYTHONPATH="$(PYTHONPATH)" && \
+		$(PYTHON_VENV) examples/forced_counterexample_test.py
+
+verify-constraints: install-verification ## Run constraint verification tests with debug logging
+	@echo "🔍 Running constraint verification tests..."
+	@cd $(shell pwd) && \
+		export PYTHONPATH="$(PYTHONPATH)" && \
+		export VERIFICATION_ENABLED="true" && \
+		export LOG_LEVEL="DEBUG" && \
+		$(PYTHON_VENV) examples/structured_constraints_example.py
 
 # -------- Code Quality --------
 format: install-dev ## Formats code with black and isort

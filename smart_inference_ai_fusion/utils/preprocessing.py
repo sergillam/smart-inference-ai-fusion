@@ -150,6 +150,95 @@ def _validate_random_forest_params(params: dict) -> dict:
     return corrected_params
 
 
+def _validate_decision_tree_params(params: dict) -> dict:
+    """Validate and fix DecisionTree specific parameters.
+
+    Args:
+        params (dict): Parameters to validate.
+
+    Returns:
+        dict: Corrected parameters.
+    """
+    corrected_params = params.copy()
+
+    # Validate min_samples_split: >= 2 for int, or (0.0, 1.0] for float
+    corrected_params = _validate_samples_param(
+        corrected_params,
+        "min_samples_split",
+        int_min=2,
+        float_min=0.0,
+        float_max=1.0,
+        default_value=2,
+        model_prefix="DecisionTree ",
+    )
+    # Validate min_samples_leaf: >= 1 for int, or (0.0, 0.5] for float
+    corrected_params = _validate_samples_param(
+        corrected_params,
+        "min_samples_leaf",
+        int_min=1,
+        float_min=0.0,
+        float_max=0.5,
+        default_value=1,
+        model_prefix="DecisionTree ",
+    )
+
+    return corrected_params
+
+
+def _validate_logistic_regression_params(params: dict) -> dict:
+    """Validate and fix LogisticRegression specific parameters.
+
+    Args:
+        params (dict): Parameters to validate.
+
+    Returns:
+        dict: Corrected parameters.
+    """
+    corrected_params = params.copy()
+
+    # Remove invalid parameters that don't exist for LogisticRegression
+    invalid_params = ['positive', 'alpha']
+    for param in invalid_params:
+        if param in corrected_params:
+            del corrected_params[param]
+            report_data(
+                f"WARNING: Removed invalid LogisticRegression parameter '{param}'",
+                mode=ReportMode.PRINT,
+            )
+
+    # Validate C parameter: must be positive
+    if "C" in corrected_params:
+        c_value = corrected_params["C"]
+        if isinstance(c_value, (int, float)) and c_value <= 0:
+            corrected_params["C"] = 1.0
+            report_data(
+                f"WARNING: Corrected LogisticRegression C from {c_value} to 1.0",
+                mode=ReportMode.PRINT,
+            )
+
+    # Validate max_iter: must be positive
+    if "max_iter" in corrected_params:
+        max_iter_value = corrected_params["max_iter"]
+        if isinstance(max_iter_value, (int, float)) and max_iter_value <= 0:
+            corrected_params["max_iter"] = 1000
+            report_data(
+                f"WARNING: Corrected LogisticRegression max_iter from {max_iter_value} to 1000",
+                mode=ReportMode.PRINT,
+            )
+
+    # Validate tol parameter: must be positive
+    if "tol" in corrected_params:
+        tol_value = corrected_params["tol"]
+        if isinstance(tol_value, (int, float)) and tol_value <= 0:
+            corrected_params["tol"] = 1e-4
+            report_data(
+                f"WARNING: Corrected LogisticRegression tol from {tol_value} to 1e-4",
+                mode=ReportMode.PRINT,
+            )
+
+    return corrected_params
+
+
 def validate_sklearn_params(params, model_class):
     """Validate and fix parameter values for scikit-learn models.
 
@@ -167,6 +256,10 @@ def validate_sklearn_params(params, model_class):
         corrected_params = _validate_gradient_boosting_params(corrected_params)
     elif "RandomForest" in model_class.__name__:
         corrected_params = _validate_random_forest_params(corrected_params)
+    elif "DecisionTree" in model_class.__name__:
+        corrected_params = _validate_decision_tree_params(corrected_params)
+    elif "LogisticRegression" in model_class.__name__:
+        corrected_params = _validate_logistic_regression_params(corrected_params)
 
     return corrected_params
 

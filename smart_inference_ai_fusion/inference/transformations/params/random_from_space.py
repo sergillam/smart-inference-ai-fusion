@@ -128,9 +128,14 @@ class RandomFromSpace(ParameterTransformation):
         if "hidden_layer_sizes" in params:
             return self._apply_solver_mutation(params, "solver_mlp", "MLP")
 
-        # RidgeClassifier detection (has alpha but NOT hidden_layer_sizes)
-        if "alpha" in params and "hidden_layer_sizes" not in params:
+        # RidgeClassifier detection (has alpha but NOT hidden_layer_sizes and NOT C parameter)
+        if "alpha" in params and "hidden_layer_sizes" not in params and "C" not in params:
             return self._apply_solver_mutation(params, "solver_ridge", "Ridge")
+
+        # LogisticRegression detection (has C parameter but NOT alpha or hidden_layer_sizes)
+        if "C" in params and "alpha" not in params and "hidden_layer_sizes" not in params:
+            # For LogisticRegression, use standard solver options
+            return self._apply_solver_mutation(params, "solver", "LogisticRegression")
 
         # For other models, skip solver mutation to avoid confusion
         return None

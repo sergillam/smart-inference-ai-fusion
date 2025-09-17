@@ -141,7 +141,7 @@ def show_practical_usage():
     """Mostra exemplos práticos de uso."""
     logger.info("📚 Exemplos práticos de uso:")
     
-    print("""
+    logging.info("""
 🔧 COMO USAR O SISTEMA DE VERIFICAÇÃO:
 
 1. ATIVAR/DESATIVAR VERIFICAÇÃO:
@@ -172,7 +172,7 @@ def show_practical_usage():
    from smart_inference_ai_fusion.verification import VerificationRegistry
    registry = VerificationRegistry()
    for verifier in registry.get_available_verifiers():
-       print(f"- {verifier.name}: {verifier.supported_constraints}")
+       logging.info(f"- {verifier.name}: {verifier.supported_constraints}")
    ```
 
 4. EXECUTAR EXPERIMENTOS COM VERIFICAÇÃO:

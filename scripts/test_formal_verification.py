@@ -3,14 +3,18 @@
 
 import sys
 import os
+import logging
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+
 def test_plugin_interface():
     """Testa a interface de plugins."""
-    print("🧪 Testando Interface de Plugins de Verificação Formal")
-    print("=" * 60)
+    logging.info("🧪 Testando Interface de Plugins de Verificação Formal")
+    logging.info("=" * 60)
     
     try:
         # Importar interface
@@ -18,19 +22,19 @@ def test_plugin_interface():
             verify, list_verifiers, get_available_verifiers,
             enable_verification, disable_verification
         )
-        print("✅ Interface importada com sucesso")
+        logging.info("✅ Interface importada com sucesso")
         
         # Listar verificadores disponíveis
-        print("\n📋 Verificadores disponíveis:")
+        logging.info("\n📋 Verificadores disponíveis:")
         verifiers = list_verifiers()
         for name, info in verifiers.items():
             status = "🟢 Disponível" if info['available'] else "🔴 Indisponível"
             enabled = "✅ Habilitado" if info['enabled'] else "❌ Desabilitado"
-            print(f"  {name}: {status}, {enabled}")
-            print(f"    Suporta: {', '.join(info['supported_constraints'][:5])}...")
+            logging.info(f"  {name}: {status}, {enabled}")
+            logging.info(f"    Suporta: {', '.join(info['supported_constraints'][:5])}...")
         
         # Testar verificação simples
-        print("\n🔍 Testando verificação simples...")
+        logging.info("\n🔍 Testando verificação simples...")
         result = verify(
             name="teste_bounds",
             constraints={
@@ -38,18 +42,18 @@ def test_plugin_interface():
             }
         )
         
-        print(f"  Status: {result.status.value}")
-        print(f"  Verificador: {result.verifier_name}")
-        print(f"  Tempo: {result.execution_time:.3f}s")
-        print(f"  Mensagem: {result.message}")
+        logging.info(f"  Status: {result.status.value}")
+        logging.info(f"  Verificador: {result.verifier_name}")
+        logging.info(f"  Tempo: {result.execution_time:.3f}s")
+        logging.info(f"  Mensagem: {result.message}")
         
         if result.constraints_satisfied:
-            print(f"  ✅ Constraints satisfeitos: {', '.join(result.constraints_satisfied)}")
+            logging.info(f"  ✅ Constraints satisfeitos: {', '.join(result.constraints_satisfied)}")
         if result.constraints_violated:
-            print(f"  ❌ Constraints violados: {', '.join(result.constraints_violated)}")
+            logging.info(f"  ❌ Constraints violados: {', '.join(result.constraints_violated)}")
         
         # Testar múltiplos constraints
-        print("\n🔍 Testando múltiplos constraints...")
+        logging.info("\n🔍 Testando múltiplos constraints...")
         result2 = verify(
             name="teste_multiplo",
             constraints={
@@ -59,37 +63,37 @@ def test_plugin_interface():
             }
         )
         
-        print(f"  Status: {result2.status.value}")
-        print(f"  Constraints verificados: {len(result2.constraints_checked)}")
-        print(f"  Satisfeitos: {len(result2.constraints_satisfied)}")
-        print(f"  Violados: {len(result2.constraints_violated)}")
+        logging.info(f"  Status: {result2.status.value}")
+        logging.info(f"  Constraints verificados: {len(result2.constraints_checked)}")
+        logging.info(f"  Satisfeitos: {len(result2.constraints_satisfied)}")
+        logging.info(f"  Violados: {len(result2.constraints_violated)}")
         
         # Testar controle de ativação/desativação
-        print("\n🎛️ Testando controle de ativação...")
+        logging.info("\n🎛️ Testando controle de ativação...")
         
         # Desabilitar
         disable_verification()
         result3 = verify("teste_desabilitado", {'bounds': {'min': 0, 'max': 1}})
-        print(f"  Verificação desabilitada: {result3.status.value}")
+        logging.info(f"  Verificação desabilitada: {result3.status.value}")
         
         # Reabilitar
         enable_verification()
         result4 = verify("teste_reabilitado", {'bounds': {'min': 0, 'max': 1}})
-        print(f"  Verificação reabilitada: {result4.status.value}")
+        logging.info(f"  Verificação reabilitada: {result4.status.value}")
         
-        print("\n🎉 Todos os testes passaram!")
+        logging.info("\n🎉 Todos os testes passaram!")
         return True
         
     except Exception as e:
-        print(f"\n❌ Erro durante teste: {e}")
+        logging.info(f"\n❌ Erro durante teste: {e}")
         import traceback
         traceback.print_exc()
         return False
 
 def test_z3_capabilities():
     """Testa capacidades específicas do Z3."""
-    print("\n🧠 Testando Capacidades Avançadas do Z3")
-    print("=" * 45)
+    logging.info("\n🧠 Testando Capacidades Avançadas do Z3")
+    logging.info("=" * 45)
     
     try:
         from smart_inference_ai_fusion.verification import verify
@@ -141,34 +145,34 @@ def test_z3_capabilities():
         successful_tests = 0
         
         for test_case in test_cases:
-            print(f"\n  🧪 {test_case['name']}:")
+            logging.info(f"\n  🧪 {test_case['name']}:")
             result = verify(
                 name=f"test_{test_case['name'].lower().replace(' ', '_')}",
                 constraints=test_case['constraints'],
                 timeout=10.0
             )
             
-            print(f"    Status: {result.status.value}")
-            print(f"    Tempo: {result.execution_time:.3f}s")
+            logging.info(f"    Status: {result.status.value}")
+            logging.info(f"    Tempo: {result.execution_time:.3f}s")
             
             if result.success:
                 successful_tests += 1
-                print("    ✅ Sucesso")
+                logging.info("    ✅ Sucesso")
             else:
-                print(f"    ⚠️ {result.message}")
+                logging.info(f"    ⚠️ {result.message}")
         
-        print(f"\n📊 Resumo: {successful_tests}/{len(test_cases)} testes bem-sucedidos")
+        logging.info(f"\n📊 Resumo: {successful_tests}/{len(test_cases)} testes bem-sucedidos")
         
         return successful_tests > 0
         
     except Exception as e:
-        print(f"\n❌ Erro nos testes Z3: {e}")
+        logging.info(f"\n❌ Erro nos testes Z3: {e}")
         return False
 
 def main():
     """Função principal."""
-    print("🚀 Sistema de Verificação Formal - Validação Completa")
-    print("=" * 70)
+    logging.info("🚀 Sistema de Verificação Formal - Validação Completa")
+    logging.info("=" * 70)
     
     # Teste 1: Interface básica
     success1 = test_plugin_interface()
@@ -178,13 +182,13 @@ def main():
     
     # Resultado final
     if success1 and success2:
-        print("\n🎉 SUCESSO: Sistema de verificação formal validado!")
-        print("✅ Interface de plugins funcionando")
-        print("✅ Z3 com capacidades avançadas funcionando")
-        print("✅ Controle de ativação/desativação funcionando")
+        logging.info("\n🎉 SUCESSO: Sistema de verificação formal validado!")
+        logging.info("✅ Interface de plugins funcionando")
+        logging.info("✅ Z3 com capacidades avançadas funcionando")
+        logging.info("✅ Controle de ativação/desativação funcionando")
         return 0
     else:
-        print("\n⚠️ ATENÇÃO: Alguns testes falharam")
+        logging.info("\n⚠️ ATENÇÃO: Alguns testes falharam")
         return 1
 
 if __name__ == "__main__":

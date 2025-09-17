@@ -22,6 +22,27 @@ class CrossDependencyPerturbation(ParameterTransformation):
         # No initialization needed, but method kept for extensibility.
 
     RULES = [
+        # LogisticRegression incompatible parameters
+        {
+            "condition": {
+                "C": lambda x: x is not None,
+                "solver": lambda x: x is not None,
+                "hidden_layer_sizes": lambda x: x is None,  # Not an MLP
+                "alpha": lambda x: x is None,  # Not a Ridge
+            },  # LogisticRegression identifier
+            "remove": [
+                "positive",  # LogisticRegression doesn't have 'positive' parameter
+                "alpha",     # LogisticRegression doesn't have 'alpha' parameter
+                "hidden_layer_sizes",
+                "activation",
+                "learning_rate",
+                "learning_rate_init",
+                "max_depth",
+                "criterion",
+                "min_samples_split",
+                "min_samples_leaf",
+            ],
+        },
         # Model-specific parameter incompatibility rules (remove incompatible params)
         # MLPClassifier incompatible parameters
         {
@@ -73,13 +94,13 @@ class CrossDependencyPerturbation(ParameterTransformation):
             "condition": {"kernel": "linear"},
             "set": {"gamma": "auto"},
         },
-        # Ridge solver compatibility: lbfgs can only be used when positive=True
+        # Ridge solver compatibility: lbfgs can only be used when positive=True (Ridge specific)
         {
-            "condition": {"solver": "lbfgs", "positive": False},
+            "condition": {"solver": "lbfgs", "positive": False, "alpha": lambda x: x is not None, "C": lambda x: x is None},
             "set": {"solver": "auto"},
         },
         {
-            "condition": {"solver": "lbfgs"},
+            "condition": {"solver": "lbfgs", "alpha": lambda x: x is not None, "C": lambda x: x is None},
             "set": {"positive": True},
         },
         # Add more rules as needed.

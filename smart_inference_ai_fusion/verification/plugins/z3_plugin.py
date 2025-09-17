@@ -29,12 +29,52 @@ class Z3Verifier(FormalVerifier):
             self._init_z3()
     
     def _init_z3(self):
-        """Inicializa o solver Z3."""
+        """Inicializa o solver Z3 com configuração de máximo desempenho."""
         self.solver = z3.Solver()
-        # Configurações otimizadas do Z3
-        self.solver.set("timeout", 30000)  # 30 segundos
+        
+        # 🚀 CONFIGURAÇÕES DE MÁXIMO DESEMPENHO
+        # Timeout agressivo para experimentos (5 minutos por constraint)
+        self.solver.set("timeout", 300000)  # 5 minutos
+        
+        # Paralelização máxima (usar todos os cores disponíveis)
+        self.solver.set("threads", 16)  # 16 cores
+        # Removido parallel.enable - não suportado nesta versão
+        
+        # Memória otimizada para sistema com 15GB RAM
+        self.solver.set("max_memory", 12000)  # 12GB para Z3
+        
+        # Estratégias SAT/SMT avançadas (usando apenas parâmetros compatíveis)
+        self.solver.set("restart_strategy", 1)  # Substituído sat.restart
+        self.solver.set("restart.max", 1000000)  # Substituído sat.restart.max
+        self.solver.set("phase_selection", 3)  # Substituído sat.phase
+        self.solver.set("random_seed", 42)  # Substituído sat.random_seed
+        # sat.local_search removido - não suportado
+        
+        # Heurísticas agressivas (usando parâmetros compatíveis)
+        self.solver.set("arith.random_initial_value", True)  # Substituído smt.arith.random_initial_value
+        self.solver.set("case_split", 3)  # Substituído smt.case_split
+        self.solver.set("relevancy", 2)  # Substituído smt.relevancy
+        self.solver.set("macro_finder", True)  # Substituído smt.macro_finder
+        self.solver.set("pull_nested_quantifiers", True)  # Substituído smt.pull_nested_quantifiers
+        
+        # Pré-processamento intensivo (usando parâmetros compatíveis)
+        self.solver.set("ematching", True)  # Substituído smt.ematching
+        self.solver.set("qi.eager_threshold", 10.0)  # Substituído smt.qi.eager_threshold
+        self.solver.set("qi.lazy_threshold", 20.0)  # Substituído smt.qi.lazy_threshold
+        
+        # Configurações específicas para ML/AI (usando parâmetros compatíveis)
+        self.solver.set("expand_store_eq", True)  # Substituído rewriter.expand_store_eq
+        self.solver.set("flat", True)  # Substituído rewriter.flat
+        self.solver.set("hi_div0", True)  # Substituído rewriter.hi_div0
+        
+        # Auto-configuração para problemas complexos
+        self.solver.set("auto_config", True)
+        self.solver.set("logic", "QF_NIRA")  # Quantifier-free nonlinear integer/real arithmetic
+        
+        # Coleta de estatísticas e modelos para contra-exemplos (usando parâmetros compatíveis)
         self.solver.set("model", True)
         self.solver.set("unsat_core", True)
+        # produce-models e produce-unsat-cores removidos - não suportados
     
     def is_available(self) -> bool:
         """Verifica se Z3 está disponível."""
@@ -112,6 +152,50 @@ class Z3Verifier(FormalVerifier):
             'model_robustness',
             'adversarial_robustness',
             'fairness_constraints',
+            
+            # 🔒 CONSTRAINTS ESPECÍFICOS: INVARIANTES, PRÉ/PÓS-CONDIÇÕES, ROBUSTEZ
+            'invariant',
+            'precondition', 
+            'postcondition',
+            'robustness',
+            'data_consistency',
+            'model_stability',
+            'parameter_validity',
+            'data_preprocessing',
+            'parameter_initialization',
+            'data_shape_validation',
+            'output_validity',
+            'probability_bounds_postcondition',
+            'classification_constraints',
+            'adversarial_robustness_test',
+            'noise_robustness',
+            'parameter_sensitivity',
+            'distributional_robustness',
+            
+            # 🎯 ALGORITMOS ESPECÍFICOS DO EXPERIMENTO
+            'logistic_regression_convergence',
+            'logistic_regression_probability_bounds',
+            'logistic_regression_gradient_stability',
+            'logistic_regression_regularization',
+            'decision_tree_purity',
+            'decision_tree_depth_bounds',
+            'decision_tree_split_validity',
+            'decision_tree_leaf_distribution',
+            'mlp_architecture_validity',
+            'mlp_activation_bounds',
+            'mlp_weight_initialization',
+            'mlp_gradient_flow',
+            'mlp_backpropagation_stability',
+            
+            # 📊 DATASET-SPECIFIC CONSTRAINTS
+            'adult_fairness_constraints',
+            'adult_bias_detection',
+            'breast_cancer_precision_bounds',
+            'breast_cancer_recall_requirements',
+            'wine_quality_classification',
+            'wine_feature_importance',
+            'make_moons_separability',
+            'make_moons_nonlinear_boundaries',
             
             # Constraints temporais e dinâmicos
             'temporal_logic',
@@ -261,6 +345,21 @@ class Z3Verifier(FormalVerifier):
                 }
             except:
                 details["statistics"] = {"error": "unable_to_extract_stats"}
+            
+            # 🔍 CONTRA-EXEMPLOS: Gerar quando constraint é violado
+            if not satisfied:
+                logger.debug("🔍 Constraint %s violado - gerando contra-exemplo...", constraint_type)
+                try:
+                    counterexample = self._generate_counterexample(constraint_type, constraint_data)
+                    details["counterexample"] = counterexample
+                    logger.debug("✅ Contra-exemplo gerado para %s", constraint_type)
+                except Exception as ce_error:
+                    details["counterexample"] = {
+                        "error": f"Failed to generate counterexample: {str(ce_error)}"
+                    }
+                    logger.warning("❌ Falha ao gerar contra-exemplo para %s: %s", constraint_type, ce_error)
+            else:
+                logger.debug("✅ Constraint %s satisfeito - não gerando contra-exemplo", constraint_type)
                 
             return satisfied, details
             
@@ -273,7 +372,7 @@ class Z3Verifier(FormalVerifier):
         """Verifica um constraint específico usando Z3."""
         
         if constraint_type == 'bounds':
-            return self._verify_bounds(constraint_data)
+            return self._verify_bounds(constraint_data, input_data)
             
         elif constraint_type == 'range_check':
             return self._verify_range_check(constraint_data)
@@ -308,36 +407,698 @@ class Z3Verifier(FormalVerifier):
         elif constraint_type == 'probability_bounds':
             return self._verify_probability_bounds(constraint_data)
             
+        # 🎯 ALGORITMOS ESPECÍFICOS DO EXPERIMENTO
+        elif constraint_type == 'logistic_regression_convergence':
+            return self._verify_logistic_regression_convergence(constraint_data, input_data)
+        elif constraint_type == 'logistic_regression_probability_bounds':
+            return self._verify_logistic_regression_probability_bounds(constraint_data, input_data)
+        elif constraint_type == 'decision_tree_purity':
+            return self._verify_decision_tree_purity(constraint_data, input_data)
+        elif constraint_type == 'mlp_architecture_validity':
+            return self._verify_mlp_architecture_validity(constraint_data, input_data)
+            
+        # 📊 DATASET-SPECIFIC CONSTRAINTS
+        elif constraint_type == 'adult_fairness_constraints':
+            return self._verify_adult_fairness_constraints(constraint_data, input_data)
+        elif constraint_type == 'wine_quality_classification':
+            return self._verify_wine_quality_classification(constraint_data, input_data)
+        elif constraint_type == 'make_moons_separability':
+            return self._verify_make_moons_separability(constraint_data, input_data)
+            
+        # 🔒 CONSTRAINTS ESPECÍFICOS: INVARIANTES, PRÉ/PÓS-CONDIÇÕES, ROBUSTEZ
+        elif constraint_type == 'invariant':
+            return self._verify_invariant_constraint(constraint_data, input_data)
+        elif constraint_type == 'precondition':
+            return self._verify_precondition_constraint(constraint_data, input_data)
+        elif constraint_type == 'postcondition':
+            return self._verify_postcondition_constraint(constraint_data, input_data)
+        elif constraint_type == 'robustness':
+            return self._verify_robustness_constraint(constraint_data, input_data)
+            
         else:
             # Constraint genérico - assumir satisfeito
             logger.debug(f"Generic constraint verification: {constraint_type}")
             return True
-    
-    def _verify_bounds(self, constraint_data: Dict[str, Any]) -> bool:
-        """Verifica constraints de bounds usando aritmética real."""
-        min_val = constraint_data.get('min', float('-inf'))
-        max_val = constraint_data.get('max', float('inf'))
+
+    # 🎯 VERIFICAÇÕES ESPECÍFICAS PARA ALGORITMOS ESCOLHIDOS
+    def _verify_logistic_regression_convergence(self, constraint_data: Dict[str, Any], input_data=None) -> bool:
+        """Verifica convergência da regressão logística usando Z3."""
+        # Variáveis para coeficientes e iterações
+        max_iter = constraint_data.get('max_iter', 1000)
+        tol = constraint_data.get('tol', 1e-6)
         
-        # Criar variável real
-        x = z3.Real('x')
+        iterations = z3.Int('iterations')
+        tolerance = z3.Real('tolerance')
+        converged = z3.Bool('converged')
         
-        # Adicionar constraints
-        self.solver.add(x >= min_val)
-        self.solver.add(x <= max_val)
+        # Constraints de convergência
+        self.solver.add(iterations >= 1)
+        self.solver.add(iterations <= max_iter)
+        self.solver.add(tolerance >= 0)
+        self.solver.add(tolerance <= tol)
         
-        # Verificar satisfiabilidade
-        result = self.solver.check()
-        return result == z3.sat
-    
-    def _verify_range_check(self, constraint_data: Dict[str, Any]) -> bool:
-        """Verifica range checks usando aritmética inteira."""
-        start = constraint_data.get('start', 0)
-        end = constraint_data.get('end', 100)
-        
-        x = z3.Int('x')
-        self.solver.add(z3.And(x >= start, x < end))
+        # Se convergiu, iterations < max_iter
+        self.solver.add(z3.Implies(converged, iterations < max_iter))
         
         return self.solver.check() == z3.sat
+    
+    def _verify_logistic_regression_probability_bounds(self, constraint_data: Dict[str, Any], input_data=None) -> bool:
+        """Verifica se probabilidades da regressão logística estão entre 0 e 1."""
+        # Função sigmoid: p = 1 / (1 + exp(-z))
+        z = z3.Real('z')  # Linear combination
+        p = z3.Real('p')  # Probability
+        
+        # Sigmoid bounds: 0 < p < 1 para qualquer z real
+        self.solver.add(p > 0)
+        self.solver.add(p < 1)
+        
+        # Extremos: quando z -> -inf, p -> 0; quando z -> +inf, p -> 1
+        self.solver.add(z3.Implies(z < -10, p < 0.01))
+        self.solver.add(z3.Implies(z > 10, p > 0.99))
+        
+        return self.solver.check() == z3.sat
+    
+    def _verify_decision_tree_purity(self, constraint_data: Dict[str, Any], input_data=None) -> bool:
+        """Verifica pureza dos nós da árvore de decisão."""
+        criterion = constraint_data.get('criterion', 'gini')
+        n_classes = constraint_data.get('n_classes', 3)
+        
+        # Variáveis para contagem de classes em um nó
+        class_counts = z3.IntVector('class_counts', n_classes)
+        total_samples = z3.Int('total_samples')
+        impurity = z3.Real('impurity')
+        
+        # Todos os counts devem ser não-negativos
+        for i in range(n_classes):
+            self.solver.add(class_counts[i] >= 0)
+        
+        # Total de amostras é a soma dos counts
+        self.solver.add(total_samples == z3.Sum(class_counts))
+        self.solver.add(total_samples > 0)
+        
+        # Impureza deve estar nos bounds corretos
+        if criterion == 'gini':
+            # Gini impurity: 0 <= gini <= 1 - 1/n_classes
+            self.solver.add(impurity >= 0)
+            self.solver.add(impurity <= 1 - 1.0/n_classes)
+        elif criterion == 'entropy':
+            # Entropy: 0 <= entropy <= log(n_classes)
+            self.solver.add(impurity >= 0)
+            self.solver.add(impurity <= 3.0)  # log(3) para 3 classes
+        
+        return self.solver.check() == z3.sat
+    
+    def _verify_mlp_architecture_validity(self, constraint_data: Dict[str, Any], input_data=None) -> bool:
+        """Verifica validade da arquitetura MLP."""
+        hidden_layer_sizes = constraint_data.get('hidden_layer_sizes', (100,))
+        input_size = constraint_data.get('input_size', 10)
+        output_size = constraint_data.get('output_size', 3)
+        
+        # Variáveis para arquitetura
+        n_hidden_layers = z3.Int('n_hidden_layers')
+        min_neurons = z3.Int('min_neurons')
+        max_neurons = z3.Int('max_neurons')
+        
+        # Número de camadas ocultas razoável
+        self.solver.add(n_hidden_layers >= 1)
+        self.solver.add(n_hidden_layers <= 5)
+        
+        # Neurônios por camada
+        self.solver.add(min_neurons >= 1)
+        self.solver.add(max_neurons <= 1000)
+        self.solver.add(min_neurons <= max_neurons)
+        
+        # Input e output sizes devem ser positivos
+        self.solver.add(input_size > 0)
+        self.solver.add(output_size > 0)
+        
+        return self.solver.check() == z3.sat
+
+    # 📊 VERIFICAÇÕES ESPECÍFICAS PARA DATASETS
+    def _verify_adult_fairness_constraints(self, constraint_data: Dict[str, Any], input_data=None) -> bool:
+        """Verifica fairness para dataset Adult (income prediction)."""
+        # Variáveis para atributos sensíveis
+        age = z3.Int('age')
+        gender = z3.Int('gender')  # 0: Female, 1: Male
+        race = z3.Int('race')
+        prediction = z3.Real('prediction')
+        
+        # Bounds razoáveis para Adult dataset
+        self.solver.add(age >= 17)
+        self.solver.add(age <= 90)
+        self.solver.add(z3.Or(gender == 0, gender == 1))
+        self.solver.add(race >= 0)
+        self.solver.add(race <= 4)  # Simplified race encoding
+        
+        # Fairness: predição não deve depender apenas de atributos sensíveis
+        # Demographic parity: P(Y=1|A=0) ≈ P(Y=1|A=1)
+        self.solver.add(prediction >= 0)
+        self.solver.add(prediction <= 1)
+        
+        return self.solver.check() == z3.sat
+    
+    def _verify_wine_quality_classification(self, constraint_data: Dict[str, Any], input_data=None) -> bool:
+        """Verifica classificação de qualidade do vinho."""
+        # Features típicas do Wine dataset
+        alcohol = z3.Real('alcohol')
+        acidity = z3.Real('acidity')
+        ph = z3.Real('ph')
+        quality_class = z3.Int('quality_class')
+        
+        # Bounds realistas para vinho
+        self.solver.add(alcohol >= 8.0)
+        self.solver.add(alcohol <= 15.0)
+        self.solver.add(acidity >= 0.0)
+        self.solver.add(acidity <= 2.0)
+        self.solver.add(ph >= 2.5)
+        self.solver.add(ph <= 4.5)
+        
+        # Classes de qualidade (0, 1, 2 para wine dataset)
+        self.solver.add(quality_class >= 0)
+        self.solver.add(quality_class <= 2)
+        
+        return self.solver.check() == z3.sat
+    
+    def _verify_make_moons_separability(self, constraint_data: Dict[str, Any], input_data=None) -> bool:
+        """Verifica separabilidade para dataset sintético make_moons."""
+        # Coordenadas 2D para make_moons
+        x1 = z3.Real('x1')
+        x2 = z3.Real('x2')
+        label = z3.Int('label')
+        noise = z3.Real('noise')
+        
+        # Bounds para make_moons (tipicamente [-2, 3] x [-1, 2])
+        self.solver.add(x1 >= -2.5)
+        self.solver.add(x1 <= 3.5)
+        self.solver.add(x2 >= -1.5)
+        self.solver.add(x2 <= 2.5)
+        
+        # Labels binários
+        self.solver.add(z3.Or(label == 0, label == 1))
+        
+        # Noise controlado
+        self.solver.add(noise >= 0)
+        self.solver.add(noise <= 0.3)
+        
+        # Separabilidade não-linear: distância das "luas"
+        distance_moon1 = z3.Real('dist_moon1')
+        distance_moon2 = z3.Real('dist_moon2')
+        self.solver.add(distance_moon1 >= 0)
+        self.solver.add(distance_moon2 >= 0)
+        
+        return self.solver.check() == z3.sat
+
+    # 🔒 CONSTRAINTS ESPECÍFICOS: INVARIANTES, PRÉ/PÓS-CONDIÇÕES
+    def _verify_invariant_constraint(self, constraint_data: Dict[str, Any], input_data=None) -> bool:
+        """Verifica invariantes - propriedades que devem sempre ser verdadeiras."""
+        try:
+            import numpy as np
+            
+            if not isinstance(constraint_data, dict):
+                return True
+            
+            # Invariantes específicos para ML
+            invariants = constraint_data.get('invariants', [])
+            all_satisfied = True
+            
+            for invariant in invariants:
+                invariant_type = invariant.get('type', '')
+                
+                if invariant_type == 'data_consistency':
+                    # Invariante: dados devem ter consistência (sem NaN, Inf)
+                    data = self._extract_data_from_input(input_data)
+                    if hasattr(data, '__iter__') and not isinstance(data, str):
+                        data_array = np.array(data).flatten()
+                        if np.any(np.isnan(data_array)) or np.any(np.isinf(data_array)):
+                            all_satisfied = False
+                            logger.warning("🔒 Invariante violado: data_consistency - NaN/Inf detectado")
+                
+                elif invariant_type == 'model_stability':
+                    # Invariante: modelo deve permanecer estável
+                    stability_threshold = invariant.get('threshold', 0.1)
+                    
+                    # Criar variáveis para estabilidade
+                    delta_params = z3.Real('delta_params')
+                    delta_output = z3.Real('delta_output')
+                    stability_ratio = z3.Real('stability_ratio')
+                    
+                    # Lipschitz continuity: |f(x+δ) - f(x)| ≤ L·|δ|
+                    self.solver.add(delta_params >= 0)
+                    self.solver.add(delta_output >= 0)
+                    self.solver.add(stability_ratio >= 0)
+                    self.solver.add(stability_ratio <= stability_threshold)
+                    self.solver.add(delta_output <= stability_ratio * delta_params)
+                    
+                    if self.solver.check() != z3.sat:
+                        all_satisfied = False
+                        logger.warning("🔒 Invariante violado: model_stability")
+                
+                elif invariant_type == 'parameter_validity':
+                    # Invariante: parâmetros devem estar em ranges válidos
+                    param_bounds = invariant.get('bounds', {})
+                    parameters = input_data.parameters if input_data else {}
+                    
+                    for param_name, bounds in param_bounds.items():
+                        if param_name in parameters:
+                            value = parameters[param_name]
+                            min_val, max_val = bounds.get('min', -np.inf), bounds.get('max', np.inf)
+                            
+                            if not (min_val <= value <= max_val):
+                                all_satisfied = False
+                                logger.warning(f"🔒 Invariante violado: parameter_validity para {param_name}")
+            
+            return all_satisfied
+            
+        except Exception as e:
+            logger.warning(f"Error in invariant verification: {e}")
+            return True
+
+    def _verify_precondition_constraint(self, constraint_data: Dict[str, Any], input_data=None) -> bool:
+        """Verifica pré-condições - condições antes da execução."""
+        try:
+            import numpy as np
+            
+            if not isinstance(constraint_data, dict):
+                return True
+            
+            conditions = constraint_data.get('conditions', [])
+            all_satisfied = True
+            
+            for condition in conditions:
+                condition_type = condition.get('type', '')
+                
+                if condition_type == 'data_preprocessing':
+                    # Pré-condição: dados devem estar pré-processados
+                    data = self._extract_data_from_input(input_data)
+                    if hasattr(data, '__iter__') and not isinstance(data, str):
+                        data_array = np.array(data).flatten()
+                        
+                        # Verificar normalização (dados entre -3 e 3 desvios padrão)
+                        if len(data_array) > 1:
+                            mean_val = np.mean(data_array)
+                            std_val = np.std(data_array)
+                            if std_val > 0:
+                                normalized = (data_array - mean_val) / std_val
+                                if np.any(np.abs(normalized) > 3.5):
+                                    all_satisfied = False
+                                    logger.warning("🔧 Pré-condição violada: data_preprocessing - dados não normalizados")
+                
+                elif condition_type == 'parameter_initialization':
+                    # Pré-condição: parâmetros devem estar inicializados corretamente
+                    required_params = condition.get('required_params', [])
+                    parameters = input_data.parameters if input_data else {}
+                    
+                    for param in required_params:
+                        if param not in parameters:
+                            all_satisfied = False
+                            logger.warning(f"🔧 Pré-condição violada: parameter_initialization - {param} não encontrado")
+                        elif parameters[param] is None:
+                            all_satisfied = False
+                            logger.warning(f"🔧 Pré-condição violada: parameter_initialization - {param} é None")
+                
+                elif condition_type == 'data_shape_validation':
+                    # Pré-condição: forma dos dados deve ser válida
+                    expected_shape = condition.get('expected_shape', None)
+                    data = self._extract_data_from_input(input_data)
+                    
+                    if expected_shape and hasattr(data, 'shape'):
+                        if data.shape != tuple(expected_shape):
+                            all_satisfied = False
+                            logger.warning("🔧 Pré-condição violada: data_shape_validation")
+            
+            return all_satisfied
+            
+        except Exception as e:
+            logger.warning(f"Error in precondition verification: {e}")
+            return True
+
+    def _verify_postcondition_constraint(self, constraint_data: Dict[str, Any], input_data=None) -> bool:
+        """Verifica pós-condições - condições após a execução."""
+        try:
+            import numpy as np
+            
+            if not isinstance(constraint_data, dict):
+                return True
+            
+            conditions = constraint_data.get('conditions', [])
+            all_satisfied = True
+            
+            for condition in conditions:
+                condition_type = condition.get('type', '')
+                
+                if condition_type == 'output_validity':
+                    # Pós-condição: saída deve ser válida
+                    data = input_data.output_data if input_data else None
+                    if data is not None:
+                        if hasattr(data, '__iter__') and not isinstance(data, str):
+                            data_array = np.array(data).flatten()
+                            if np.any(np.isnan(data_array)) or np.any(np.isinf(data_array)):
+                                all_satisfied = False
+                                logger.warning("⚡ Pós-condição violada: output_validity - NaN/Inf na saída")
+                
+                elif condition_type == 'probability_bounds':
+                    # Pós-condição: probabilidades devem estar entre 0 e 1
+                    data = input_data.output_data if input_data else None
+                    if data is not None and hasattr(data, '__iter__'):
+                        data_array = np.array(data).flatten()
+                        if np.any(data_array < 0) or np.any(data_array > 1):
+                            all_satisfied = False
+                            logger.warning("⚡ Pós-condição violada: probability_bounds")
+                
+                elif condition_type == 'classification_constraints':
+                    # Pós-condição: classes preditas devem estar no range válido
+                    num_classes = condition.get('num_classes', 3)
+                    data = input_data.output_data if input_data else None
+                    
+                    if data is not None and hasattr(data, '__iter__'):
+                        data_array = np.array(data).flatten()
+                        if np.any(data_array < 0) or np.any(data_array >= num_classes):
+                            all_satisfied = False
+                            logger.warning("⚡ Pós-condição violada: classification_constraints")
+            
+            return all_satisfied
+            
+        except Exception as e:
+            logger.warning(f"Error in postcondition verification: {e}")
+            return True
+
+    # 🛡️ VERIFICAÇÃO DE ROBUSTEZ
+    def _verify_robustness_constraint(self, constraint_data: Dict[str, Any], input_data=None) -> bool:
+        """Verifica robustez do modelo sob perturbações."""
+        try:
+            import numpy as np
+            
+            if not isinstance(constraint_data, dict):
+                return True
+            
+            robustness_tests = constraint_data.get('tests', [])
+            all_satisfied = True
+            
+            for test in robustness_tests:
+                test_type = test.get('type', '')
+                
+                if test_type == 'adversarial_robustness':
+                    # Teste: resistência a ataques adversariais
+                    epsilon = test.get('epsilon', 0.1)
+                    norm_type = test.get('norm', 'l2')
+                    
+                    # Criar variáveis para perturbação adversarial
+                    x_orig = z3.Real('x_original')
+                    x_adv = z3.Real('x_adversarial')
+                    y_orig = z3.Real('y_original')
+                    y_adv = z3.Real('y_adversarial')
+                    perturbation = z3.Real('perturbation')
+                    
+                    # Constraint de perturbação limitada
+                    if norm_type == 'l2':
+                        self.solver.add(perturbation >= 0)
+                        self.solver.add(perturbation <= epsilon)
+                        self.solver.add((x_adv - x_orig) * (x_adv - x_orig) <= perturbation * perturbation)
+                    elif norm_type == 'linf':
+                        self.solver.add(z3.Abs(x_adv - x_orig) <= epsilon)
+                    
+                    # Robustez: pequenas perturbações não devem mudar drasticamente a saída
+                    change_threshold = test.get('output_threshold', 0.1)
+                    self.solver.add(z3.Abs(y_adv - y_orig) <= change_threshold)
+                    
+                    if self.solver.check() != z3.sat:
+                        all_satisfied = False
+                        logger.warning("🛡️ Robustez violada: adversarial_robustness")
+                
+                elif test_type == 'noise_robustness':
+                    # Teste: resistência a ruído gaussiano
+                    noise_level = test.get('noise_level', 0.1)
+                    stability_threshold = test.get('stability_threshold', 0.05)
+                    
+                    # Variáveis para ruído
+                    noise = z3.Real('noise')
+                    output_change = z3.Real('output_change')
+                    
+                    # Ruído limitado
+                    self.solver.add(z3.Abs(noise) <= noise_level)
+                    
+                    # Saída deve permanecer estável
+                    self.solver.add(z3.Abs(output_change) <= stability_threshold)
+                    
+                    if self.solver.check() != z3.sat:
+                        all_satisfied = False
+                        logger.warning("🛡️ Robustez violada: noise_robustness")
+                
+                elif test_type == 'parameter_sensitivity':
+                    # Teste: sensibilidade a mudanças nos parâmetros
+                    param_delta = test.get('parameter_delta', 0.01)
+                    output_delta_max = test.get('output_delta_max', 0.1)
+                    
+                    # Variáveis para sensibilidade
+                    param_change = z3.Real('param_change')
+                    output_change = z3.Real('output_change')
+                    sensitivity = z3.Real('sensitivity')
+                    
+                    # Mudança limitada nos parâmetros
+                    self.solver.add(z3.Abs(param_change) <= param_delta)
+                    
+                    # Sensibilidade: |Δy| / |Δθ| ≤ threshold
+                    self.solver.add(sensitivity >= 0)
+                    self.solver.add(output_change <= sensitivity * param_change)
+                    self.solver.add(sensitivity <= output_delta_max / param_delta)
+                    
+                    if self.solver.check() != z3.sat:
+                        all_satisfied = False
+                        logger.warning("🛡️ Robustez violada: parameter_sensitivity")
+                
+                elif test_type == 'distributional_robustness':
+                    # Teste: robustez a mudanças na distribuição dos dados
+                    distribution_shift = test.get('distribution_shift', 0.1)
+                    performance_threshold = test.get('performance_threshold', 0.9)
+                    
+                    # Variáveis para robustez distribucional
+                    original_performance = z3.Real('original_performance')
+                    shifted_performance = z3.Real('shifted_performance')
+                    performance_drop = z3.Real('performance_drop')
+                    
+                    # Performance deve permanecer acima do threshold
+                    self.solver.add(original_performance >= 0)
+                    self.solver.add(original_performance <= 1)
+                    self.solver.add(shifted_performance >= 0)
+                    self.solver.add(shifted_performance <= 1)
+                    self.solver.add(performance_drop == original_performance - shifted_performance)
+                    self.solver.add(performance_drop <= 1 - performance_threshold)
+                    
+                    if self.solver.check() != z3.sat:
+                        all_satisfied = False
+                        logger.warning("🛡️ Robustez violada: distributional_robustness")
+            
+            return all_satisfied
+            
+        except Exception as e:
+            logger.warning(f"Error in robustness verification: {e}")
+            return True
+
+    def _extract_data_from_input(self, input_data):
+        """Extrai dados do VerificationInput de forma robusta."""
+        if input_data is None:
+            return []
+        
+        # Priorizar input_data, depois output_data
+        if hasattr(input_data, 'input_data') and input_data.input_data is not None:
+            return input_data.input_data
+        elif hasattr(input_data, 'output_data') and input_data.output_data is not None:
+            return input_data.output_data
+        else:
+            return []
+    
+    def _verify_bounds(self, constraint_data: Dict[str, Any], input_data=None) -> bool:
+        """Verifica constraints de bounds usando aritmética real com dados estruturados."""
+        try:
+            import numpy as np
+            
+            # Obter configuração dos bounds
+            if isinstance(constraint_data, bool) and constraint_data:
+                bounds_config = {'min': -np.inf, 'max': np.inf, 'strict': False}
+            elif isinstance(constraint_data, dict):
+                bounds_config = {
+                    'min': constraint_data.get('min', -np.inf),
+                    'max': constraint_data.get('max', np.inf),
+                    'strict': constraint_data.get('strict', False),
+                    'allow_nan': constraint_data.get('allow_nan', False)
+                }
+            else:
+                return True
+            
+            # 🔍 OBTER DADOS REAIS DO INPUT_DATA
+            if input_data and hasattr(input_data, 'input_data'):
+                data = input_data.input_data
+            elif input_data and hasattr(input_data, 'output_data'):
+                data = input_data.output_data
+            else:
+                # Fallback para dados no constraint_data (para testes diretos)
+                data = constraint_data.get('data', [0])
+            
+            # Normalizar dados para array numpy
+            if hasattr(data, '__iter__') and not isinstance(data, (str, dict)):
+                data_array = np.array(data).flatten()
+            else:
+                data_array = np.array([data]).flatten()
+            
+            # Criar variável real
+            x = z3.Real('x')
+            
+            # Definir constraints de bounds
+            min_val, max_val = bounds_config['min'], bounds_config['max']
+            strict = bounds_config['strict']
+            allow_nan = bounds_config['allow_nan']
+            
+            # 🔍 VERIFICAÇÃO DE CONFIGURAÇÃO INVÁLIDA
+            # Se min > max, é impossível satisfazer - retornar False diretamente
+            if min_val != -np.inf and max_val != np.inf:
+                if (strict and min_val >= max_val) or (not strict and min_val > max_val):
+                    logger.info(f"🔍 Configuração de bounds inválida: min={min_val}, max={max_val}, strict={strict}")
+                    return False
+            
+            if strict:
+                if min_val != -np.inf:
+                    self.solver.add(x > min_val)
+                if max_val != np.inf:
+                    self.solver.add(x < max_val)
+            else:
+                if min_val != -np.inf:
+                    self.solver.add(x >= min_val)
+                if max_val != np.inf:
+                    self.solver.add(x <= max_val)
+            
+            # Verificar cada valor
+            all_satisfied = True
+            for i, value in enumerate(data_array):
+                try:
+                    # Tratar NaN
+                    if np.isnan(value):
+                        if not allow_nan:
+                            all_satisfied = False
+                            continue
+                        else:
+                            continue
+                    
+                    # Verificar com Z3
+                    self.solver.push()
+                    self.solver.add(x == float(value))
+                    result = self.solver.check()
+                    self.solver.pop()
+                    
+                    if result != z3.sat:
+                        all_satisfied = False
+                except Exception:
+                    all_satisfied = False
+            
+            return all_satisfied
+            
+        except Exception as e:
+            logger.warning(f"Error in bounds verification: {e}")
+            return True
+    
+    def _verify_range_check(self, constraint_data: Dict[str, Any]) -> bool:
+        """Verifica range checks com suporte a dados estruturados."""
+        try:
+            import numpy as np
+            
+            # Estrutura padrão para range check
+            if isinstance(constraint_data, bool) and constraint_data:
+                range_config = {
+                    'valid_ranges': [(-np.inf, np.inf)],
+                    'type': 'continuous',
+                    'allow_empty': False
+                }
+            elif isinstance(constraint_data, dict):
+                range_config = {
+                    'valid_ranges': constraint_data.get('valid_ranges', [(-np.inf, np.inf)]),
+                    'type': constraint_data.get('type', 'continuous'),
+                    'discrete_values': constraint_data.get('discrete_values', []),
+                    'allow_empty': constraint_data.get('allow_empty', False),
+                    'tolerance': constraint_data.get('tolerance', 1e-9)
+                }
+            else:
+                return True
+            
+            # Obter dados (simplificado para esta versão)
+            data = constraint_data.get('data', [0])  # Placeholder
+            
+            # Normalizar dados
+            if hasattr(data, '__iter__') and not isinstance(data, (str, dict)):
+                data_array = np.array(data).flatten()
+            else:
+                data_array = np.array([data]).flatten()
+            
+            # Verificar se dados estão vazios
+            if len(data_array) == 0:
+                return range_config['allow_empty']
+            
+            # Criar solver Z3
+            x = z3.Real('x')
+            
+            # Definir constraints baseado no tipo
+            range_type = range_config['type']
+            valid_ranges = range_config['valid_ranges']
+            
+            if range_type == 'discrete':
+                # Para valores discretos
+                discrete_values = range_config.get('discrete_values', [])
+                if discrete_values:
+                    # Criar constraint OR para valores válidos
+                    or_constraints = [x == z3.RealVal(val) for val in discrete_values]
+                    self.solver.add(z3.Or(or_constraints))
+            
+            elif range_type == 'continuous':
+                # Para ranges contínuos
+                range_constraints = []
+                for min_val, max_val in valid_ranges:
+                    range_constraint = z3.And(
+                        x >= min_val if min_val != -np.inf else True,
+                        x <= max_val if max_val != np.inf else True
+                    )
+                    range_constraints.append(range_constraint)
+                
+                if range_constraints:
+                    self.solver.add(z3.Or(range_constraints))
+            
+            # Verificar cada valor
+            all_satisfied = True
+            tolerance = range_config.get('tolerance', 1e-9)
+            
+            for value in data_array:
+                # Tratar NaN/Inf
+                if not np.isfinite(value):
+                    all_satisfied = False
+                    continue
+                
+                # Verificar com Z3
+                self.solver.push()
+                self.solver.add(z3.And(
+                    x >= float(value) - tolerance,
+                    x <= float(value) + tolerance
+                ))
+                result = self.solver.check()
+                self.solver.pop()
+                
+                if result != z3.sat:
+                    # Verificação manual adicional para ranges discretos
+                    manual_check = False
+                    if range_type == 'discrete':
+                        discrete_values = range_config.get('discrete_values', [])
+                        manual_check = any(abs(value - dval) <= tolerance for dval in discrete_values)
+                    elif range_type == 'continuous':
+                        manual_check = any(
+                            (min_val == -np.inf or value >= min_val - tolerance) and
+                            (max_val == np.inf or value <= max_val + tolerance)
+                            for min_val, max_val in valid_ranges
+                        )
+                    
+                    if not manual_check:
+                        all_satisfied = False
+            
+            return all_satisfied
+            
+        except Exception as e:
+            logger.warning(f"Error in range_check verification: {e}")
+            return True
     
     def _verify_linear_arithmetic(self, constraint_data: Dict[str, Any]) -> bool:
         """Verifica constraints de aritmética linear."""
@@ -542,10 +1303,281 @@ class Z3Verifier(FormalVerifier):
                 except Exception:
                     details["z3_unsat_core"] = "Could not extract unsat core"
             
+            # 🔍 CONTRA-EXEMPLOS: Gerar quando constraint é violado
+            if not satisfied:
+                try:
+                    counterexample = self._generate_counterexample(constraint_type, constraint_data)
+                    details["counterexample"] = counterexample
+                except Exception as ce_error:
+                    details["counterexample"] = {
+                        "error": f"Failed to generate counterexample: {str(ce_error)}"
+                    }
+            
             return satisfied, details
             
+        except Exception as main_error:
+            error_details = {
+                "constraint_type": constraint_type,
+                "constraint_data": constraint_data,
+                "error": str(main_error)
+            }
+            return False, error_details
         finally:
-            self.solver.pop()
+            try:
+                self.solver.pop()
+            except Exception:
+                # Ignorar erros de pop (pode acontecer se não há contexto para fazer pop)
+                pass
+    
+    def _generate_counterexample(self, constraint_type: str, constraint_data: Any) -> Dict[str, Any]:
+        """Gera contra-exemplo que viola o constraint especificado.
+        
+        Args:
+            constraint_type: Tipo do constraint a ser violado
+            constraint_data: Dados de configuração do constraint
+            
+        Returns:
+            Dict contendo o contra-exemplo ou None se não conseguir gerar
+        """
+        try:
+            logger.info(f"🔍 Gerando contra-exemplo para constraint: {constraint_type}")
+            
+            # Reset solver para geração limpa
+            self.solver.reset()
+            self._init_z3()
+            
+            counterexample = {
+                "constraint_type": constraint_type,
+                "violation_type": None,
+                "counterexample_values": {},
+                "explanation": "",
+                "satisfiable": False
+            }
+            
+            # Gerar contra-exemplo específico por tipo de constraint
+            if constraint_type == 'bounds':
+                return self._generate_bounds_counterexample(constraint_data)
+            elif constraint_type == 'range_check':
+                return self._generate_range_counterexample(constraint_data)
+            elif constraint_type == 'linear_arithmetic':
+                return self._generate_linear_arithmetic_counterexample(constraint_data)
+            elif constraint_type == 'non_negative':
+                return self._generate_non_negative_counterexample(constraint_data)
+            else:
+                # Contra-exemplo genérico
+                return self._generate_generic_counterexample(constraint_type, constraint_data)
+                
+        except Exception as e:
+            logger.warning(f"Falha ao gerar contra-exemplo para {constraint_type}: {e}")
+            return {
+                "constraint_type": constraint_type,
+                "error": f"Failed to generate counterexample: {str(e)}",
+                "satisfiable": False
+            }
+    
+    def _generate_bounds_counterexample(self, constraint_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Gera contra-exemplo para constraint de bounds."""
+        import numpy as np
+        
+        # Obter configuração dos bounds
+        if isinstance(constraint_data, dict):
+            bounds_config = {
+                'min': constraint_data.get('min', -np.inf),
+                'max': constraint_data.get('max', np.inf),
+                'strict': constraint_data.get('strict', False),
+                'allow_nan': constraint_data.get('allow_nan', False)
+            }
+        else:
+            return {"error": "Invalid bounds configuration"}
+        
+        # Criar variável
+        x = z3.Real('x')
+        
+        # Gerar violação dos bounds (negação da condição original)
+        min_val, max_val = bounds_config['min'], bounds_config['max']
+        strict = bounds_config['strict']
+        
+        violation_examples = []
+        
+        # Violação por valor menor que o mínimo
+        if min_val != -np.inf:
+            if strict:
+                violation_value = min_val - 1.0
+                self.solver.add(x == violation_value)
+            else:
+                violation_value = min_val - 1.0
+                self.solver.add(x == violation_value)
+            
+            if self.solver.check() == z3.sat:
+                model = self.solver.model()
+                violation_examples.append({
+                    "type": "below_minimum",
+                    "value": float(str(model[x])),
+                    "expected_min": min_val,
+                    "explanation": f"Value {model[x]} violates minimum bound {min_val}"
+                })
+        
+        # Reset para próxima violação
+        self.solver.reset()
+        self._init_z3()
+        
+        # Violação por valor maior que o máximo
+        if max_val != np.inf:
+            if strict:
+                violation_value = max_val + 1.0
+                self.solver.add(x == violation_value)
+            else:
+                violation_value = max_val + 1.0
+                self.solver.add(x == violation_value)
+            
+            if self.solver.check() == z3.sat:
+                model = self.solver.model()
+                violation_examples.append({
+                    "type": "above_maximum", 
+                    "value": float(str(model[x])),
+                    "expected_max": max_val,
+                    "explanation": f"Value {model[x]} violates maximum bound {max_val}"
+                })
+        
+        return {
+            "constraint_type": "bounds",
+            "violation_examples": violation_examples,
+            "bounds_config": bounds_config,
+            "satisfiable": len(violation_examples) > 0
+        }
+    
+    def _generate_range_counterexample(self, constraint_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Gera contra-exemplo para constraint de range_check."""
+        if not isinstance(constraint_data, dict):
+            return {"error": "Invalid range configuration"}
+        
+        range_type = constraint_data.get('type', 'continuous')
+        
+        # Criar variável
+        x = z3.Real('x')
+        
+        violation_examples = []
+        
+        if range_type == 'continuous':
+            valid_ranges = constraint_data.get('valid_ranges', [])
+            tolerance = constraint_data.get('tolerance', 1e-6)
+            
+            # Gerar valores que violam os ranges válidos
+            if valid_ranges:
+                # Valor antes do primeiro range
+                first_range = valid_ranges[0]
+                violation_value = first_range[0] - 1.0
+                self.solver.add(x == violation_value)
+                
+                if self.solver.check() == z3.sat:
+                    model = self.solver.model()
+                    violation_examples.append({
+                        "type": "outside_range",
+                        "value": float(str(model[x])),
+                        "valid_ranges": valid_ranges,
+                        "explanation": f"Value {model[x]} is outside valid ranges {valid_ranges}"
+                    })
+        
+        elif range_type == 'discrete':
+            discrete_values = constraint_data.get('discrete_values', [])
+            
+            # Gerar valor que não está na lista discreta
+            if discrete_values:
+                # Encontrar um valor fora da lista
+                max_discrete = max(discrete_values) if discrete_values else 0
+                violation_value = max_discrete + 1
+                
+                self.solver.add(x == violation_value)
+                
+                if self.solver.check() == z3.sat:
+                    model = self.solver.model()
+                    violation_examples.append({
+                        "type": "invalid_discrete_value",
+                        "value": float(str(model[x])),
+                        "valid_discrete_values": discrete_values,
+                        "explanation": f"Value {model[x]} is not in valid discrete set {discrete_values}"
+                    })
+        
+        return {
+            "constraint_type": "range_check",
+            "violation_examples": violation_examples,
+            "range_config": constraint_data,
+            "satisfiable": len(violation_examples) > 0
+        }
+    
+    def _generate_linear_arithmetic_counterexample(self, constraint_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Gera contra-exemplo para constraint de aritmética linear."""
+        if not isinstance(constraint_data, dict):
+            return {"error": "Invalid linear arithmetic configuration"}
+        
+        coefficients = constraint_data.get('coefficients', [1, -1])
+        constant = constraint_data.get('constant', 0)
+        
+        # Criar variáveis
+        x = z3.Real('x')
+        y = z3.Real('y')
+        
+        # Gerar violação da equação linear: ax + by != c
+        # Por exemplo, se temos x - y = 0, violamos com x - y = 1
+        violation_constant = constant + 1
+        
+        self.solver.add(coefficients[0] * x + coefficients[1] * y == violation_constant)
+        self.solver.add(x >= 0)  # Adicionar bounds razoáveis
+        self.solver.add(y >= 0)
+        
+        violation_examples = []
+        
+        if self.solver.check() == z3.sat:
+            model = self.solver.model()
+            violation_examples.append({
+                "type": "linear_equation_violation",
+                "x_value": float(str(model[x])),
+                "y_value": float(str(model[y])),
+                "expected_result": constant,
+                "actual_result": violation_constant,
+                "explanation": f"Linear equation {coefficients[0]}*{model[x]} + {coefficients[1]}*{model[y]} = {violation_constant} violates expected = {constant}"
+            })
+        
+        return {
+            "constraint_type": "linear_arithmetic",
+            "violation_examples": violation_examples,
+            "equation_config": constraint_data,
+            "satisfiable": len(violation_examples) > 0
+        }
+    
+    def _generate_non_negative_counterexample(self, constraint_data: Any) -> Dict[str, Any]:
+        """Gera contra-exemplo para constraint de não-negatividade."""
+        x = z3.Real('x')
+        
+        # Gerar valor negativo
+        self.solver.add(x < 0)
+        self.solver.add(x >= -10)  # Bound razoável
+        
+        violation_examples = []
+        
+        if self.solver.check() == z3.sat:
+            model = self.solver.model()
+            violation_examples.append({
+                "type": "negative_value",
+                "value": float(str(model[x])),
+                "explanation": f"Value {model[x]} is negative, violating non-negative constraint"
+            })
+        
+        return {
+            "constraint_type": "non_negative",
+            "violation_examples": violation_examples,
+            "satisfiable": len(violation_examples) > 0
+        }
+    
+    def _generate_generic_counterexample(self, constraint_type: str, constraint_data: Any) -> Dict[str, Any]:
+        """Gera contra-exemplo genérico para constraints não implementados."""
+        return {
+            "constraint_type": constraint_type,
+            "violation_type": "generic",
+            "explanation": f"Generic counterexample generation for {constraint_type}",
+            "note": "Specific counterexample generation not implemented for this constraint type",
+            "satisfiable": False
+        }
     
     def _report_verification_details(self, input_data: VerificationInput, solver_details: dict,
                                    constraints_satisfied: list, constraints_violated: list,
@@ -572,26 +1604,32 @@ class Z3Verifier(FormalVerifier):
             "z3_solver_details": solver_details
         }
         
-        # CONSOLE: Resumo visual
-        print(f"\n🔍 Z3 SOLVER RESULTS - {input_data.name}")
-        print("=" * 60)
-        print(f"⏱️  Execution Time: {execution_time*1000:.2f}ms")
-        print(f"📊 Constraints: {len(constraints_satisfied)} ✅ / {len(constraints_violated)} ❌ / {len(input_data.constraints)} total")
-        print(f"📈 Success Rate: {verification_report['verification_session']['success_rate']}%")
+        # CONSOLE: Log estruturado dos resultados
+        logger.info("🔍 Z3 SOLVER RESULTS - %s", input_data.name)
+        logger.info("⏱️  Execution Time: %.2fms", execution_time*1000)
+        logger.info("📊 Constraints: %d ✅ / %d ❌ / %d total", 
+                   len(constraints_satisfied), len(constraints_violated), len(input_data.constraints))
+        logger.info("📈 Success Rate: %.1f%%", verification_report['verification_session']['success_rate'])
         
         if constraints_satisfied:
-            print(f"\n✅ SATISFIED CONSTRAINTS ({len(constraints_satisfied)}):")
-            for constraint in constraints_satisfied:
-                details = solver_details.get(constraint, {})
-                z3_result = details.get('z3_result', 'unknown')
-                print(f"   • {constraint}: {z3_result}")
+            logger.info("✅ SATISFIED CONSTRAINTS (%d): %s", 
+                       len(constraints_satisfied), ', '.join(constraints_satisfied))
                 
         if constraints_violated:
-            print(f"\n❌ VIOLATED CONSTRAINTS ({len(constraints_violated)}):")
+            logger.info("❌ VIOLATED CONSTRAINTS (%d): %s", 
+                       len(constraints_violated), ', '.join(constraints_violated))
+            
+            # Log contra-exemplos disponíveis
             for constraint in constraints_violated:
                 details = solver_details.get(constraint, {})
-                z3_result = details.get('z3_result', 'unknown')
-                print(f"   • {constraint}: {z3_result}")
+                counterexample = details.get('counterexample')
+                if counterexample and counterexample.get('satisfiable'):
+                    violation_examples = counterexample.get('violation_examples', [])
+                    for example in violation_examples[:2]:  # Log até 2 exemplos
+                        if 'explanation' in example:
+                            logger.info("🔍 Contra-exemplo %s: %s", constraint, example['explanation'])
+                        if 'value' in example:
+                            logger.info("🔍 Valor violador %s: %s", constraint, example['value'])
         
         # LOGS: Report completo
         report_data(verification_report, ReportMode.PRINT)

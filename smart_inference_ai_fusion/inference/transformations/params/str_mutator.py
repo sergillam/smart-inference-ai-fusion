@@ -113,8 +113,8 @@ class StringMutator(ParameterTransformation):
                 params = validator.apply(params)
 
                 return params
-        # RidgeClassifier detection (has alpha but NOT hidden_layer_sizes)
-        elif "alpha" in params and "hidden_layer_sizes" not in params:
+        # RidgeClassifier detection (has alpha but NOT hidden_layer_sizes and NOT C parameter)
+        elif "alpha" in params and "hidden_layer_sizes" not in params and "C" not in params:
             safe_options = ["saga", "lbfgs", "auto", "svd", "cholesky", "sag", "lsqr", "sparse_cg"]
             if current not in safe_options:
                 new_value = random.choice(safe_options)
@@ -141,6 +141,30 @@ class StringMutator(ParameterTransformation):
                 validator = CrossDependencyPerturbation()
                 params = validator.apply(params)
 
+                return params
+        # LogisticRegression detection (has C parameter but NOT alpha or hidden_layer_sizes)
+        elif "C" in params and "alpha" not in params and "hidden_layer_sizes" not in params:
+            # For LogisticRegression, use standard solver options
+            safe_options = ["lbfgs", "liblinear", "sag", "saga"]
+            if current not in safe_options:
+                new_value = random.choice(safe_options)
+                report_data(
+                    f"🧪 SCIENTIFIC PROTECTION: LogisticRegression detected, using safe "
+                    f"solver '{current}' -> '{new_value}' (preventing InvalidParameterError)",
+                    mode=ReportMode.PRINT,
+                )
+                params[self.key] = new_value
+                return params
+            # Valid LogisticRegression solver, allow mutation within safe options
+            choices = [opt for opt in safe_options if opt != current]
+            if choices:
+                new_value = random.choice(choices)
+                report_data(
+                    f"🧪 SCIENTIFIC PERTURBATION: Applying LogisticRegression solver mutation "
+                    f"solver='{current}' -> '{new_value}' (testing robustness)",
+                    mode=ReportMode.PRINT,
+                )
+                params[self.key] = new_value
                 return params
         # For non-MLP models with solver param, skip mutation to avoid confusion
         return params

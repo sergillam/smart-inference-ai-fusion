@@ -13,6 +13,7 @@ from smart_inference_ai_fusion.models.agglomerative_clustering_model import (
 from smart_inference_ai_fusion.models.fastica_model import FastICAModel
 from smart_inference_ai_fusion.models.gaussian_mixture_model import GaussianMixtureModel
 from smart_inference_ai_fusion.models.gradient_boosting_model import GradientBoostingModel
+from smart_inference_ai_fusion.models.logistic_regression_model import LogisticRegressionModel
 from smart_inference_ai_fusion.models.minibatch_kmeans_model import MiniBatchKMeansModel
 from smart_inference_ai_fusion.models.mlp_model import MLPModel
 from smart_inference_ai_fusion.models.random_forest_classifier_model import (
@@ -23,6 +24,7 @@ from smart_inference_ai_fusion.models.random_forest_regressor_model import (
 )
 from smart_inference_ai_fusion.models.ridge_model import RidgeModel
 from smart_inference_ai_fusion.models.spectral_clustering_model import SpectralClusteringModel
+from smart_inference_ai_fusion.models.tree_model import DecisionTreeModel
 from smart_inference_ai_fusion.utils.preprocessing import (
     filter_sklearn_params,
     validate_sklearn_params,
@@ -72,6 +74,22 @@ def _create_mlp_label_config() -> LabelNoiseConfig:
 
 def _create_gradient_boosting_label_config() -> LabelNoiseConfig:
     """Create custom label configuration for GradientBoostingModel.
+
+    Uses same configuration as other classification models.
+    """
+    return _create_classification_label_config()
+
+
+def _create_decision_tree_label_config() -> LabelNoiseConfig:
+    """Create custom label configuration for DecisionTreeModel.
+
+    Removes flip_near_border_fraction to avoid model dependency issues.
+    """
+    return _create_classification_label_config()
+
+
+def _create_logistic_regression_label_config() -> LabelNoiseConfig:
+    """Create custom label configuration for LogisticRegressionModel.
 
     Uses same configuration as other classification models.
     """
@@ -131,6 +149,12 @@ MODEL_CONFIG_OVERRIDES: Dict[Type[BaseModel], Dict[str, Callable]] = {
     },
     GradientBoostingModel: {
         "label_config": _create_gradient_boosting_label_config,
+    },
+    DecisionTreeModel: {
+        "label_config": _create_decision_tree_label_config,
+    },
+    LogisticRegressionModel: {
+        "label_config": _create_logistic_regression_label_config,
     },
     # Regression models (no predict_proba)
     RandomForestRegressorModel: {

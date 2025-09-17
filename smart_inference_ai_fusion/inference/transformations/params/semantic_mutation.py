@@ -102,13 +102,26 @@ class SemanticMutation(ParameterTransformation):
                 return new_value
             return None
 
-        # RidgeClassifier detection (has alpha but NOT hidden_layer_sizes)
-        if "alpha" in params and "hidden_layer_sizes" not in params:
+        # RidgeClassifier detection (has alpha but NOT hidden_layer_sizes and NOT C parameter)
+        if "alpha" in params and "hidden_layer_sizes" not in params and "C" not in params:
             ridge_solvers = {"saga": "lbfgs", "lbfgs": "auto", "auto": "svd", "svd": "saga"}
             if value in ridge_solvers:
                 new_value = ridge_solvers[value]
                 report_data(
                     f"🧪 SCIENTIFIC PERTURBATION: Applying Ridge semantic mutation "
+                    f"solver='{value}' -> '{new_value}' (testing algorithmic robustness)",
+                    mode=ReportMode.PRINT,
+                )
+                return new_value
+            return None
+
+        # LogisticRegression detection (has C parameter but NOT alpha or hidden_layer_sizes)
+        if "C" in params and "alpha" not in params and "hidden_layer_sizes" not in params:
+            logistic_solvers = {"lbfgs": "liblinear", "liblinear": "sag", "sag": "saga", "saga": "lbfgs"}
+            if value in logistic_solvers:
+                new_value = logistic_solvers[value]
+                report_data(
+                    f"🧪 SCIENTIFIC PERTURBATION: Applying LogisticRegression semantic mutation "
                     f"solver='{value}' -> '{new_value}' (testing algorithmic robustness)",
                     mode=ReportMode.PRINT,
                 )

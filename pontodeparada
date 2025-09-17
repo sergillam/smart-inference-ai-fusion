@@ -6,38 +6,31 @@ remover os warnings
 :# pylint: disable=too-many-positional-arguments(inferencia)
 ----------------------
 PONTOS A CORRIGIR
-Pontos Válidos Mencionados:
-Corrigir constraints bounds e range_check - ✅ Válido
-Adicionar mais constraints específicos - ✅ Válido
-Melhorar formato dos relatórios - ✅ Válido
-Contra prova - ✅ Válido (implementar verificação de contra-exemplos)
 📋 Lista Completa de Melhorias Identificadas:
 🔧 Correções Técnicas
- Corrigir constraints bounds e range_check para aceitar dados estruturados
- Remover warnings pylint (duplicate-code, too-many-positional-arguments)
- Implementar contra-prova/contra-exemplos no Z3
- Corrigir imports faltantes (logging em formal_verification.py)
+    Corrigir constraints bounds e range_check para aceitar dados estruturados (✅ CONCLUÍDO)
+    Remover warnings pylint (duplicate-code, too-many-positional-arguments)
+    Implementar contra-prova/contra-exemplos no Z3 (✅ CONCLUÍDO)
+    Corrigir imports faltantes (logging em formal_verification.py) (✅ CONCLUÍDO)
+    remover os printf (trocar por reportlog ou logging)(✅ CONCLUÍDO)
 📊 Verificação Formal
- Adicionar constraints específicos (invariantes, pré/pós-condições)
- Melhorar formato dos relatórios de verificação
- Implementar verificação de propriedades de modelo
- Adicionar outros solvers (CVC5, Yices)
- Implementar verificação de robustez
-🤖 Algoritmos
- Implementar algoritmos supervisionados (Random Forest, GBDT, MLP, Ridge)
- Implementar algoritmos não supervisionados (Mini-Batch k-Means, Spectral, GMM, Agglomerative, FastICA)
- Adicionar novos datasets (California Housing, LFW People, Make Moons)
+    Adicionar constraints específicos (invariantes, pré/pós-condições)
+    Melhorar formato dos relatórios de verificação
+    Implementar verificação de propriedades de modelo
+    Adicionar outros solvers (CVC5, Yices)
+    Implementar verificação de robustez
 📚 Documentação
- Atualizar README.md (PT/EN)
- Documentar sistema de verificação formal
- Criar guias de uso para novos algoritmos
- Documentar arquitetura de plugins
+    Atualizar README.md (PT/EN)
+    Documentar sistema de verificação formal
+    Criar guias de uso para novos algoritmos
+    Documentar arquitetura de plugins
 🧪 Testes
- Implementar testes unitários para verificação formal
- Testes para novos algoritmos
- Testes de integração do pipeline
- Testes de performance
+    Implementar testes unitários para verificação formal
+    Testes para novos algoritmos
+    Testes de integração do pipeline
+    Testes de performance
 📝 Pesquisa
+
  Iniciar artigo 2
  Escrever artigo sobre verificação formal em ML
  Análise comparativa de algoritmos
@@ -144,3 +137,41 @@ Bases de Dados Escolhidas
     Make Moons (make_moons)
 
         Justificativa da Escolha: Base de dados sintética e não-linear, gerada especificamente para clustering. Seu propósito é servir como um "teste de estresse" para os algoritmos de cluster, destacando de forma clara e visual a superioridade do Spectral Clustering em cenários onde o k-Means e GMM falham.
+
+
+Artigo 3
+plano Final Recomendado:
+
+    Verificadores (2): Z3, CVC5
+
+    Algoritmos (3): Logistic Regression, Decision Tree, MLPClassifier
+
+    Datasets (4): 
+    Adult:
+    Breast Cancer:
+    Wine: MLPClassifier(ok)
+    make_moons:
+
+
+
+    Faça esses pontos;
+
+## 📋 **Análise do Status dos Pontos:**
+
+### 1. **Adicionar constraints específicos (invariantes, pré/pós-condições)** ❌
+**Status: PENDENTE**
+
+Analisando o código atual, vejo que temos constraints básicos como `bounds`, `range_check`, `type_safety`, mas **faltam**:
+- **Invariantes** (propriedades que devem sempre ser verdadeiras)
+- **Pré-condições** (condições antes da execução)
+- **Pós-condições** (condições após a execução)
+
+### 3. **Implementar verificação de robustez** ❌
+**Status: PENDENTE** 
+
+Não encontrei implementação específica de verificação de robustez:
+- Falta verificação de estabilidade sob perturbações
+- Não há métricas de robustez formal
+- Ausência de testes de adversarial examples
+
+faça esses 2 pontos!

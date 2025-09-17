@@ -6,6 +6,8 @@ from typing import Any, Dict, List, Optional, Union
 from enum import Enum
 import time
 
+from ...utils.logging import logger
+
 
 class VerificationStatus(Enum):
     """Status do resultado da verificação."""
@@ -124,7 +126,7 @@ class VerifierRegistry:
     def register(self, verifier: FormalVerifier):
         """Registra um novo verificador."""
         self._verifiers[verifier.name] = verifier
-        print(f"✅ Registered verifier: {verifier.name}")
+        logger.info("✅ Registered verifier: %s", verifier.name)
     
     def get_verifier(self, name: str) -> Optional[FormalVerifier]:
         """Obtém um verificador pelo nome."""
