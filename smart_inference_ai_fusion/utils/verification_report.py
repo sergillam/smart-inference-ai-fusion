@@ -65,7 +65,7 @@ def _report_console_verification(details: Dict[str, Any]) -> None:
     # Header
     status_icon = "✅" if info["success"] else "❌"
     report_data(
-        f"🔍 {status_icon} VERIFICAÇÃO FORMAL - {info['verifier']}",
+        f"🔍 {status_icon} FORMAL VERIFICATION - {info['verifier']}",
         mode=ReportMode.PRINT
     )
     
@@ -77,7 +77,7 @@ def _report_console_verification(details: Dict[str, Any]) -> None:
     
     if context["transformation_name"] != "pipeline_verification":
         report_data(
-            f"   🔧 Transformação: {context['transformation_name']}",
+            f"   🔧 Transformation: {context['transformation_name']}",
             mode=ReportMode.PRINT
         )
     
@@ -90,23 +90,23 @@ def _report_console_verification(details: Dict[str, Any]) -> None:
     # Constraints summary
     if constraints["total_checked"] > 0:
         report_data(
-            f"   📋 Constraints: {constraints['total_satisfied']}/{constraints['total_checked']} satisfeitos",
+            f"   📋 Constraints: {constraints['total_satisfied']}/{constraints['total_checked']} satisfied",
             mode=ReportMode.PRINT
         )
         
-        # Listar constraints satisfeitos
+        # List satisfied constraints
         if constraints["constraints_satisfied"]:
             satisfied_list = ", ".join(constraints["constraints_satisfied"])
             report_data(
-                f"   ✅ Satisfeitos: {satisfied_list}",
+                f"   ✅ Satisfied: {satisfied_list}",
                 mode=ReportMode.PRINT
             )
         
-        # Listar constraints violados (se houver)
+        # List violated constraints (if any)
         if constraints["constraints_violated"]:
             violated_list = ", ".join(constraints["constraints_violated"])
             report_data(
-                f"   ❌ Violados: {violated_list}",
+                f"   ❌ Violated: {violated_list}",
                 mode=ReportMode.PRINT
             )
     

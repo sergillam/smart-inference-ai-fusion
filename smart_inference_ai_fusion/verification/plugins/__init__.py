@@ -23,4 +23,15 @@ def _load_plugins():
 # Load plugins on import
 _load_plugins()
 
-__all__ = []
+# Explicit imports for better IDE support
+try:
+    from .z3_plugin import Z3Verifier
+    __all__ = ["Z3Verifier"]
+except ImportError:
+    __all__ = []
+
+try:
+    from .cvc5_plugin import CVC5Verifier
+    __all__.append("CVC5Verifier")
+except ImportError:
+    pass  # CVC5 not available

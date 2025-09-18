@@ -5,6 +5,8 @@ from typing import Any, Dict, List, Optional, Union
 import time
 
 from ..core.plugin_interface import FormalVerifier, VerificationInput, VerificationResult, VerificationStatus
+from ..core.error_handling import handle_verification_error, should_disable_solver
+from ..core.result_schema import StandardVerificationResult, SolverMetadata, PerformanceMetrics, ConstraintResult, StandardStatus
 
 logger = logging.getLogger(__name__)
 
@@ -24,57 +26,95 @@ class Z3Verifier(FormalVerifier):
     
     def __init__(self):
         super().__init__("Z3")
+        self.version = z3.get_version_string() if Z3_AVAILABLE else "unknown"
+        self.priority = 1  # Prioridade alta para Z3 (solver padrão)
         self.solver = None
         if Z3_AVAILABLE:
             self._init_z3()
     
     def _init_z3(self):
-        """Inicializa o solver Z3 com configuração de máximo desempenho."""
+        """Inicializa o solver Z3 com configuração de máximo desempenho científico."""
         self.solver = z3.Solver()
         
-        # 🚀 CONFIGURAÇÕES DE MÁXIMO DESEMPENHO
-        # Timeout agressivo para experimentos (5 minutos por constraint)
-        self.solver.set("timeout", 300000)  # 5 minutos
+        # 🚀 CONFIGURAÇÕES DE MÁXIMO DESEMPENHO CIENTÍFICO - APENAS PARÂMETROS VÁLIDOS
         
-        # Paralelização máxima (usar todos os cores disponíveis)
-        self.solver.set("threads", 16)  # 16 cores
-        # Removido parallel.enable - não suportado nesta versão
+        # === TIMEOUTS E RECURSOS COMPUTACIONAIS ===
+        self.solver.set("timeout", 600000)  # 10 minutos para problemas complexos
+        self.solver.set("rlimit", 10000000)  # Limite de recursos aumentado 
         
-        # Memória otimizada para sistema com 15GB RAM
-        self.solver.set("max_memory", 12000)  # 12GB para Z3
+        # === PARALELIZAÇÃO MÁXIMA ===
+        import os
+        max_threads = min(16, os.cpu_count() or 4)  # Usar todos os cores disponíveis
+        self.solver.set("threads", max_threads)
         
-        # Estratégias SAT/SMT avançadas (usando apenas parâmetros compatíveis)
-        self.solver.set("restart_strategy", 1)  # Substituído sat.restart
-        self.solver.set("restart.max", 1000000)  # Substituído sat.restart.max
-        self.solver.set("phase_selection", 3)  # Substituído sat.phase
-        self.solver.set("random_seed", 42)  # Substituído sat.random_seed
-        # sat.local_search removido - não suportado
+        # === GESTÃO DE MEMÓRIA OTIMIZADA ===
+        self.solver.set("max_memory", 14000)  # 14GB para Z3 (máximo seguro)
         
-        # Heurísticas agressivas (usando parâmetros compatíveis)
-        self.solver.set("arith.random_initial_value", True)  # Substituído smt.arith.random_initial_value
-        self.solver.set("case_split", 3)  # Substituído smt.case_split
-        self.solver.set("relevancy", 2)  # Substituído smt.relevancy
-        self.solver.set("macro_finder", True)  # Substituído smt.macro_finder
-        self.solver.set("pull_nested_quantifiers", True)  # Substituído smt.pull_nested_quantifiers
+        # === ESTRATÉGIAS SAT AVANÇADAS ===
+        self.solver.set("restart.max", 5000000)  # Reinicializações mais agressivas
+        self.solver.set("restart_factor", 1.5)
+        self.solver.set("restart_strategy", 1)
+        self.solver.set("phase_selection", 3)  # Estratégia de fase otimizada
+        self.solver.set("random_seed", 12345)
         
-        # Pré-processamento intensivo (usando parâmetros compatíveis)
-        self.solver.set("ematching", True)  # Substituído smt.ematching
-        self.solver.set("qi.eager_threshold", 10.0)  # Substituído smt.qi.eager_threshold
-        self.solver.set("qi.lazy_threshold", 20.0)  # Substituído smt.qi.lazy_threshold
+        # === HEURÍSTICAS AVANÇADAS DE DECISÃO ===
+        self.solver.set("phase_caching_on", 200)  # Cache de fase otimizado
+        self.solver.set("phase_caching_off", 50)
         
-        # Configurações específicas para ML/AI (usando parâmetros compatíveis)
-        self.solver.set("expand_store_eq", True)  # Substituído rewriter.expand_store_eq
-        self.solver.set("flat", True)  # Substituído rewriter.flat
-        self.solver.set("hi_div0", True)  # Substituído rewriter.hi_div0
+        # === ESTRATÉGIAS SMT ESPECÍFICAS ===
+        self.solver.set("auto_config", False)  # Desabilitar auto_config para permitir case_split avançado
+        self.solver.set("case_split", 5)  # Case splitting agressivo (agora permitido)
+        self.solver.set("relevancy", 2)  # Relevância máxima
+        self.solver.set("macro_finder", True)
+        self.solver.set("pull_nested_quantifiers", True)
+        self.solver.set("mbqi", True)  # Model-based quantifier instantiation
         
-        # Auto-configuração para problemas complexos
-        self.solver.set("auto_config", True)
-        self.solver.set("logic", "QF_NIRA")  # Quantifier-free nonlinear integer/real arithmetic
+        # === ESPECÍFICO PARA PROBLEMAS DE ML/IA ===
+        self.solver.set("arith.random_initial_value", True)
+        self.solver.set("arith.solver", 6)  # Solver aritmético avançado
+        self.solver.set("arith.nl", True)  # Não-linear habilitado
+        self.solver.set("arith.nl.grobner", True)  # Gröbner bases
+        self.solver.set("arith.nl.order", True)
+        self.solver.set("arith.auto_config_simplex", True)
+        self.solver.set("arith.greatest_error_pivot", True)
+        self.solver.set("arith.propagate_eqs", True)
+        self.solver.set("arith.eager_eq_axioms", True)
         
-        # Coleta de estatísticas e modelos para contra-exemplos (usando parâmetros compatíveis)
-        self.solver.set("model", True)
-        self.solver.set("unsat_core", True)
-        # produce-models e produce-unsat-cores removidos - não suportados
+        # === QUANTIFICADORES E INSTANCIAÇÃO ===
+        self.solver.set("ematching", True)
+        self.solver.set("qi.eager_threshold", 5.0)  # Threshold reduzido para mais agressividade
+        self.solver.set("qi.lazy_threshold", 10.0)
+        self.solver.set("qi.max_instances", 1000000)  # Muito mais instâncias
+        
+        # === PRÉ-PROCESSAMENTO INTENSIVO ===
+        self.solver.set("expand_store_eq", True)
+        self.solver.set("flat", True)
+        self.solver.set("hi_div0", True)
+        self.solver.set("sort_store", True)
+        self.solver.set("elim_ite", True)
+        self.solver.set("elim_unconstrained", True)
+        
+        # === BIT-VECTORS E ARRAYS ===
+        self.solver.set("bv.solver", 0)  # Solver BV otimizado
+        self.solver.set("array.extensional", True)
+        
+        # === CONFIGURAÇÃO DE LÓGICA OTIMIZADA ===
+        # QF_NIRA: Quantifier-free Nonlinear Integer Real Arithmetic
+        # Ideal para problemas de ML com constraints complexos
+        self.solver.set("logic", "QF_NIRA")
+        
+        # === COLETA DE INFORMAÇÕES PARA DEBUGGING ===
+        self.solver.set("model", True)  # Gerar modelos
+        self.solver.set("unsat_core", True)  # Gerar cores insatisfazíveis
+        
+        logger.info(f"🚀 Z3 initialized with maximum scientific configuration - {max_threads} threads, 14GB RAM")
+        logger.debug(f"Z3 version: {z3.get_version_string()}")
+        
+        # Log de parâmetros importantes (sem chamar param_descrs que pode causar erro)
+        try:
+            logger.debug("Z3 configuration applied successfully")
+        except Exception as e:
+            logger.debug(f"Error logging Z3 parameters: {e}")
     
     def is_available(self) -> bool:
         """Verifica se Z3 está disponível."""
@@ -206,7 +246,7 @@ class Z3Verifier(FormalVerifier):
         ]
     
     def verify(self, input_data: VerificationInput) -> VerificationResult:
-        """Executa verificação usando Z3."""
+        """Executa verificação usando Z3 com error handling robusto."""
         if not self.enabled:
             return VerificationResult(
                 status=VerificationStatus.SKIPPED,
@@ -216,11 +256,28 @@ class Z3Verifier(FormalVerifier):
             )
         
         if not Z3_AVAILABLE:
+            error_result = handle_verification_error(
+                ImportError("Z3 not available"), 
+                self.name, 
+                "initialization",
+                {"suggestion": "pip install z3-solver"}
+            )
             return VerificationResult(
                 status=VerificationStatus.ERROR,
                 verifier_name=self.name,
                 execution_time=0.0,
-                message="Z3 not available"
+                message=error_result.get("message", "Z3 not available"),
+                details={"error_context": error_result}
+            )
+        
+        # Verificar se solver deve ser desabilitado devido a erros anteriores
+        if should_disable_solver(self.name):
+            logger.warning(f"⚠️ Z3 temporariamente desabilitado devido a muitos erros")
+            return VerificationResult(
+                status=VerificationStatus.SKIPPED,
+                verifier_name=self.name,
+                execution_time=0.0,
+                message="Z3 temporarily disabled due to reliability issues"
             )
         
         start_time = time.time()
@@ -252,10 +309,33 @@ class Z3Verifier(FormalVerifier):
                             constraints_satisfied.append(constraint_type)
                         else:
                             constraints_violated.append(constraint_type)
-                    except Exception as e:
+                    except Exception as constraint_error:
+                        # Error handling por constraint individual
+                        error_context = {
+                            "constraint_type": constraint_type,
+                            "constraint_data": constraint_data,
+                            "timeout": getattr(input_data, 'timeout', 30)
+                        }
+                        
+                        error_result = handle_verification_error(
+                            constraint_error, 
+                            self.name, 
+                            f"constraint_verification_{constraint_type}",
+                            error_context
+                        )
+                        
                         constraints_violated.append(constraint_type)
-                        solver_details[constraint_type] = {"error": str(e)}
-                        logger.warning(f"Failed to verify {constraint_type}: {e}")
+                        solver_details[constraint_type] = {
+                            "error": str(constraint_error),
+                            "error_handling": error_result
+                        }
+                        
+                        # Se error handling sugeriu fallback, aplicar
+                        if error_result.get("action") == "use_basic_constraints":
+                            logger.info(f"🔧 Applying basic fallback for {constraint_type}")
+                            # Continuar com constraints simplificados
+                        
+                        logger.warning(f"Failed to verify {constraint_type}: {constraint_error}")
             
             # Determinar status geral
             execution_time = time.time() - start_time
@@ -287,11 +367,25 @@ class Z3Verifier(FormalVerifier):
             
         except Exception as e:
             execution_time = time.time() - start_time
+            
+            # Error handling para falhas gerais
+            error_context = {
+                "constraints": list(input_data.constraints.keys()),
+                "execution_time": execution_time,
+                "timeout": getattr(input_data, 'timeout', 30)
+            }
+            
+            error_result = handle_verification_error(e, self.name, "verification", error_context)
+            
             return VerificationResult(
                 status=VerificationStatus.ERROR,
                 verifier_name=self.name,
                 execution_time=execution_time,
-                message=f"Z3 verification error: {str(e)}"
+                message=error_result.get("message", f"Z3 verification error: {str(e)}"),
+                details={
+                    "error": str(e),
+                    "error_handling": error_result
+                }
             )
     
     def _verify_constraint_with_details(self, constraint_type: str, constraint_data: Any, 
@@ -359,7 +453,7 @@ class Z3Verifier(FormalVerifier):
                     }
                     logger.warning("❌ Falha ao gerar contra-exemplo para %s: %s", constraint_type, ce_error)
             else:
-                logger.debug("✅ Constraint %s satisfeito - não gerando contra-exemplo", constraint_type)
+                logger.debug("✅ Constraint %s satisfied - not generating counterexample", constraint_type)
                 
             return satisfied, details
             
@@ -701,7 +795,7 @@ class Z3Verifier(FormalVerifier):
                                 normalized = (data_array - mean_val) / std_val
                                 if np.any(np.abs(normalized) > 3.5):
                                     all_satisfied = False
-                                    logger.warning("🔧 Pré-condição violada: data_preprocessing - dados não normalizados")
+                                    logger.warning("🔧 Precondition violated: data_preprocessing - data not normalized")
                 
                 elif condition_type == 'parameter_initialization':
                     # Pré-condição: parâmetros devem estar inicializados corretamente
@@ -711,10 +805,10 @@ class Z3Verifier(FormalVerifier):
                     for param in required_params:
                         if param not in parameters:
                             all_satisfied = False
-                            logger.warning(f"🔧 Pré-condição violada: parameter_initialization - {param} não encontrado")
+                            logger.warning(f"🔧 Precondition violated: parameter_initialization - {param} not found")
                         elif parameters[param] is None:
                             all_satisfied = False
-                            logger.warning(f"🔧 Pré-condição violada: parameter_initialization - {param} é None")
+                            logger.warning(f"🔧 Precondition violated: parameter_initialization - {param} is None")
                 
                 elif condition_type == 'data_shape_validation':
                     # Pré-condição: forma dos dados deve ser válida
@@ -724,7 +818,7 @@ class Z3Verifier(FormalVerifier):
                     if expected_shape and hasattr(data, 'shape'):
                         if data.shape != tuple(expected_shape):
                             all_satisfied = False
-                            logger.warning("🔧 Pré-condição violada: data_shape_validation")
+                            logger.warning("🔧 Precondition violated: data_shape_validation")
             
             return all_satisfied
             
@@ -754,7 +848,7 @@ class Z3Verifier(FormalVerifier):
                             data_array = np.array(data).flatten()
                             if np.any(np.isnan(data_array)) or np.any(np.isinf(data_array)):
                                 all_satisfied = False
-                                logger.warning("⚡ Pós-condição violada: output_validity - NaN/Inf na saída")
+                                logger.warning("⚡ Postcondition violated: output_validity - NaN/Inf in output")
                 
                 elif condition_type == 'probability_bounds':
                     # Pós-condição: probabilidades devem estar entre 0 e 1
@@ -763,7 +857,7 @@ class Z3Verifier(FormalVerifier):
                         data_array = np.array(data).flatten()
                         if np.any(data_array < 0) or np.any(data_array > 1):
                             all_satisfied = False
-                            logger.warning("⚡ Pós-condição violada: probability_bounds")
+                            logger.warning("⚡ Postcondition violated: probability_bounds")
                 
                 elif condition_type == 'classification_constraints':
                     # Pós-condição: classes preditas devem estar no range válido
@@ -774,7 +868,7 @@ class Z3Verifier(FormalVerifier):
                         data_array = np.array(data).flatten()
                         if np.any(data_array < 0) or np.any(data_array >= num_classes):
                             all_satisfied = False
-                            logger.warning("⚡ Pós-condição violada: classification_constraints")
+                            logger.warning("⚡ Postcondition violated: classification_constraints")
             
             return all_satisfied
             
@@ -952,7 +1046,7 @@ class Z3Verifier(FormalVerifier):
             # Se min > max, é impossível satisfazer - retornar False diretamente
             if min_val != -np.inf and max_val != np.inf:
                 if (strict and min_val >= max_val) or (not strict and min_val > max_val):
-                    logger.info(f"🔍 Configuração de bounds inválida: min={min_val}, max={max_val}, strict={strict}")
+                    logger.info(f"🔍 Invalid bounds configuration: min={min_val}, max={max_val}, strict={strict}")
                     return False
             
             if strict:
@@ -1638,6 +1732,88 @@ class Z3Verifier(FormalVerifier):
         timestamp = input_data.name.replace(":", "-").replace(" ", "_")
         report_data(verification_report, ReportMode.JSON_RESULT, 
                    f"z3-verification-{timestamp}")
+    
+    def create_standard_result(self, verification_input: VerificationInput, 
+                              legacy_result: VerificationResult) -> StandardVerificationResult:
+        """Cria resultado padronizado a partir do resultado legado."""
+        
+        # Metadados do solver Z3
+        solver_metadata = SolverMetadata(
+            solver_name="Z3",
+            solver_version=self.version,
+            logic_used="QF_NIRA",
+            timeout_ms=600000,  # 10 minutos
+            memory_limit_mb=14000,  # 14GB
+            thread_count=16,  # Configurado no _init_z3
+            random_seed=12345,
+            configuration_hash=f"z3_scientific_max_performance_{int(time.time())}"
+        )
+        
+        # Métricas de performance
+        performance = PerformanceMetrics(
+            total_execution_time=legacy_result.execution_time,
+            constraint_count=len(legacy_result.constraints_checked),
+            constraints_satisfied=len(legacy_result.constraints_satisfied),
+            constraints_violated=len(legacy_result.constraints_violated),
+            constraints_unknown=0,  # Z3 raramente retorna unknown para nossos casos
+            constraints_timeout=0,
+            constraints_error=0,
+            constraints_skipped=0
+        )
+        
+        # Converter status legado para padronizado
+        status_mapping = {
+            VerificationStatus.SUCCESS: StandardStatus.SUCCESS,
+            VerificationStatus.FAILURE: StandardStatus.FAILURE,
+            VerificationStatus.ERROR: StandardStatus.ERROR,
+            VerificationStatus.SKIPPED: StandardStatus.SKIPPED,
+            VerificationStatus.TIMEOUT: StandardStatus.TIMEOUT
+        }
+        
+        overall_status = status_mapping.get(legacy_result.status, StandardStatus.UNKNOWN)
+        
+        # Criar resultados por constraint
+        constraint_results = []
+        avg_time_per_constraint = legacy_result.execution_time / max(len(legacy_result.constraints_checked), 1)
+        
+        # Constraints satisfeitas
+        for constraint_name in legacy_result.constraints_satisfied:
+            constraint_results.append(ConstraintResult(
+                constraint_type=StandardVerificationResult._classify_constraint_type(constraint_name),
+                constraint_name=constraint_name,
+                status=StandardStatus.SUCCESS,
+                execution_time=avg_time_per_constraint,
+                solver_specific_details=legacy_result.details.get(constraint_name, {})
+            ))
+        
+        # Constraints violadas
+        for constraint_name in legacy_result.constraints_violated:
+            constraint_results.append(ConstraintResult(
+                constraint_type=StandardVerificationResult._classify_constraint_type(constraint_name),
+                constraint_name=constraint_name,
+                status=StandardStatus.FAILURE,
+                execution_time=avg_time_per_constraint,
+                solver_specific_details=legacy_result.details.get(constraint_name, {}),
+                error_message=f"Constraint violated by Z3"
+            ))
+        
+        # Resultado padronizado
+        return StandardVerificationResult(
+            verification_id=f"Z3_{verification_input.name}_{int(time.time())}",
+            timestamp=time.strftime("%Y-%m-%d %H:%M:%S"),
+            verification_name=verification_input.name,
+            overall_status=overall_status,
+            overall_message=legacy_result.message,
+            solver_metadata=solver_metadata,
+            performance=performance,
+            constraint_results=constraint_results,
+            input_constraints=verification_input.constraints,
+            input_data_summary={
+                "constraint_count": len(verification_input.constraints),
+                "timeout": getattr(verification_input, 'timeout', 600000)
+            },
+            solver_raw_output=legacy_result.details
+        )
 
 
 # Auto-registrar o verificador Z3

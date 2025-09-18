@@ -42,6 +42,7 @@ dev = [
 # === Verificação Formal ===
 verification = [
   "z3-solver>=4.15.0",
+  "cvc5>=1.0.5",
 ]
 
 # === Conjunto completo para desenvolvimento com verificação ===

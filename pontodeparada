@@ -142,36 +142,23 @@ Bases de Dados Escolhidas
 Artigo 3
 plano Final Recomendado:
 
-    Verificadores (2): Z3, CVC5
+    Verificadores (2): Z3 (OK), CVC5
 
     Algoritmos (3): Logistic Regression, Decision Tree, MLPClassifier
 
     Datasets (4): 
     Adult:
     Breast Cancer:
-    Wine: MLPClassifier(ok)
+    Wine: Logistic Regression, Decision Tree, MLPClassifier, Z3
     make_moons:
 
+# Métricas científicas para o artigo- Tempo de execução por constraint- Precisão na detecção de violações- Escalabilidade com tamanho do dataset- Expressividade das propriedades verificáveis
+🎯 Proposta de Valor para o Artigo
+Título Sugerido:
+"Comparative Formal Verification of Machine Learning Robustness: A Multi-Solver Framework with Z3 and CVC5"
 
-
-    Faça esses pontos;
-
-## 📋 **Análise do Status dos Pontos:**
-
-### 1. **Adicionar constraints específicos (invariantes, pré/pós-condições)** ❌
-**Status: PENDENTE**
-
-Analisando o código atual, vejo que temos constraints básicos como `bounds`, `range_check`, `type_safety`, mas **faltam**:
-- **Invariantes** (propriedades que devem sempre ser verdadeiras)
-- **Pré-condições** (condições antes da execução)
-- **Pós-condições** (condições após a execução)
-
-### 3. **Implementar verificação de robustez** ❌
-**Status: PENDENTE** 
-
-Não encontrei implementação específica de verificação de robustez:
-- Falta verificação de estabilidade sob perturbações
-- Não há métricas de robustez formal
-- Ausência de testes de adversarial examples
-
-faça esses 2 pontos!
+Contribuições Científicas:
+Framework multi-solver para verificação formal em ML
+Análise comparativa Z3 vs CVC5 em contexto ML
+Métricas de robustez específicas para algoritmos supervisionados
+Primeira aplicação de CVC5 em pipeline de inferência sintética
