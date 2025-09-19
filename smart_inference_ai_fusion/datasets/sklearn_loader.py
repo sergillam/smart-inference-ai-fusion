@@ -5,6 +5,7 @@ from typing import Tuple
 from sklearn.datasets import (
     fetch_20newsgroups_vectorized,
     fetch_lfw_people,
+    fetch_openml,
     load_breast_cancer,
     load_digits,
     load_iris,
@@ -44,6 +45,7 @@ class SklearnDatasetLoader(BaseDataset):
             SklearnDatasetName.IRIS: load_iris,
             SklearnDatasetName.WINE: load_wine,
             SklearnDatasetName.BREAST_CANCER: load_breast_cancer,
+            SklearnDatasetName.ADULT: self._load_adult,
             SklearnDatasetName.DIGITS: load_digits,
             SklearnDatasetName.LFW_PEOPLE: self._load_lfw_people,
             SklearnDatasetName.MAKE_MOONS: self._load_make_moons,
@@ -96,6 +98,50 @@ class SklearnDatasetLoader(BaseDataset):
         # Use smaller subset for faster experiments - min_faces_per_person=50 reduces to ~5 people
         # resize=0.3 further reduces image size for speed
         return fetch_lfw_people(min_faces_per_person=50, resize=0.3)
+
+    def _load_adult(self):
+        """Load Adult dataset (Census Income) from OpenML with preprocessing.
+
+        Returns:
+            Bunch object with data and target attributes.
+        """
+        from sklearn.preprocessing import LabelEncoder
+        import numpy as np
+        
+        # Load Adult dataset from OpenML (dataset ID 1590)
+        # This is the classic "Census Income" dataset for binary classification
+        data = fetch_openml(data_id=1590, as_frame=True, parser="auto")
+        
+        # Convert categorical features to numeric using label encoding
+        X = data.data.copy()
+        y = data.target.copy()
+        
+        # Identify categorical columns
+        categorical_columns = X.select_dtypes(include=['object', 'category']).columns
+        
+        # Apply label encoding to categorical features
+        label_encoders = {}
+        for col in categorical_columns:
+            le = LabelEncoder()
+            X[col] = le.fit_transform(X[col].astype(str))
+            label_encoders[col] = le
+        
+        # Convert target to binary (0/1)
+        if y.dtype == 'object' or y.dtype.name == 'category':
+            target_encoder = LabelEncoder()
+            y = target_encoder.fit_transform(y.astype(str))
+        
+        # Convert to numpy arrays
+        X_array = X.values.astype(np.float64)
+        y_array = y.astype(np.int64)
+        
+        # Return in scikit-learn Bunch format
+        class MockBunch:
+            def __init__(self, data, target):
+                self.data = data
+                self.target = target
+        
+        return MockBunch(X_array, y_array)
 
     def _load_make_moons(self):
         """Load synthetic make_moons dataset.

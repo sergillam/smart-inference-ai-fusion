@@ -280,6 +280,336 @@ WINE_EXPERIMENTS = {
 }
 
 
+# Registry of experiment configurations for the breast cancer dataset
+BREAST_CANCER_EXPERIMENTS = {
+    AgglomerativeClusteringModel: ExperimentConfig(
+        model_class=AgglomerativeClusteringModel,
+        model_params={"n_clusters": 2, "linkage": "ward"},  # 2 classes: malignant/benign
+        dataset_name=SklearnDatasetName.BREAST_CANCER,
+    ),
+    FastICAModel: ExperimentConfig(
+        model_class=FastICAModel,
+        model_params={
+            "n_components": 15,
+            "random_state": 42,
+            "max_iter": 1000,
+            "tol": 1e-4,
+        },  # Suitable for breast cancer features (30 features)
+        dataset_name=SklearnDatasetName.BREAST_CANCER,
+    ),
+    DecisionTreeModel: ExperimentConfig(
+        model_class=DecisionTreeModel,
+        model_params={
+            "max_depth": 8,
+            "random_state": 42,
+            "min_samples_split": 5,
+            "min_samples_leaf": 2,
+            "criterion": "gini",
+        },  # Balanced parameters for binary classification
+        dataset_name=SklearnDatasetName.BREAST_CANCER,
+    ),
+    GaussianMixtureModel: ExperimentConfig(
+        model_class=GaussianMixtureModel,
+        model_params={
+            "n_components": 2,
+            "random_state": 42,
+            "covariance_type": "full",
+            "max_iter": 100,
+        },  # 2 classes: malignant/benign
+        dataset_name=SklearnDatasetName.BREAST_CANCER,
+    ),
+    GradientBoostingModel: ExperimentConfig(
+        model_class=GradientBoostingModel,
+        model_params={
+            "n_estimators": 100,
+            "learning_rate": 0.1,
+            "max_depth": 4,
+            "random_state": 42,
+        },  # Conservative for medical data
+        dataset_name=SklearnDatasetName.BREAST_CANCER,
+    ),
+    LogisticRegressionModel: ExperimentConfig(
+        model_class=LogisticRegressionModel,
+        model_params={
+            "random_state": 42,
+            "max_iter": 1000,
+            "solver": "lbfgs",
+            "C": 1.0,  # Standard regularization
+        },  # Optimized for binary classification
+        dataset_name=SklearnDatasetName.BREAST_CANCER,
+    ),
+    MiniBatchKMeansModel: ExperimentConfig(
+        model_class=MiniBatchKMeansModel,
+        model_params={
+            "n_clusters": 2,
+            "random_state": 42,
+            "batch_size": 100,
+            "max_iter": 100,
+        },  # Larger batch for larger dataset
+        dataset_name=SklearnDatasetName.BREAST_CANCER,
+    ),
+    MLPModel: ExperimentConfig(
+        model_class=MLPModel,
+        model_params={
+            "hidden_layer_sizes": (100, 50),
+            "random_state": 42,
+            "max_iter": 1000,
+            "alpha": 0.001,
+        },  # More complex for medical data
+        dataset_name=SklearnDatasetName.BREAST_CANCER,
+    ),
+    RandomForestClassifierModel: ExperimentConfig(
+        model_class=RandomForestClassifierModel,
+        model_params={
+            "n_estimators": 100,
+            "max_depth": 10,
+            "random_state": 42,
+            "min_samples_split": 5,
+        },  # Balanced for breast cancer dataset
+        dataset_name=SklearnDatasetName.BREAST_CANCER,
+    ),
+    RandomForestRegressorModel: ExperimentConfig(
+        model_class=RandomForestRegressorModel,
+        model_params={
+            "n_estimators": 100,
+            "max_depth": 10,
+            "random_state": 42,
+            "min_samples_split": 5,
+        },
+        dataset_name=SklearnDatasetName.BREAST_CANCER,
+    ),
+    RidgeModel: ExperimentConfig(
+        model_class=RidgeModel,
+        model_params={
+            "alpha": 1.0,
+            "random_state": 42,
+            "max_iter": 1000,
+        },  # Standard regularization
+        dataset_name=SklearnDatasetName.BREAST_CANCER,
+    ),
+    SpectralClusteringModel: ExperimentConfig(
+        model_class=SpectralClusteringModel,
+        model_params={
+            "n_clusters": 2,
+            "random_state": 42,
+            "affinity": "rbf",  # Better for dense continuous data
+            "gamma": 1.0,  # Balanced gamma for medical data
+            "assign_labels": "kmeans",  # More stable than discretize
+        },
+        dataset_name=SklearnDatasetName.BREAST_CANCER,
+    ),
+}
+
+
+# Registry of experiment configurations for the adult dataset
+ADULT_EXPERIMENTS = {
+    AgglomerativeClusteringModel: ExperimentConfig(
+        model_class=AgglomerativeClusteringModel,
+        model_params={"n_clusters": 2, "linkage": "ward"},  # 2 classes: >50K/<=50K
+        dataset_name=SklearnDatasetName.ADULT,
+    ),
+    FastICAModel: ExperimentConfig(
+        model_class=FastICAModel,
+        model_params={
+            "n_components": 8,  # Reduced for adult dataset features
+            "random_state": 42,
+            "max_iter": 500,
+            "tol": 1e-04,
+        },
+        dataset_name=SklearnDatasetName.ADULT,
+    ),
+    GaussianMixtureModel: ExperimentConfig(
+        model_class=GaussianMixtureModel,
+        model_params={
+            "n_components": 2,
+            "random_state": 42,
+            "max_iter": 200,
+            "covariance_type": "full",
+        },  # Binary classification
+        dataset_name=SklearnDatasetName.ADULT,
+    ),
+    LogisticRegressionModel: ExperimentConfig(
+        model_class=LogisticRegressionModel,
+        model_params={
+            "solver": "lbfgs",
+            "max_iter": 2000,  # Higher for convergence with categorical features
+            "random_state": 42,
+            "C": 1.0,  # Standard regularization
+        },
+        dataset_name=SklearnDatasetName.ADULT,
+    ),
+    DecisionTreeModel: ExperimentConfig(
+        model_class=DecisionTreeModel,
+        model_params={
+            "max_depth": 12,  # Deeper for adult complexity
+            "random_state": 42,
+            "min_samples_split": 10,  # Higher for large dataset
+            "criterion": "gini",
+        },
+        dataset_name=SklearnDatasetName.ADULT,
+    ),
+    MLPModel: ExperimentConfig(
+        model_class=MLPModel,
+        model_params={
+            "hidden_layer_sizes": (100, 50),
+            "random_state": 42,
+            "max_iter": 1000,  # Higher for convergence
+            "solver": "adam",
+            "activation": "relu",
+        },
+        dataset_name=SklearnDatasetName.ADULT,
+    ),
+    RandomForestClassifierModel: ExperimentConfig(
+        model_class=RandomForestClassifierModel,
+        model_params={
+            "n_estimators": 100,
+            "max_depth": 12,  # Deeper for adult complexity
+            "random_state": 42,
+            "min_samples_split": 10,  # Higher for large dataset
+        },
+        dataset_name=SklearnDatasetName.ADULT,
+    ),
+    RandomForestRegressorModel: ExperimentConfig(
+        model_class=RandomForestRegressorModel,
+        model_params={
+            "n_estimators": 100,
+            "max_depth": 12,
+            "random_state": 42,
+            "min_samples_split": 10,
+        },
+        dataset_name=SklearnDatasetName.ADULT,
+    ),
+    RidgeModel: ExperimentConfig(
+        model_class=RidgeModel,
+        model_params={
+            "alpha": 1.0,
+            "random_state": 42,
+            "max_iter": 2000,  # Higher for convergence
+        },
+        dataset_name=SklearnDatasetName.ADULT,
+    ),
+    SpectralClusteringModel: ExperimentConfig(
+        model_class=SpectralClusteringModel,
+        model_params={
+            "n_clusters": 2,
+            "random_state": 42,
+            "affinity": "rbf",
+            "gamma": 0.1,  # Lower gamma for adult data
+            "assign_labels": "kmeans",
+        },
+        dataset_name=SklearnDatasetName.ADULT,
+    ),
+    MiniBatchKMeansModel: ExperimentConfig(
+        model_class=MiniBatchKMeansModel,
+        model_params={
+            "n_clusters": 2,
+            "random_state": 42,
+            "max_iter": 300,
+            "batch_size": 100,
+        },  # Binary classification
+        dataset_name=SklearnDatasetName.ADULT,
+    ),
+    GradientBoostingModel: ExperimentConfig(
+        model_class=GradientBoostingModel,
+        model_params={
+            "n_estimators": 100,
+            "learning_rate": 0.1,
+            "max_depth": 6,
+            "random_state": 42,
+        },
+        dataset_name=SklearnDatasetName.ADULT,
+    ),
+}
+
+
+# Registry of experiment configurations for the make_moons synthetic dataset
+MAKE_MOONS_EXPERIMENTS = {
+    AgglomerativeClusteringModel: ExperimentConfig(
+        model_class=AgglomerativeClusteringModel,
+        model_params={"n_clusters": 2, "linkage": "ward"},  # 2 clusters for binary classification
+        dataset_name=SklearnDatasetName.MAKE_MOONS,
+    ),
+    FastICAModel: ExperimentConfig(
+        model_class=FastICAModel,
+        model_params={
+            "n_components": 2,  # 2D dataset
+            "random_state": 42,
+            "max_iter": 200,
+            "tol": 1e-04,
+        },
+        dataset_name=SklearnDatasetName.MAKE_MOONS,
+    ),
+    LogisticRegressionModel: ExperimentConfig(
+        model_class=LogisticRegressionModel,
+        model_params={"max_iter": 1000, "random_state": 42},
+        dataset_name=SklearnDatasetName.MAKE_MOONS,
+    ),
+    MLPModel: ExperimentConfig(
+        model_class=MLPModel,
+        model_params={
+            "hidden_layer_sizes": (50, 30),  # Smaller network for 2D data
+            "max_iter": 500,
+            "random_state": 42,
+            "solver": "adam",
+        },
+        dataset_name=SklearnDatasetName.MAKE_MOONS,
+    ),
+    DecisionTreeModel: ExperimentConfig(
+        model_class=DecisionTreeModel,
+        model_params={"max_depth": 8, "random_state": 42},
+        dataset_name=SklearnDatasetName.MAKE_MOONS,
+    ),
+    RandomForestClassifierModel: ExperimentConfig(
+        model_class=RandomForestClassifierModel,
+        model_params={
+            "n_estimators": 100,
+            "max_depth": 8,
+            "random_state": 42,
+        },
+        dataset_name=SklearnDatasetName.MAKE_MOONS,
+    ),
+    GradientBoostingModel: ExperimentConfig(
+        model_class=GradientBoostingModel,
+        model_params={
+            "n_estimators": 100,
+            "learning_rate": 0.1,
+            "max_depth": 3,
+            "random_state": 42,
+        },
+        dataset_name=SklearnDatasetName.MAKE_MOONS,
+    ),
+    GaussianMixtureModel: ExperimentConfig(
+        model_class=GaussianMixtureModel,
+        model_params={"n_components": 2, "random_state": 42},
+        dataset_name=SklearnDatasetName.MAKE_MOONS,
+    ),
+    MiniBatchKMeansModel: ExperimentConfig(
+        model_class=MiniBatchKMeansModel,
+        model_params={"n_clusters": 2, "random_state": 42, "batch_size": 100},
+        dataset_name=SklearnDatasetName.MAKE_MOONS,
+    ),
+    RandomForestRegressorModel: ExperimentConfig(
+        model_class=RandomForestRegressorModel,
+        model_params={
+            "n_estimators": 100,
+            "max_depth": 8,
+            "random_state": 42,
+        },
+        dataset_name=SklearnDatasetName.MAKE_MOONS,
+    ),
+    RidgeModel: ExperimentConfig(
+        model_class=RidgeModel,
+        model_params={"alpha": 1.0, "random_state": 42},
+        dataset_name=SklearnDatasetName.MAKE_MOONS,
+    ),
+    SpectralClusteringModel: ExperimentConfig(
+        model_class=SpectralClusteringModel,
+        model_params={"n_clusters": 2, "random_state": 42},
+        dataset_name=SklearnDatasetName.MAKE_MOONS,
+    ),
+}
+
+
 # Registry of experiment configurations for the LFW People dataset (face recognition)
 LFW_PEOPLE_EXPERIMENTS = {
     RandomForestClassifierModel: ExperimentConfig(
@@ -470,6 +800,16 @@ MAKE_MOONS_EXPERIMENTS = {
             "tol": 1e-4,
         },  # Dimensionality reduction for 2D
     ),
+    LogisticRegressionModel: ExperimentConfig(
+        model_class=LogisticRegressionModel,
+        model_params={"max_iter": 1000, "random_state": 42},
+        dataset_name=SklearnDatasetName.MAKE_MOONS,
+    ),
+    DecisionTreeModel: ExperimentConfig(
+        model_class=DecisionTreeModel,
+        model_params={"max_depth": 8, "random_state": 42},
+        dataset_name=SklearnDatasetName.MAKE_MOONS,
+    ),
 }
 
 
@@ -606,6 +946,10 @@ def run_experiment_by_name(
     # Get the appropriate registry based on dataset
     if dataset_name == SklearnDatasetName.WINE:
         registry = WINE_EXPERIMENTS
+    elif dataset_name == SklearnDatasetName.BREAST_CANCER:
+        registry = BREAST_CANCER_EXPERIMENTS
+    elif dataset_name == SklearnDatasetName.ADULT:
+        registry = ADULT_EXPERIMENTS
     elif dataset_name == SklearnDatasetName.LFW_PEOPLE:
         registry = LFW_PEOPLE_EXPERIMENTS
     elif dataset_name == SklearnDatasetName.MAKE_MOONS:
@@ -655,6 +999,10 @@ def run_experiment_by_model(
     # Get the appropriate registry based on dataset
     if dataset_name == SklearnDatasetName.WINE:
         registry = WINE_EXPERIMENTS
+    elif dataset_name == SklearnDatasetName.BREAST_CANCER:
+        registry = BREAST_CANCER_EXPERIMENTS
+    elif dataset_name == SklearnDatasetName.ADULT:
+        registry = ADULT_EXPERIMENTS
     elif dataset_name == SklearnDatasetName.LFW_PEOPLE:
         registry = LFW_PEOPLE_EXPERIMENTS
     elif dataset_name == SklearnDatasetName.MAKE_MOONS:

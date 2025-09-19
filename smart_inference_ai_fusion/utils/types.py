@@ -41,6 +41,7 @@ class SklearnDatasetName(Enum):
         IRIS: Iris classification dataset.
         WINE: Wine classification dataset.
         BREAST_CANCER: Breast cancer dataset.
+        ADULT: Adult income dataset.
         DIGITS: Handwritten digits dataset.
         LFW_PEOPLE: Labeled Faces in the Wild people dataset.
         MAKE_MOONS: Synthetic make_moons dataset for clustering.
@@ -50,6 +51,7 @@ class SklearnDatasetName(Enum):
     IRIS = "iris"
     WINE = "wine"
     BREAST_CANCER = "breast_cancer"
+    ADULT = "adult"
     DIGITS = "digits"
     LFW_PEOPLE = "lfw_people"
     MAKE_MOONS = "make_moons"
