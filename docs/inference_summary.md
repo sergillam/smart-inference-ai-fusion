@@ -40,8 +40,44 @@ Essas estratégias simulam erros de configuração, variações inesperadas, ou 
 
 ## Recursos Inteligentes (v1.0)
 
-- ✅ Autoidentificação de tipo dos parâmetros
-- ✅ Fallback automático se a perturbação causar erro
-- ✅ Exclusão de parâmetros obrigatórios conhecidos (ex: `'C'`, `'kernel'`)
-- ✅ Memoização leve para evitar repetições
-- ✅ Exportação de log completo via `export_log()`
+
+## 🚀 Integração com Pipeline e Registro de Experimentos
+
+O pipeline de inferência permite aplicar múltiplas técnicas de perturbação em dados, rótulos e parâmetros, integrando com o registro dinâmico de experimentos:
+
+```python
+from smart_inference_ai_fusion.inference import run_inference_pipeline
+from smart_inference_ai_fusion.experiments import experiment_registry
+
+# Registrar experimento
+experiment_registry["titanic"] = "scripts/titanic_experiment.py"
+
+# Executar pipeline de inferência
+results = run_inference_pipeline(
+	dataset="titanic",
+	techniques=["GaussianNoise", "LabelNoise", "add_noise"],
+	params={"noise_level": 0.1}
+)
+```
+
+## Como Adicionar Novas Técnicas
+
+Para estender o framework, basta criar uma nova função de perturbação e registrá-la como plugin:
+
+```python
+from smart_inference_ai_fusion.inference import register_perturbation
+
+def minha_perturbacao(X):
+	# lógica customizada
+	return X
+
+register_perturbation("MinhaPerturbacao", minha_perturbacao)
+```
+
+## 🔌 Suporte a Plugins e Multi-Solver
+
+O sistema de inferência pode ser estendido para suportar plugins de perturbação e integração com múltiplos solvers, permitindo experimentos robustos e comparativos.
+
+## 📋 Resumo
+
+O framework oferece um ecossistema flexível para simular cenários adversos, testar robustez de modelos e automatizar benchmarks, com fácil extensão via plugins e integração total ao pipeline de experimentos.

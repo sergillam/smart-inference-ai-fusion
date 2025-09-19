@@ -235,3 +235,40 @@ Veja `examples/verification_integration_example.py` para exemplos completos de u
 5. **Flexibilidade**: Configuração granular por experimento
 
 A integração está completa e pronta para uso em produção! 🚀
+
+## 🔌 Suporte Multi-Solver e Seleção Dinâmica
+
+O sistema suporta múltiplos verificadores (Z3, CVC5, etc) e permite seleção dinâmica via parâmetro `verifier_name`:
+
+```python
+verification_config = VerificationConfig(
+    enabled=True,
+    timeout=30.0,
+    verifier_name="CVC5",  # Seleciona CVC5
+    constraints={
+        'preserve_shape': True,
+        'preserve_bounds': True
+    }
+)
+```
+
+## 🚀 Registro Dinâmico e Automação
+
+Experimentos podem ser registrados dinamicamente e integrados ao pipeline de automação:
+
+```python
+from smart_inference_ai_fusion.experiments import experiment_registry
+experiment_registry["meu_dataset"] = "scripts/meu_experimento.py"
+```
+
+## 🧩 Extensibilidade via Plugins
+
+Para adicionar novos verificadores ou constraints, basta implementar um plugin seguindo a interface `FormalVerifier` e registrar no sistema.
+
+## 📊 Benchmarks Automatizados
+
+Com a arquitetura atual, é possível automatizar benchmarks entre diferentes verificadores e configurações, facilitando comparações e validação científica.
+
+---
+
+O sistema está pronto para produção, com suporte multi-solver, registro dinâmico, automação de benchmarks e fácil extensão via plugins!
