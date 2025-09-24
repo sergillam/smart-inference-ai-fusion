@@ -117,7 +117,12 @@ class SemanticMutation(ParameterTransformation):
 
         # LogisticRegression detection (has C parameter but NOT alpha or hidden_layer_sizes)
         if "C" in params and "alpha" not in params and "hidden_layer_sizes" not in params:
-            logistic_solvers = {"lbfgs": "liblinear", "liblinear": "sag", "sag": "saga", "saga": "lbfgs"}
+            logistic_solvers = {
+                "lbfgs": "liblinear",
+                "liblinear": "sag",
+                "sag": "saga",
+                "saga": "lbfgs",
+            }
             if value in logistic_solvers:
                 new_value = logistic_solvers[value]
                 report_data(

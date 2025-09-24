@@ -38,6 +38,10 @@ EXP ?= wine
 ARGS ?=
 SOLVERS ?= auto
 
+# Default output directories (can be overridden on the make command line)
+LOGS_DIR ?= logs
+RESULTS_DIR ?= results
+
 # -------- Help (Self-documenting) --------
 help: ## Shows this help message
 	@echo "======================================"
@@ -178,74 +182,7 @@ uninstall: ## Removes the installed package from the venv
 		echo "❌ Virtual environment not found"; \
 	fi
 
-# -------- Experiments --------
-# Comando original 'run' removido - agora integrado com 'verify'
-
-# -------- Experiment Modes --------
-run-basic: install-quick ## 🔹 Runs basic algorithms (no verification or inference)
-	@echo "🔹 Running BASIC algorithms (no verification or inference)..."
-	@cd $(shell pwd) && \
-		export PYTHONPATH="$(PYTHONPATH)" && \
-		export LOG_LEVEL="$(LOG_LEVEL)" && \
-		export VERIFICATION_MODE="basic" && \
-		$(PYTHON_VENV) -m $(MAIN_MODULE) $(EXP) $(ARGS)
-
-run-inference: install-quick ## 🧠 Runs algorithms with synthetic inference
-	@echo "🧠 Running algorithms with SYNTHETIC INFERENCE..."
-	@cd $(shell pwd) && \
-		export PYTHONPATH="$(PYTHONPATH)" && \
-		export LOG_LEVEL="$(LOG_LEVEL)" && \
-		export VERIFICATION_MODE="inference" && \
-		$(PYTHON_VENV) -m $(MAIN_MODULE) $(EXP) $(ARGS)
-
-run-verification: install-quick ## 🔍 Runs algorithms with formal verification (auto solver)
-	@echo "🔍 Running algorithms with FORMAL VERIFICATION (auto solver)..."
-	@cd $(shell pwd) && \
-		export PYTHONPATH="$(PYTHONPATH)" && \
-		export LOG_LEVEL="$(LOG_LEVEL)" && \
-		export VERIFICATION_MODE="verification" && \
-		export VERIFICATION_SOLVER="auto" && \
-		$(PYTHON_VENV) -m $(MAIN_MODULE) $(EXP) $(ARGS)
-
-run-all: install-quick ## 🎯 Runs COMPLETE pipeline (basic + inference + verification)
-	@echo "🎯 Running COMPLETE pipeline (basic + inference + verification)..."
-	@cd $(shell pwd) && \
-		export PYTHONPATH="$(PYTHONPATH)" && \
-		export LOG_LEVEL="$(LOG_LEVEL)" && \
-		export VERIFICATION_MODE="all" && \
-		export VERIFICATION_SOLVER="auto" && \
-		$(PYTHON_VENV) -m $(MAIN_MODULE) $(EXP) $(ARGS)
-
-# -------- Solver-Specific Experiments --------
-run-z3: install-quick ## � Runs verification with Z3 solver only
-	@echo "� Running verification with Z3 SOLVER only..."
-	@cd $(shell pwd) && \
-		export PYTHONPATH="$(PYTHONPATH)" && \
-		export LOG_LEVEL="$(LOG_LEVEL)" && \
-		export VERIFICATION_MODE="verification" && \
-		export VERIFICATION_SOLVER="z3" && \
-		$(PYTHON_VENV) -m $(MAIN_MODULE) $(EXP) $(ARGS)
-
-run-cvc5: install-quick ## 🧮 Runs verification with CVC5 solver only
-	@echo "🧮 Running verification with CVC5 SOLVER only..."
-	@cd $(shell pwd) && \
-		export PYTHONPATH="$(PYTHONPATH)" && \
-		export LOG_LEVEL="$(LOG_LEVEL)" && \
-		export VERIFICATION_MODE="verification" && \
-		export VERIFICATION_SOLVER="cvc5" && \
-		$(PYTHON_VENV) -m $(MAIN_MODULE) $(EXP) $(ARGS)
-
-run-both-solvers: install-quick ## ⚡ Runs verification with BOTH solvers (parallel)
-	@echo "⚡ Running verification with BOTH solvers in parallel..."
-	@cd $(shell pwd) && \
-		export PYTHONPATH="$(PYTHONPATH)" && \
-		export LOG_LEVEL="$(LOG_LEVEL)" && \
-		export VERIFICATION_MODE="verification" && \
-		export VERIFICATION_SOLVER="both" && \
-		export VERIFICATION_PARALLEL="true" && \
-		export VERIFICATION_COMPARE_SOLVERS="true" && \
-		$(PYTHON_VENV) -m $(MAIN_MODULE) $(EXP) $(ARGS)
-
+# implementations appear later in the file and are the canonical definitions.
 # -------- Debug and Advanced --------
 debug: install-quick ## 🐛 Runs in DEBUG mode with detailed logging
 	@echo "🐛 Running in DEBUG mode..."
@@ -466,19 +403,7 @@ clean: clean-pyc ## Removes build artifacts and Python cache files
 	@rm -rf build/ dist/ *.egg-info/ .pytest_cache/ .coverage htmlcov/
 	@echo "✅ Build artifacts cleaned"
 
-# -------- CI Pipeline --------
-ci: check test run ## Runs the complete CI pipeline (quality checks, tests, and run)
-	@echo "🎯 CI pipeline completed successfully"
-
-# -------- Phony Targets --------
-.PHONY: help venv install install-dev install-verification install-full uninstall
-.PHONY: run debug run-verification 
-.PHONY: verification-example verify-example verify-all verify-install verify-list verify-test
-.PHONY: format check-format lint style check test
-.PHONY: compile-reqs compile-reqs-dev freeze
-.PHONY: build publish publish-prod deploy
-.PHONY: clean-pyc clean clean-venv clean-outputs clean-all
-.PHONY: ci
+# clean-outputs block remains above; CI pipeline defined later. Keep only canonical definitions below.
 
 # ============================
 # � DATASET-AGNOSTIC COMMANDS
@@ -570,6 +495,31 @@ run:
 
 # Permite que 'verify' seja usado como alvo secundário
 .PHONY: verify
+
+## -------- Cleanup outputs (logs/results) --------
+clean-outputs: ## WARNING: Deletes all generated logs and results (safe checks included)
+	@if [ -z "$(LOGS_DIR)" ] || [ -z "$(RESULTS_DIR)" ]; then \
+		echo "⚠️  LOGS_DIR or RESULTS_DIR empty. Aborting to avoid catastrophic delete."; \
+		exit 1; \
+	fi
+	# Disallow absolute paths for safety
+	@if echo "$(LOGS_DIR)" | grep -q "^/" || echo "$(RESULTS_DIR)" | grep -q "^/"; then \
+		echo "⚠️  Absolute paths not allowed for LOGS_DIR/RESULTS_DIR. Aborting."; \
+		exit 1; \
+	fi
+	# Disallow . or .. as targets
+	@if [ "$(LOGS_DIR)" = "." ] || [ "$(RESULTS_DIR)" = "." ] || [ "$(LOGS_DIR)" = ".." ] || [ "$(RESULTS_DIR)" = ".." ]; then \
+		echo "⚠️  LOGS_DIR/RESULTS_DIR cannot be '.' or '..' - Aborting."; \
+		exit 1; \
+	fi
+	@echo "🔥 Deleting all contents of $(LOGS_DIR)/ and $(RESULTS_DIR)/..."
+	@if [ -d "$(LOGS_DIR)" ]; then \
+		find "$(LOGS_DIR)" -mindepth 1 -exec rm -rf -- {} + 2>/dev/null || true; \
+	fi
+	@if [ -d "$(RESULTS_DIR)" ]; then \
+		find "$(RESULTS_DIR)" -mindepth 1 -exec rm -rf -- {} + 2>/dev/null || true; \
+	fi
+	@echo "✅ Logs and results contents have been cleared (directories preserved)."
 
 clean-all: clean clean-outputs ## Runs all clean tasks, including logs and results
 	@echo "✅ Complete cleanup finished"

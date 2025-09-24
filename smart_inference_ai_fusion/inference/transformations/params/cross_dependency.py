@@ -32,7 +32,7 @@ class CrossDependencyPerturbation(ParameterTransformation):
             },  # LogisticRegression identifier
             "remove": [
                 "positive",  # LogisticRegression doesn't have 'positive' parameter
-                "alpha",     # LogisticRegression doesn't have 'alpha' parameter
+                "alpha",  # LogisticRegression doesn't have 'alpha' parameter
                 "hidden_layer_sizes",
                 "activation",
                 "learning_rate",
@@ -96,11 +96,20 @@ class CrossDependencyPerturbation(ParameterTransformation):
         },
         # Ridge solver compatibility: lbfgs can only be used when positive=True (Ridge specific)
         {
-            "condition": {"solver": "lbfgs", "positive": False, "alpha": lambda x: x is not None, "C": lambda x: x is None},
+            "condition": {
+                "solver": "lbfgs",
+                "positive": False,
+                "alpha": lambda x: x is not None,
+                "C": lambda x: x is None,
+            },
             "set": {"solver": "auto"},
         },
         {
-            "condition": {"solver": "lbfgs", "alpha": lambda x: x is not None, "C": lambda x: x is None},
+            "condition": {
+                "solver": "lbfgs",
+                "alpha": lambda x: x is not None,
+                "C": lambda x: x is None,
+            },
             "set": {"positive": True},
         },
         # Add more rules as needed.

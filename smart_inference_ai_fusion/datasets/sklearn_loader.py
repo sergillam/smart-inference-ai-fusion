@@ -105,42 +105,42 @@ class SklearnDatasetLoader(BaseDataset):
         Returns:
             Bunch object with data and target attributes.
         """
-        from sklearn.preprocessing import LabelEncoder
         import numpy as np
-        
+        from sklearn.preprocessing import LabelEncoder
+
         # Load Adult dataset from OpenML (dataset ID 1590)
         # This is the classic "Census Income" dataset for binary classification
         data = fetch_openml(data_id=1590, as_frame=True, parser="auto")
-        
+
         # Convert categorical features to numeric using label encoding
         X = data.data.copy()
         y = data.target.copy()
-        
+
         # Identify categorical columns
-        categorical_columns = X.select_dtypes(include=['object', 'category']).columns
-        
+        categorical_columns = X.select_dtypes(include=["object", "category"]).columns
+
         # Apply label encoding to categorical features
         label_encoders = {}
         for col in categorical_columns:
             le = LabelEncoder()
             X[col] = le.fit_transform(X[col].astype(str))
             label_encoders[col] = le
-        
+
         # Convert target to binary (0/1)
-        if y.dtype == 'object' or y.dtype.name == 'category':
+        if y.dtype == "object" or y.dtype.name == "category":
             target_encoder = LabelEncoder()
             y = target_encoder.fit_transform(y.astype(str))
-        
+
         # Convert to numpy arrays
         X_array = X.values.astype(np.float64)
         y_array = y.astype(np.int64)
-        
+
         # Return in scikit-learn Bunch format
         class MockBunch:
             def __init__(self, data, target):
                 self.data = data
                 self.target = target
-        
+
         return MockBunch(X_array, y_array)
 
     def _load_make_moons(self):

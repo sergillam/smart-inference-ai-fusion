@@ -197,7 +197,7 @@ def _validate_logistic_regression_params(params: dict) -> dict:
     corrected_params = params.copy()
 
     # Remove invalid parameters that don't exist for LogisticRegression
-    invalid_params = ['positive', 'alpha']
+    invalid_params = ["positive", "alpha"]
     for param in invalid_params:
         if param in corrected_params:
             del corrected_params[param]

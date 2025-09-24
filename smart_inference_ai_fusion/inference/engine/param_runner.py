@@ -108,11 +108,11 @@ class ParameterInferenceEngine:
             dict: Perturbed model hyperparameters.
         """
         perturbed = params.copy()
-        
+
         # Apply parameter-specific transformations
         for key, value in params.items():
             self._apply_perturber_for_key(key, value, perturbed)
-        
+
         # ALWAYS apply CrossDependencyPerturbation at the end to fix incompatibilities
         # This ensures parameter compatibility regardless of what other transformations did
         if CrossDependencyPerturbation in self.perturber_classes:
@@ -120,7 +120,7 @@ class ParameterInferenceEngine:
             final_result = cross_dep.apply(perturbed)
             if final_result is not None:
                 perturbed = final_result
-                
+
         return perturbed
 
     def export_log(self) -> dict:

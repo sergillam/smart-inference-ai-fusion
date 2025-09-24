@@ -105,27 +105,22 @@ def _log_recent_result_files():
     """Log information about recently generated result files."""
     logger.info("")
     logger.info("📁 RECENT RESULT FILES:")
-
     try:
         results_dir = Path("results")
         if not results_dir.exists():
             logger.info("   (Results directory not found)")
             return
 
-        # Get files modified in the last hour
-        recent_files = []
-        one_hour_ago = datetime.now() - timedelta(hours=1)
+        # Gather JSON files and sort by modification time (most recent first)
+        json_files = list(results_dir.glob("*.json"))
+        json_files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
 
-        for file_path in results_dir.glob("*.json"):
-            if file_path.stat().st_mtime > one_hour_ago.timestamp():
-                recent_files.append(file_path.name)
-
-        if recent_files:
-            recent_files.sort()
-            for i, filename in enumerate(recent_files[-10:], 1):  # Show last 10
-                logger.info("   %2d. %s", i, filename)
+        if json_files:
+            # Show up to 10 most recent result files
+            for i, file_path in enumerate(json_files[:10], 1):
+                logger.info("   %2d. %s", i, file_path.name)
         else:
-            logger.info("   (No recent result files found)")
+            logger.info("   (No result files found)")
 
     except (OSError, IOError) as e:
         logger.info("   (Could not list result files: %s)", str(e))

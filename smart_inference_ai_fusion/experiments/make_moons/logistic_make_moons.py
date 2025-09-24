@@ -10,8 +10,7 @@ from smart_inference_ai_fusion.utils.types import SklearnDatasetName
 def run():
     """Run Make Moons dataset logistic regression experiment."""
     return run_experiment_by_model(
-        LogisticRegressionModel,
-        dataset_name=SklearnDatasetName.MAKE_MOONS
+        LogisticRegressionModel, dataset_name=SklearnDatasetName.MAKE_MOONS
     )
 
 

@@ -2,12 +2,12 @@
 
 # Interface principal
 from .core.formal_verification import (
-    verify,
+    disable_verification,
     enable_verification,
-    disable_verification, 
-    list_verifiers,
     get_available_verifiers,
-    verification_manager
+    list_verifiers,
+    verification_manager,
+    verify,
 )
 
 # Classes base para criação de plugins
@@ -16,24 +16,23 @@ from .core.plugin_interface import (
     VerificationInput,
     VerificationResult,
     VerificationStatus,
-    registry
+    registry,
 )
 
 __all__ = [
     # Interface de uso principal
-    'verify',
-    'enable_verification', 
-    'disable_verification',
-    'list_verifiers',
-    'get_available_verifiers',
-    'verification_manager',
-    
+    "verify",
+    "enable_verification",
+    "disable_verification",
+    "list_verifiers",
+    "get_available_verifiers",
+    "verification_manager",
     # Para desenvolver novos plugins
-    'FormalVerifier',
-    'VerificationInput', 
-    'VerificationResult',
-    'VerificationStatus',
-    'registry'
+    "FormalVerifier",
+    "VerificationInput",
+    "VerificationResult",
+    "VerificationStatus",
+    "registry",
 ]
 
 __version__ = "2.0.0"

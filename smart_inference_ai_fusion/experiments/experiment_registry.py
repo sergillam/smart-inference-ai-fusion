@@ -4,9 +4,9 @@ This module provides a centralized registry of experiment configurations
 to eliminate code duplication across experiment scripts.
 """
 
-from typing import Any, Dict, Type, Optional
-import os
 import logging
+import os
+from typing import Any, Dict, Optional, Type
 
 from smart_inference_ai_fusion.core.base_model import BaseModel
 from smart_inference_ai_fusion.experiments.common import run_standard_experiment
@@ -19,7 +19,6 @@ from smart_inference_ai_fusion.models.gradient_boosting_model import GradientBoo
 from smart_inference_ai_fusion.models.logistic_regression_model import LogisticRegressionModel
 from smart_inference_ai_fusion.models.minibatch_kmeans_model import MiniBatchKMeansModel
 from smart_inference_ai_fusion.models.mlp_model import MLPModel
-from smart_inference_ai_fusion.models.tree_model import DecisionTreeModel
 from smart_inference_ai_fusion.models.random_forest_classifier_model import (
     RandomForestClassifierModel,
 )
@@ -28,7 +27,12 @@ from smart_inference_ai_fusion.models.random_forest_regressor_model import (
 )
 from smart_inference_ai_fusion.models.ridge_model import RidgeModel
 from smart_inference_ai_fusion.models.spectral_clustering_model import SpectralClusteringModel
-from smart_inference_ai_fusion.utils.types import DatasetSourceType, SklearnDatasetName, VerificationConfig
+from smart_inference_ai_fusion.models.tree_model import DecisionTreeModel
+from smart_inference_ai_fusion.utils.types import (
+    DatasetSourceType,
+    SklearnDatasetName,
+    VerificationConfig,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1028,9 +1032,9 @@ def run_experiment_by_model(
 
     # Detectar configuração de verificação formal via variáveis de ambiente
     verification_config = None
-    verification_enabled = os.getenv('VERIFICATION_ENABLED', 'false').lower() == 'true'
-    verification_strict = os.getenv('VERIFICATION_STRICT', 'false').lower() == 'true'
-    
+    verification_enabled = os.getenv("VERIFICATION_ENABLED", "false").lower() == "true"
+    verification_strict = os.getenv("VERIFICATION_STRICT", "false").lower() == "true"
+
     if verification_enabled:
         logger.info(f"🔍 Formal verification ENABLED for {model_class.__name__} on {dataset_name}")
         verification_config = VerificationConfig(
@@ -1038,12 +1042,12 @@ def run_experiment_by_model(
             timeout=60.0 if verification_strict else 30.0,
             fail_on_error=verification_strict,
             constraints={
-                'shape_preservation': True,    # Nome compatível com Z3
-                'bounds': True,               # Nome compatível com Z3
-                'range_check': True,          # Nome compatível com Z3
-                'type_safety': True,          # Nome compatível com Z3
-                'bounds_tolerance': 0.05 if verification_strict else 0.1
-            }
+                "shape_preservation": True,  # Nome compatível com Z3
+                "bounds": True,  # Nome compatível com Z3
+                "range_check": True,  # Nome compatível com Z3
+                "type_safety": True,  # Nome compatível com Z3
+                "bounds_tolerance": 0.05 if verification_strict else 0.1,
+            },
         )
         logger.info(f"Verification mode: {'STRICT' if verification_strict else 'FLEXIBLE'}")
     else:

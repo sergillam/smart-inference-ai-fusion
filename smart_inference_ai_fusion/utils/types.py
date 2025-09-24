@@ -1,7 +1,7 @@
 """Categorize type the data used enumeration for the inference framework."""
 
 from enum import Enum
-from typing import List, Optional, Tuple, Dict, Any
+from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel
 
@@ -60,7 +60,7 @@ class SklearnDatasetName(Enum):
 
 class VerificationConfig(BaseModel):
     """Configuration for formal verification in transformations.
-    
+
     Attributes:
         enabled (bool): Whether verification is enabled.
         timeout (float): Timeout for verification in seconds.
@@ -68,7 +68,7 @@ class VerificationConfig(BaseModel):
         verifier_name (Optional[str]): Specific verifier to use.
         constraints (Dict[str, Any]): Custom constraints for verification.
     """
-    
+
     enabled: bool = True
     timeout: float = 30.0
     fail_on_error: bool = False
@@ -124,7 +124,7 @@ class DataNoiseConfig(BaseModel):
     distribution_shift_fraction: Optional[float] = None
     group_outlier_cluster_fraction: Optional[float] = None
     temporal_drift_std: Optional[float] = None
-    
+
     # Configuração de verificação formal
     verification: Optional[VerificationConfig] = None
 
@@ -147,7 +147,7 @@ class LabelNoiseConfig(BaseModel):
     confusion_matrix_noise_level: Optional[float] = None
     partial_label_fraction: Optional[float] = None
     swap_within_class_fraction: Optional[float] = None
-    
+
     # Configuração de verificação formal
     verification: Optional[VerificationConfig] = None
 
@@ -179,7 +179,7 @@ class ParameterNoiseConfig(BaseModel):
     bounded_numeric: Optional[bool] = None
     type_cast_perturbation: Optional[bool] = None
     enum_boundary_shift: Optional[bool] = None
-    
+
     # Configuração de verificação formal
     verification: Optional[VerificationConfig] = None
 

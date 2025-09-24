@@ -505,16 +505,16 @@ def run_inference_experiment(
     pipeline_verification_config = None
     if verification_config:
         pipeline_verification_config = {
-            'enabled': verification_config.enabled,
-            'timeout': verification_config.timeout,
-            'fail_on_error': verification_config.fail_on_error
+            "enabled": verification_config.enabled,
+            "timeout": verification_config.timeout,
+            "fail_on_error": verification_config.fail_on_error,
         }
-    
+
     pipeline = InferencePipeline(
-        data_noise_config=data_config, 
-        label_noise_config=label_config, 
+        data_noise_config=data_config,
+        label_noise_config=label_config,
         X_train=X_train,
-        verification_config=pipeline_verification_config
+        verification_config=pipeline_verification_config,
     )
 
     params = filtered_params or {}

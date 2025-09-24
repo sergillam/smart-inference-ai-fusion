@@ -9,10 +9,7 @@ from smart_inference_ai_fusion.utils.types import SklearnDatasetName
 
 def run():
     """Run Make Moons dataset decision tree experiment."""
-    return run_experiment_by_model(
-        DecisionTreeModel,
-        dataset_name=SklearnDatasetName.MAKE_MOONS
-    )
+    return run_experiment_by_model(DecisionTreeModel, dataset_name=SklearnDatasetName.MAKE_MOONS)
 
 
 if __name__ == "__main__":
