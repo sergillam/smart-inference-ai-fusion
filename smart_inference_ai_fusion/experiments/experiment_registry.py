@@ -525,7 +525,6 @@ ADULT_EXPERIMENTS = {
     ),
 }
 
-
 # Registry of experiment configurations for the make_moons synthetic dataset
 MAKE_MOONS_EXPERIMENTS = {
     AgglomerativeClusteringModel: ExperimentConfig(
@@ -610,6 +609,40 @@ MAKE_MOONS_EXPERIMENTS = {
         model_class=SpectralClusteringModel,
         model_params={"n_clusters": 2, "random_state": 42},
         dataset_name=SklearnDatasetName.MAKE_MOONS,
+    ),
+}
+
+# Registry of experiment configurations for the make_blobs synthetic dataset
+MAKE_BLOBS_EXPERIMENTS = {
+    LogisticRegressionModel: ExperimentConfig(
+        model_class=LogisticRegressionModel,
+        model_params={"max_iter": 1000, "random_state": 42},
+        dataset_name=SklearnDatasetName.MAKE_BLOBS,
+    ),
+    MiniBatchKMeansModel: ExperimentConfig(
+        model_class=MiniBatchKMeansModel,
+        model_params={"n_clusters": 3, "random_state": 42, "batch_size": 100},
+        dataset_name=SklearnDatasetName.MAKE_BLOBS,
+    ),
+    MLPModel: ExperimentConfig(
+        model_class=MLPModel,
+        model_params={
+            "hidden_layer_sizes": (50, 20),
+            "random_state": 42,
+            "max_iter": 500,
+            "solver": "adam",
+        },
+        dataset_name=SklearnDatasetName.MAKE_BLOBS,
+    ),
+    DecisionTreeModel: ExperimentConfig(
+        model_class=DecisionTreeModel,
+        model_params={"max_depth": 6, "random_state": 42},
+        dataset_name=SklearnDatasetName.MAKE_BLOBS,
+    ),
+    GaussianMixtureModel: ExperimentConfig(
+        model_class=GaussianMixtureModel,
+        model_params={"n_components": 3, "random_state": 42},
+        dataset_name=SklearnDatasetName.MAKE_BLOBS,
     ),
 }
 
@@ -958,6 +991,8 @@ def run_experiment_by_name(
         registry = LFW_PEOPLE_EXPERIMENTS
     elif dataset_name == SklearnDatasetName.MAKE_MOONS:
         registry = MAKE_MOONS_EXPERIMENTS
+    elif dataset_name == SklearnDatasetName.MAKE_BLOBS:
+        registry = MAKE_BLOBS_EXPERIMENTS
     elif dataset_name == SklearnDatasetName.NEWSGROUPS_20:
         registry = NEWSGROUPS_20_EXPERIMENTS
     elif dataset_name == SklearnDatasetName.DIGITS:
@@ -1011,6 +1046,8 @@ def run_experiment_by_model(
         registry = LFW_PEOPLE_EXPERIMENTS
     elif dataset_name == SklearnDatasetName.MAKE_MOONS:
         registry = MAKE_MOONS_EXPERIMENTS
+    elif dataset_name == SklearnDatasetName.MAKE_BLOBS:
+        registry = MAKE_BLOBS_EXPERIMENTS
     elif dataset_name == SklearnDatasetName.NEWSGROUPS_20:
         registry = NEWSGROUPS_20_EXPERIMENTS
     elif dataset_name == SklearnDatasetName.DIGITS:

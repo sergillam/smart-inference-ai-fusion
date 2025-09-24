@@ -11,6 +11,7 @@ from sklearn.datasets import (
     load_iris,
     load_wine,
     make_moons,
+    make_blobs,
 )
 from sklearn.decomposition import TruncatedSVD
 from sklearn.feature_selection import SelectKBest, chi2
@@ -49,6 +50,7 @@ class SklearnDatasetLoader(BaseDataset):
             SklearnDatasetName.DIGITS: load_digits,
             SklearnDatasetName.LFW_PEOPLE: self._load_lfw_people,
             SklearnDatasetName.MAKE_MOONS: self._load_make_moons,
+            SklearnDatasetName.MAKE_BLOBS: self._load_make_blobs,
             SklearnDatasetName.NEWSGROUPS_20: self._load_newsgroups_20,
         }
 
@@ -153,6 +155,22 @@ class SklearnDatasetLoader(BaseDataset):
         X, y = make_moons(n_samples=1000, noise=0.3, random_state=self.random_state)
 
         # Return in scikit-learn Bunch format
+        class MockBunch:
+            def __init__(self, data, target):
+                self.data = data
+                self.target = target
+
+        return MockBunch(X, y)
+
+    def _load_make_blobs(self):
+        """Load synthetic make_blobs dataset.
+
+        Returns:
+            Bunch-like object with data and target attributes.
+        """
+        # Create synthetic dataset with 3 centers by default
+        X, y = make_blobs(n_samples=1000, centers=3, n_features=2, random_state=self.random_state)
+
         class MockBunch:
             def __init__(self, data, target):
                 self.data = data

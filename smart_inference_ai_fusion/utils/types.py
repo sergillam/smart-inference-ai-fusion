@@ -55,6 +55,7 @@ class SklearnDatasetName(Enum):
     DIGITS = "digits"
     LFW_PEOPLE = "lfw_people"
     MAKE_MOONS = "make_moons"
+    MAKE_BLOBS = "make_blobs"
     NEWSGROUPS_20 = "newsgroups_20"
 
 

@@ -400,6 +400,53 @@ def create_inference_configs_make_moons():
     return data_config, label_config, param_config
 
 
+def create_inference_configs_make_blobs():
+    """Create inference configuration objects specific for Make Blobs dataset (2D/3 centers by default)."""
+    data_config = DataNoiseConfig(
+        noise_level=0.15,
+        truncate_decimals=1,
+        quantize_bins=5,
+        cast_to_int=False,
+        shuffle_fraction=0.1,
+        scale_range=(0.9, 1.1),
+        zero_out_fraction=0.02,
+        insert_nan_fraction=0.02,
+        outlier_fraction=0.03,
+        add_dummy_features=1,
+        duplicate_features=1,
+        feature_selective_noise=(0.2, [0, 1]),
+        remove_features=[],
+        feature_swap=[0, 1],
+        conditional_noise=(0, 2.0, 0.1),
+        random_missing_block_fraction=0.05,
+        distribution_shift_fraction=0.05,
+        cluster_swap_fraction=0.05,
+        group_outlier_cluster_fraction=0.05,
+        temporal_drift_std=0.2,
+    )
+    label_config = LabelNoiseConfig(
+        label_noise_fraction=0.1,
+        flip_near_border_fraction=0.05,
+        confusion_matrix_noise_level=0.05,
+        partial_label_fraction=0.05,
+        swap_within_class_fraction=0.05,
+    )
+    param_config = ParameterNoiseConfig(
+        integer_noise=True,
+        boolean_flip=True,
+        string_mutator=True,
+        semantic_mutation=True,
+        scale_hyper=True,
+        cross_dependency=True,
+        random_from_space=True,
+        bounded_numeric=True,
+        type_cast_perturbation=True,
+        enum_boundary_shift=True,
+    )
+
+    return data_config, label_config, param_config
+
+
 def run_baseline_experiment(
     model_class: Type[BaseModel],
     model_name: str,
@@ -480,18 +527,17 @@ def run_inference_experiment(
     )
 
     # Create base configurations - use dataset specific config if needed
-    if (
-        isinstance(dataset_name, SklearnDatasetName)
-        and dataset_name == SklearnDatasetName.MAKE_MOONS
-    ):
-        data_config, label_config, _ = create_inference_configs_make_moons()
-    elif (
-        isinstance(dataset_name, SklearnDatasetName)
-        and dataset_name == SklearnDatasetName.LFW_PEOPLE
-    ):
-        data_config, label_config, _ = create_inference_configs_lfw_people()
+    if isinstance(dataset_name, SklearnDatasetName):
+        if dataset_name == SklearnDatasetName.MAKE_MOONS:
+            data_config, label_config, _ = create_inference_configs_make_moons()
+        elif dataset_name == SklearnDatasetName.MAKE_BLOBS:
+            data_config, label_config, _ = create_inference_configs_make_blobs()
+        elif dataset_name == SklearnDatasetName.LFW_PEOPLE:
+            data_config, label_config, _ = create_inference_configs_lfw_people()
+        else:
+            data_config, label_config, _ = create_inference_configs()
     else:
-        data_config, label_config, _ = create_inference_configs()  # param_config is unused here
+        data_config, label_config, _ = create_inference_configs()
 
     # Apply model-specific configuration overrides
     model_configs = get_model_specific_configs(model_class, model_name)
