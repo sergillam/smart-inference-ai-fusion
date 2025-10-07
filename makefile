@@ -52,7 +52,7 @@ help: ## Shows this help message
 	@echo "🔹 Installation options:"
 	@echo "   make install              # Complete dev environment (fresh venv)"
 	@echo "   make install-quick        # Complete dev environment (keep venv)"
-	@echo "   make install-dev          # Development dependencies only"  
+	@echo "   make install-dev          # Development dependencies only"
 	@echo "   make install-verification # Verification support (Z3) only"
 	@echo "   make install-cvc5         # CVC5 SMT solver only"
 	@echo "   make clean-venv           # Clean and recreate virtual environment"
@@ -460,7 +460,7 @@ run-both-solvers: install-quick ## ⚡ Runs experiments for any dataset with BOT
 		$(PYTHON_VENV) -m $(MAIN_MODULE) $(EXP) --mode verification --solvers z3,cvc5 --parallel $(if $(findstring debug,$(MAKECMDGOALS)),--debug)
 
 # ============================
-# 🎯 ADVANCED SYNTAX COMMANDS  
+# 🎯 ADVANCED SYNTAX COMMANDS
 # ============================
 
 # Comando principal: make run verify EXP=<dataset> SOLVERS=<solvers>
@@ -481,8 +481,8 @@ verify: install-quick ## 🔍 Advanced syntax: make run verify EXP=wine SOLVERS=
 		$(PYTHON_VENV) -m $(MAIN_MODULE) $(EXP) --mode verification; \
 	fi
 
-# Para suportar: make run verify EXP=wine  
-run: 
+# Para suportar: make run verify EXP=wine
+run:
 	@if [ "$(filter verify,$(MAKECMDGOALS))" ]; then \
 		$(MAKE) verify EXP=$(EXP) SOLVERS=$(SOLVERS); \
 	else \
@@ -530,7 +530,7 @@ ci: check test run ## Runs the complete CI pipeline (quality checks, tests, and 
 
 # -------- Phony Targets --------
 .PHONY: help venv install install-dev install-verification install-full uninstall
-.PHONY: run debug run-verification 
+.PHONY: run debug run-verification
 .PHONY: verification-example verify-example verify-all verify-install verify-list verify-test
 .PHONY: format check-format lint style check test
 .PHONY: compile-reqs compile-reqs-dev freeze

@@ -1,0 +1,65 @@
+@startuml
+title Integração do Sistema de Verificação Formal com o Smart Inference Pipeline (SIP)
+
+package "Orquestração do Experimento" #LightBlue {
+	[Executor de Experimento] as Runner
+	[VerificationConfig] as VerifConfig
+}
+
+package "Smart Inference Pipeline (SIP)" #AliceBlue {
+	node "Entrada (Dados, Rótulos, Parâmetros)" as Input
+
+	package "Pipeline de Perturbação" {
+		[1. Motor de Perturbação de Dados] as DataEngine
+		[2. Motor de Perturbação de Rótulos] as LabelEngine
+		[3. Motor de Perturbação de Parâmetros] as ParamEngine
+	}
+
+	node "Saída (Inputs Perturbados)" as Output
+
+	Input --> DataEngine
+	DataEngine --> LabelEngine
+	LabelEngine --> ParamEngine
+	ParamEngine --> Output
+}
+
+package "Subsistema de Verificação Formal" #Azure {
+	[Motor de Verificação] as VerifEngine
+	[Registro de Verificadores] as Registry
+	[Relatórios de Verificação] as Reports
+
+	VerifEngine -> Registry : consulta verificador
+	VerifEngine --> Reports : gera resultados
+}
+
+package "Plugins de Solvers" #LightGrey {
+	[Plugin Z3] as Z3
+	[Plugin CVC5] as CVC5
+	node "Outros (BMC, KLEE...)" as Others
+
+	Registry --> Z3
+	Registry --> CVC5
+	Registry --> Others
+}
+
+' Fluxo de Interação
+Runner -> VerifConfig : define regras
+Runner -> Input : inicia pipeline
+
+' Pontos de Verificação
+DataEngine ..> VerifEngine : **Verifica pré/pós perturbação de dados**
+LabelEngine ..> VerifEngine : **Verifica pré/pós perturbação de rótulos**
+ParamEngine ..> VerifEngine : **Verifica pré/pós perturbação de parâmetros**
+
+VerifEngine -> Z3 : executa verificação
+VerifEngine -> CVC5 : (alternativa)
+
+Z3 ..> VerifEngine : retorna resultado
+CVC5 ..> VerifEngine : retorna resultado
+
+VerifEngine ..> DataEngine : retorna veredito
+VerifEngine ..> LabelEngine : retorna veredito
+VerifEngine ..> ParamEngine : retorna veredito
+
+
+@enduml

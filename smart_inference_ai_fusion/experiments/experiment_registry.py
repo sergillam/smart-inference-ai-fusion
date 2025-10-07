@@ -4,6 +4,8 @@ This module provides a centralized registry of experiment configurations
 to eliminate code duplication across experiment scripts.
 """
 
+# pylint: disable=too-many-lines
+
 import logging
 import os
 from typing import Any, Dict, Optional, Type
@@ -44,6 +46,7 @@ class ExperimentConfig:
         self,
         model_class: Type[BaseModel],
         model_params: Dict[str, Any],
+        *,
         dataset_source: DatasetSourceType = DatasetSourceType.SKLEARN,
         dataset_name: SklearnDatasetName = SklearnDatasetName.DIGITS,
         verification_config: Optional[VerificationConfig] = None,
@@ -748,108 +751,6 @@ LFW_PEOPLE_EXPERIMENTS = {
 }
 
 
-# Registry of experiment configurations for the Make Moons dataset (2D synthetic data)
-MAKE_MOONS_EXPERIMENTS = {
-    SpectralClusteringModel: ExperimentConfig(
-        model_class=SpectralClusteringModel,
-        model_params={
-            "n_clusters": 2,  # Two moons
-            "random_state": 42,
-            "affinity": "nearest_neighbors",
-            "n_neighbors": 15,  # Good for moon shapes
-            "assign_labels": "kmeans",
-            "gamma": 1.0,
-        },
-    ),
-    AgglomerativeClusteringModel: ExperimentConfig(
-        model_class=AgglomerativeClusteringModel,
-        model_params={"n_clusters": 2, "linkage": "ward"},  # Two moons - no random_state
-    ),
-    MiniBatchKMeansModel: ExperimentConfig(
-        model_class=MiniBatchKMeansModel,
-        model_params={
-            "n_clusters": 2,
-            "random_state": 42,
-            "batch_size": 100,
-            "max_iter": 100,
-        },  # Two moons
-    ),
-    GaussianMixtureModel: ExperimentConfig(
-        model_class=GaussianMixtureModel,
-        model_params={
-            "n_components": 2,
-            "random_state": 42,
-            "covariance_type": "full",
-            "max_iter": 100,
-        },  # Two moons
-    ),
-    # Classification algorithms to compare with clustering
-    RandomForestClassifierModel: ExperimentConfig(
-        model_class=RandomForestClassifierModel,
-        model_params={
-            "n_estimators": 100,
-            "max_depth": 5,
-            "random_state": 42,
-            "min_samples_split": 5,
-        },  # Simple for 2D data
-    ),
-    RandomForestRegressorModel: ExperimentConfig(
-        model_class=RandomForestRegressorModel,
-        model_params={
-            "n_estimators": 100,
-            "max_depth": 5,
-            "random_state": 42,
-            "min_samples_split": 5,
-        },  # Simple for 2D data
-    ),
-    MLPModel: ExperimentConfig(
-        model_class=MLPModel,
-        model_params={
-            "hidden_layer_sizes": (50, 25),
-            "random_state": 42,
-            "max_iter": 1000,
-            "alpha": 0.01,
-        },  # Simple for 2D
-    ),
-    GradientBoostingModel: ExperimentConfig(
-        model_class=GradientBoostingModel,
-        model_params={
-            "n_estimators": 100,
-            "learning_rate": 0.1,
-            "max_depth": 3,
-            "random_state": 42,
-        },  # Standard for 2D
-    ),
-    RidgeModel: ExperimentConfig(
-        model_class=RidgeModel,
-        model_params={
-            "alpha": 1.0,
-            "random_state": 42,
-            "max_iter": 1000,
-        },  # Simple regularization for 2D
-    ),
-    FastICAModel: ExperimentConfig(
-        model_class=FastICAModel,
-        model_params={
-            "n_components": 8,
-            "random_state": 42,
-            "max_iter": 1000,
-            "tol": 1e-4,
-        },  # Dimensionality reduction for 2D
-    ),
-    LogisticRegressionModel: ExperimentConfig(
-        model_class=LogisticRegressionModel,
-        model_params={"max_iter": 1000, "random_state": 42},
-        dataset_name=SklearnDatasetName.MAKE_MOONS,
-    ),
-    DecisionTreeModel: ExperimentConfig(
-        model_class=DecisionTreeModel,
-        model_params={"max_depth": 8, "random_state": 42},
-        dataset_name=SklearnDatasetName.MAKE_MOONS,
-    ),
-}
-
-
 # Registry of experiment configurations for the 20 Newsgroups dataset
 NEWSGROUPS_20_EXPERIMENTS = {
     AgglomerativeClusteringModel: ExperimentConfig(
@@ -962,56 +863,57 @@ NEWSGROUPS_20_EXPERIMENTS = {
 }
 
 
-def run_experiment_by_name(
-    experiment_name: str,
-    dataset_name: SklearnDatasetName = SklearnDatasetName.DIGITS,
-    dataset_source: DatasetSourceType = DatasetSourceType.SKLEARN,
-):
-    """Run a registered experiment by name.
+# Mapeamento de datasets para registros de experimentos
+_DATASET_REGISTRY_MAP = {
+    SklearnDatasetName.WINE: "WINE_EXPERIMENTS",
+    SklearnDatasetName.BREAST_CANCER: "BREAST_CANCER_EXPERIMENTS",
+    SklearnDatasetName.ADULT: "ADULT_EXPERIMENTS",
+    SklearnDatasetName.LFW_PEOPLE: "LFW_PEOPLE_EXPERIMENTS",
+    SklearnDatasetName.MAKE_MOONS: "MAKE_MOONS_EXPERIMENTS",
+    SklearnDatasetName.MAKE_BLOBS: "MAKE_BLOBS_EXPERIMENTS",
+    SklearnDatasetName.NEWSGROUPS_20: "NEWSGROUPS_20_EXPERIMENTS",
+    SklearnDatasetName.DIGITS: "DIGITS_EXPERIMENTS",
+}
+
+
+def _get_registry_for_dataset(dataset_name: SklearnDatasetName) -> Dict:
+    """Get the experiment registry for a given dataset.
 
     Args:
-        experiment_name: Name of the experiment in the registry.
-        dataset_name: Dataset to run the experiment on.
-        dataset_source: Source type for the dataset (sklearn or external).
+        dataset_name: The dataset to get the registry for.
 
     Returns:
-        Result of the experiment.
+        The experiment registry dictionary.
 
     Raises:
-        KeyError: If experiment_name is not found in the registry.
+        ValueError: If dataset is not supported.
     """
-    # Get the appropriate registry based on dataset
-    if dataset_name == SklearnDatasetName.WINE:
-        registry = WINE_EXPERIMENTS
-    elif dataset_name == SklearnDatasetName.BREAST_CANCER:
-        registry = BREAST_CANCER_EXPERIMENTS
-    elif dataset_name == SklearnDatasetName.ADULT:
-        registry = ADULT_EXPERIMENTS
-    elif dataset_name == SklearnDatasetName.LFW_PEOPLE:
-        registry = LFW_PEOPLE_EXPERIMENTS
-    elif dataset_name == SklearnDatasetName.MAKE_MOONS:
-        registry = MAKE_MOONS_EXPERIMENTS
-    elif dataset_name == SklearnDatasetName.MAKE_BLOBS:
-        registry = MAKE_BLOBS_EXPERIMENTS
-    elif dataset_name == SklearnDatasetName.NEWSGROUPS_20:
-        registry = NEWSGROUPS_20_EXPERIMENTS
-    elif dataset_name == SklearnDatasetName.DIGITS:
-        registry = DIGITS_EXPERIMENTS
-    else:
+    registry_name = _DATASET_REGISTRY_MAP.get(dataset_name)
+    if registry_name is None:
         raise ValueError(f"Unsupported dataset: {dataset_name}")
+    return globals()[registry_name]
 
-    if experiment_name not in registry:
-        available = ", ".join(registry.keys())
-        raise KeyError(f"Experiment '{experiment_name}' not found. Available: {available}")
 
-    config = registry[experiment_name]
+def _create_verification_config(verification_strict: bool) -> VerificationConfig:
+    """Create verification config from environment settings.
 
-    return run_standard_experiment(
-        model_class=config.model_class,
-        model_name=config.model_name,
-        dataset_source=dataset_source,
-        dataset_name=dataset_name,
-        model_params=config.model_params,
+    Args:
+        verification_strict: Whether strict mode is enabled.
+
+    Returns:
+        VerificationConfig instance.
+    """
+    return VerificationConfig(
+        enabled=True,
+        timeout=60.0 if verification_strict else 30.0,
+        fail_on_error=verification_strict,
+        constraints={
+            "shape_preservation": True,
+            "bounds": True,
+            "range_check": True,
+            "type_safety": True,
+            "bounds_tolerance": 0.05 if verification_strict else 0.1,
+        },
     )
 
 
@@ -1035,27 +937,8 @@ def run_experiment_by_model(
     Raises:
         ValueError: If model_class is not found in any registry.
     """
-    # Get the appropriate registry based on dataset
-    if dataset_name == SklearnDatasetName.WINE:
-        registry = WINE_EXPERIMENTS
-    elif dataset_name == SklearnDatasetName.BREAST_CANCER:
-        registry = BREAST_CANCER_EXPERIMENTS
-    elif dataset_name == SklearnDatasetName.ADULT:
-        registry = ADULT_EXPERIMENTS
-    elif dataset_name == SklearnDatasetName.LFW_PEOPLE:
-        registry = LFW_PEOPLE_EXPERIMENTS
-    elif dataset_name == SklearnDatasetName.MAKE_MOONS:
-        registry = MAKE_MOONS_EXPERIMENTS
-    elif dataset_name == SklearnDatasetName.MAKE_BLOBS:
-        registry = MAKE_BLOBS_EXPERIMENTS
-    elif dataset_name == SklearnDatasetName.NEWSGROUPS_20:
-        registry = NEWSGROUPS_20_EXPERIMENTS
-    elif dataset_name == SklearnDatasetName.DIGITS:
-        registry = DIGITS_EXPERIMENTS
-    else:
-        raise ValueError(f"Unsupported dataset: {dataset_name}")
+    registry = _get_registry_for_dataset(dataset_name)
 
-    # Get configuration directly using model class as key
     if model_class not in registry:
         available_models = [cls.__name__ for cls in registry]
         raise ValueError(
@@ -1064,7 +947,6 @@ def run_experiment_by_model(
         )
 
     config = registry[model_class]
-    # Use custom params if provided, otherwise use registry defaults
     params = model_params if model_params is not None else config.model_params
 
     # Detectar configuração de verificação formal via variáveis de ambiente
@@ -1073,22 +955,16 @@ def run_experiment_by_model(
     verification_strict = os.getenv("VERIFICATION_STRICT", "false").lower() == "true"
 
     if verification_enabled:
-        logger.info(f"🔍 Formal verification ENABLED for {model_class.__name__} on {dataset_name}")
-        verification_config = VerificationConfig(
-            enabled=True,
-            timeout=60.0 if verification_strict else 30.0,
-            fail_on_error=verification_strict,
-            constraints={
-                "shape_preservation": True,  # Nome compatível com Z3
-                "bounds": True,  # Nome compatível com Z3
-                "range_check": True,  # Nome compatível com Z3
-                "type_safety": True,  # Nome compatível com Z3
-                "bounds_tolerance": 0.05 if verification_strict else 0.1,
-            },
+        logger.info(
+            "🔍 Formal verification ENABLED for %s on %s",
+            model_class.__name__,
+            dataset_name,
         )
-        logger.info(f"Verification mode: {'STRICT' if verification_strict else 'FLEXIBLE'}")
+        verification_config = _create_verification_config(verification_strict)
+        verification_mode = "STRICT" if verification_strict else "FLEXIBLE"
+        logger.info("Verification mode: %s", verification_mode)
     else:
-        logger.debug(f"Formal verification DISABLED for {model_class.__name__}")
+        logger.debug("Formal verification DISABLED for %s", model_class.__name__)
 
     return run_standard_experiment(
         model_class=model_class,
@@ -1097,4 +973,39 @@ def run_experiment_by_model(
         dataset_name=dataset_name,
         model_params=params,
         verification_config=verification_config,
+    )
+
+
+def run_experiment_by_name(
+    experiment_name: str,
+    dataset_name: SklearnDatasetName = SklearnDatasetName.DIGITS,
+    dataset_source: DatasetSourceType = DatasetSourceType.SKLEARN,
+):
+    """Run a registered experiment by name.
+
+    Args:
+        experiment_name: Name of the experiment in the registry.
+        dataset_name: Dataset to run the experiment on.
+        dataset_source: Source type for the dataset (sklearn or external).
+
+    Returns:
+        Result of the experiment.
+
+    Raises:
+        KeyError: If experiment_name is not found in the registry.
+    """
+    registry = _get_registry_for_dataset(dataset_name)
+
+    if experiment_name not in registry:
+        available = ", ".join(str(k) for k in registry.keys())
+        raise KeyError(f"Experiment '{experiment_name}' not found. Available: {available}")
+
+    config = registry[experiment_name]
+
+    return run_standard_experiment(
+        model_class=config.model_class,
+        model_name=config.model_name,
+        dataset_source=dataset_source,
+        dataset_name=dataset_name,
+        model_params=config.model_params,
     )

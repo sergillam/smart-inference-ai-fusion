@@ -41,7 +41,8 @@ def run():
             },
         )
 
-        logger.info(f"Verification mode: {'STRICT' if verification_strict else 'FLEXIBLE'}")
+        verification_mode = "STRICT" if verification_strict else "FLEXIBLE"
+        logger.info("Verification mode: %s", verification_mode)
 
     else:
         logger.info("🚫 Formal verification DISABLED")
@@ -61,10 +62,10 @@ def run():
 
     # Relatório de resultados
     logger.info("📊 EXPERIMENT RESULTS:")
-    logger.info(f"  Baseline accuracy: {baseline_metrics.get('accuracy', 'N/A'):.4f}")
-    logger.info(f"  Inference accuracy: {inference_metrics.get('accuracy', 'N/A'):.4f}")
-    logger.info(f"  Baseline time: {baseline_metrics.get('execution_time_seconds', 0):.2f}s")
-    logger.info(f"  Inference time: {inference_metrics.get('execution_time_seconds', 0):.2f}s")
+    logger.info("  Baseline accuracy: %.4f", baseline_metrics.get("accuracy", 0.0))
+    logger.info("  Inference accuracy: %.4f", inference_metrics.get("accuracy", 0.0))
+    logger.info("  Baseline time: %.2fs", baseline_metrics.get("execution_time_seconds", 0))
+    logger.info("  Inference time: %.2fs", inference_metrics.get("execution_time_seconds", 0))
 
     if verification_enabled:
         logger.info("✅ Experiment completed WITH formal verification")

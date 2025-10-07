@@ -89,52 +89,46 @@ class SemanticMutation(ParameterTransformation):
         Returns:
             str | None: New solver value or None.
         """
+        model_config = self._detect_model_solver_map(params)
+        if model_config is None:
+            return None
+
+        solver_map, model_name = model_config
+        return self._apply_solver_semantic_mutation(value, solver_map, model_name)
+
+    def _detect_model_solver_map(self, params: dict) -> tuple | None:
+        """Detect model type and return solver mapping.
+
+        Returns:
+            tuple: (solver_map, model_name) or None
+        """
         # MLPClassifier has hidden_layer_sizes (unique identifier)
         if "hidden_layer_sizes" in params:
-            mlp_solvers = {"adam": "lbfgs", "lbfgs": "sgd", "sgd": "adam"}
-            if value in mlp_solvers:
-                new_value = mlp_solvers[value]
-                report_data(
-                    f"🧪 SCIENTIFIC PERTURBATION: Applying MLP semantic mutation "
-                    f"solver='{value}' -> '{new_value}' (testing algorithmic robustness)",
-                    mode=ReportMode.PRINT,
-                )
-                return new_value
-            return None
-
+            return ({"adam": "lbfgs", "lbfgs": "sgd", "sgd": "adam"}, "MLP")
         # RidgeClassifier detection (has alpha but NOT hidden_layer_sizes and NOT C parameter)
         if "alpha" in params and "hidden_layer_sizes" not in params and "C" not in params:
-            ridge_solvers = {"saga": "lbfgs", "lbfgs": "auto", "auto": "svd", "svd": "saga"}
-            if value in ridge_solvers:
-                new_value = ridge_solvers[value]
-                report_data(
-                    f"🧪 SCIENTIFIC PERTURBATION: Applying Ridge semantic mutation "
-                    f"solver='{value}' -> '{new_value}' (testing algorithmic robustness)",
-                    mode=ReportMode.PRINT,
-                )
-                return new_value
-            return None
-
+            return ({"saga": "lbfgs", "lbfgs": "auto", "auto": "svd", "svd": "saga"}, "Ridge")
         # LogisticRegression detection (has C parameter but NOT alpha or hidden_layer_sizes)
         if "C" in params and "alpha" not in params and "hidden_layer_sizes" not in params:
-            logistic_solvers = {
-                "lbfgs": "liblinear",
-                "liblinear": "sag",
-                "sag": "saga",
-                "saga": "lbfgs",
-            }
-            if value in logistic_solvers:
-                new_value = logistic_solvers[value]
-                report_data(
-                    f"🧪 SCIENTIFIC PERTURBATION: Applying LogisticRegression semantic mutation "
-                    f"solver='{value}' -> '{new_value}' (testing algorithmic robustness)",
-                    mode=ReportMode.PRINT,
-                )
-                return new_value
-            return None
-
-        # For other models, return None
+            return (
+                {"lbfgs": "liblinear", "liblinear": "sag", "sag": "saga", "saga": "lbfgs"},
+                "LogisticRegression",
+            )
         return None
+
+    def _apply_solver_semantic_mutation(
+        self, value: str, solver_map: dict, model_name: str
+    ) -> str | None:
+        """Apply semantic mutation to solver value."""
+        if value not in solver_map:
+            return None
+        new_value = solver_map[value]
+        report_data(
+            f"🧪 SCIENTIFIC PERTURBATION: Applying {model_name} semantic mutation "
+            f"solver='{value}' -> '{new_value}' (testing algorithmic robustness)",
+            mode=ReportMode.PRINT,
+        )
+        return new_value
 
     def _apply_standard_mutation(self, value: str) -> str | None:
         """Apply standard semantic mutation.

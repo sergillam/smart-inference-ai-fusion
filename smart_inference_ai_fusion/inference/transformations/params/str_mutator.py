@@ -87,86 +87,61 @@ class StringMutator(ParameterTransformation):
 
     def _handle_solver_protection(self, params: dict, current) -> dict:
         """Handle MLPClassifier and RidgeClassifier solver protection."""
+        model_config = self._detect_model_solver_config(params)
+        if model_config is None:
+            return params
+
+        safe_options, model_name, use_cross_dep = model_config
+        return self._apply_solver_mutation(params, current, safe_options, model_name, use_cross_dep)
+
+    def _detect_model_solver_config(self, params: dict) -> tuple | None:
+        """Detect model type and return solver configuration.
+
+        Returns:
+            tuple: (safe_options, model_name, use_cross_dependency) or None
+        """
         # MLPClassifier has hidden_layer_sizes (unique identifier)
         if "hidden_layer_sizes" in params:
-            safe_options = ["adam", "lbfgs", "sgd"]
-            if current not in safe_options:
-                new_value = random.choice(safe_options)
-                report_data(
-                    f"🧪 SCIENTIFIC PROTECTION: MLPClassifier detected, using safe "
-                    f"solver '{current}' -> '{new_value}' (preventing InvalidParameterError)",
-                    mode=ReportMode.PRINT,
-                )
-                params[self.key] = new_value
-                return params
-            # Valid MLP solver, allow mutation within safe options
-            choices = [opt for opt in safe_options if opt != current]
-            if choices:
-                new_value = random.choice(choices)
-                report_data(
-                    f"🧪 SCIENTIFIC PERTURBATION: Applying MLP solver mutation "
-                    f"solver='{current}' -> '{new_value}' (testing robustness)",
-                    mode=ReportMode.PRINT,
-                )
-                params[self.key] = new_value
-                validator = CrossDependencyPerturbation()
-                params = validator.apply(params)
-
-                return params
+            return (["adam", "lbfgs", "sgd"], "MLPClassifier", True)
         # RidgeClassifier detection (has alpha but NOT hidden_layer_sizes and NOT C parameter)
-        elif "alpha" in params and "hidden_layer_sizes" not in params and "C" not in params:
-            safe_options = ["saga", "lbfgs", "auto", "svd", "cholesky", "sag", "lsqr", "sparse_cg"]
-            if current not in safe_options:
-                new_value = random.choice(safe_options)
-                report_data(
-                    f"🧪 SCIENTIFIC PROTECTION: RidgeClassifier detected, using safe "
-                    f"solver '{current}' -> '{new_value}' (preventing InvalidParameterError)",
-                    mode=ReportMode.PRINT,
-                )
-                params[self.key] = new_value
-                return params
-            # Valid Ridge solver, allow mutation within safe options
-            # But first check if cross-dependency validation should be applied
-            choices = [opt for opt in safe_options if opt != current]
-            if choices:
-                new_value = random.choice(choices)
-                report_data(
-                    f"🧪 SCIENTIFIC PERTURBATION: Applying Ridge solver mutation "
-                    f"solver='{current}' -> '{new_value}' (testing robustness)",
-                    mode=ReportMode.PRINT,
-                )
-                params[self.key] = new_value
+        if "alpha" in params and "hidden_layer_sizes" not in params and "C" not in params:
+            return (
+                ["saga", "lbfgs", "auto", "svd", "cholesky", "sag", "lsqr", "sparse_cg"],
+                "RidgeClassifier",
+                True,
+            )
+        # LogisticRegression detection (has C parameter but NOT alpha or hidden_layer_sizes)
+        if "C" in params and "alpha" not in params and "hidden_layer_sizes" not in params:
+            return (["lbfgs", "liblinear", "sag", "saga"], "LogisticRegression", False)
+        return None
 
-                # Apply cross-dependency validation after mutation
+    def _apply_solver_mutation(
+        self, params: dict, current: str, safe_options: list, model_name: str, use_cross_dep: bool
+    ) -> dict:
+        """Apply solver mutation with protection."""
+        if current not in safe_options:
+            new_value = random.choice(safe_options)
+            report_data(
+                f"🧪 SCIENTIFIC PROTECTION: {model_name} detected, using safe "
+                f"solver '{current}' -> '{new_value}' (preventing InvalidParameterError)",
+                mode=ReportMode.PRINT,
+            )
+            params[self.key] = new_value
+            return params
+
+        # Valid solver, allow mutation within safe options
+        choices = [opt for opt in safe_options if opt != current]
+        if choices:
+            new_value = random.choice(choices)
+            report_data(
+                f"🧪 SCIENTIFIC PERTURBATION: Applying {model_name} solver mutation "
+                f"solver='{current}' -> '{new_value}' (testing robustness)",
+                mode=ReportMode.PRINT,
+            )
+            params[self.key] = new_value
+            if use_cross_dep:
                 validator = CrossDependencyPerturbation()
                 params = validator.apply(params)
-
-                return params
-        # LogisticRegression detection (has C parameter but NOT alpha or hidden_layer_sizes)
-        elif "C" in params and "alpha" not in params and "hidden_layer_sizes" not in params:
-            # For LogisticRegression, use standard solver options
-            safe_options = ["lbfgs", "liblinear", "sag", "saga"]
-            if current not in safe_options:
-                new_value = random.choice(safe_options)
-                report_data(
-                    f"🧪 SCIENTIFIC PROTECTION: LogisticRegression detected, using safe "
-                    f"solver '{current}' -> '{new_value}' (preventing InvalidParameterError)",
-                    mode=ReportMode.PRINT,
-                )
-                params[self.key] = new_value
-                return params
-            # Valid LogisticRegression solver, allow mutation within safe options
-            choices = [opt for opt in safe_options if opt != current]
-            if choices:
-                new_value = random.choice(choices)
-                report_data(
-                    f"🧪 SCIENTIFIC PERTURBATION: Applying LogisticRegression solver mutation "
-                    f"solver='{current}' -> '{new_value}' (testing robustness)",
-                    mode=ReportMode.PRINT,
-                )
-                params[self.key] = new_value
-                return params
-        # For non-MLP models with solver param, skip mutation to avoid confusion
         return params
 
     def _handle_learning_rate_protection(self, params: dict, current) -> dict:

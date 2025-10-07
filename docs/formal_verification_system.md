@@ -1,27 +1,185 @@
-# Sistema de Verificação Formal - Interface de Plugins
+# Sistema de Verificação Formal – Visão Atualizada
 
-## ✅ Implementação Completada - Passos 1 e 2
+Este documento descreve o estado ATUAL (2025-11) do subsistema de verificação formal do projeto, alinhado ao código existente em `smart_inference_ai_fusion/verification/*`.
 
-### 🔌 Passo 1: Interface de Plugins ✅
+> **Documentação Detalhada:** Para mapeamento completo dos solvers, ver [verification_solver_mapping.md](verification_solver_mapping.md)
 
-**Arquitetura criada:**
-- **Interface base**: `FormalVerifier` - classe abstrata para novos verificadores
-- **Registro automático**: `VerifierRegistry` - descoberta e gestão de plugins  
-- **Estruturas de dados**: `VerificationInput`, `VerificationResult`, `VerificationStatus`
-- **Manager central**: `FormalVerificationManager` - orquestração e controle
+## 🔌 Núcleo da Arquitetura
 
-### 🧠 Passo 2: Plugin Z3 Completo ✅
+Componentes implementados:
+1. Interface base: `FormalVerifier` (arquivo `verification/core/plugin_interface.py`)
+2. Estruturas de dados: `VerificationInput`, `VerificationResult`, `VerificationStatus`
+3. Registro: `VerifierRegistry` (instância global `registry`)
+4. Manager de orquestração: `FormalVerificationManager` (`verification/core/formal_verification.py`)
+5. Plugins disponíveis: `Z3Verifier` (`verification/plugins/z3_plugin.py`), `CVC5Verifier` (`verification/plugins/cvc5_plugin.py`)
+6. Estratégias de tolerância a falhas: helpers em `core/error_handling.py` (circuit-breaker simples via `should_disable_solver`)
+7. Schema padronizado de resultados estendido: `core/result_schema.py` (ainda não totalmente integrado ao fluxo principal de retorno simplificado)
 
-**Z3 com TODOS os recursos implementados:**
-- ✅ **Aritmética**: Linear, não-linear, inteiros, reais, modulares
-- ✅ **Lógica**: Booleana, proposicional, implicação, equivalência
-- ✅ **Estruturas**: Arrays, sequências, strings, regex
-- ✅ **Bit-vectors**: Aritmética, operações bitwise, overflow detection
-- ✅ **Ponto flutuante**: IEEE 754, arredondamento, valores especiais
-- ✅ **Quantificadores**: Existencial, universal, fórmulas quantificadas
-- ✅ **Otimização**: Maximização, minimização, multi-objetivo
-- ✅ **ML específico**: Redes neurais, robustez adversarial, fairness
-- ✅ **Probabilístico**: Bounds probabilísticos, constraints estatísticos
+## 📊 Lógica de SAT/UNSAT e Contraexemplos
+
+### Interpretação Correta dos Resultados
+
+| Resultado Solver | Constraint Status | Ação |
+|------------------|-------------------|------|
+| **SAT** | **VIOLADO** ❌ | Z3 gera contraexemplo |
+| **UNSAT** | **SATISFEITO** ✅ | Nenhuma ação (propriedade garantida) |
+| **UNKNOWN** | **INDETERMINADO** ⚠️ | Log de warning |
+
+### Geração de Contraexemplos
+
+- **Z3**: Implementa geração completa de contraexemplos para `bounds`, `range_check`, `non_negative`, `linear_arithmetic`
+- **CVC5**: NÃO implementa geração de contraexemplos (apenas SAT/UNSAT básico)
+
+```python
+# Exemplo de contraexemplo gerado por Z3
+{
+  "constraint_type": "bounds",
+  "violation_examples": [
+    {"type": "below_minimum", "value": -1.0, "expected_min": 0.0},
+    {"type": "above_maximum", "value": 1001.0, "expected_max": 1000.0}
+  ]
+}
+```
+
+## ✅ Status Realista dos Solvers
+
+Ambos os plugins (Z3, CVC5) expõem listas extensas de nomes de constraints suportadas. Essas listas representam a taxonomia de TIPOS DE PROPRIEDADES que o framework pretende manipular; entretanto, nem todas possuem geração automática de fórmulas atualmente. Na prática:
+
+| Categoria | Z3 | CVC5 | Contraexemplo | Observação |
+|-----------|----|------|---------------|-----------|
+| Aritmética linear | ✅ Implementado | ✅ Básico | Z3 ✅ | Fórmulas simples (bounds / não-negatividade) |
+| Aritmética não-linear | ✅ Declarada | ✅ Declarada | ❌ | Sem geração especializada ainda |
+| Tipos / shape (`shape_preservation`) | ✅ Básico | ✅ Básico | ❌ | Checagem via propriedades simples |
+| Bounds (`bounds`) | ✅ Implementado | ✅ Implementado | Z3 ✅ | Comparação min/max entrada vs saída |
+| Range Check (`range_check`) | ✅ Implementado | ⚠️ Stub | Z3 ✅ | Z3 detecta violações, CVC5 básico |
+| Validade de parâmetros | ✅ Básico | ✅ Básico | ❌ | Usa dicionário de parâmetros |
+| Robustez / fairness | ✅ Listado | ⚠️ Placeholder | ❌ | Não há modelagem completa |
+| Otimização multi-objetivo | ✅ Listado | ❌ Não priorizado | ❌ | Não há criação de objetivos |
+
+> **Importante:** Z3 gera contraexemplos quando constraint é violado (resultado SAT). CVC5 apenas retorna SAT/UNSAT sem contraexemplos.
+
+## ♻️ Fluxo Simplificado de Execução
+
+1. Usuário chama `verify()` ou pipeline dispara internamente.
+2. `FormalVerificationManager` seleciona solver (auto ou nome explícito).
+3. Para cada chave em `constraints` que esteja na lista suportada do solver, tenta-se construir/verificar a propriedade.
+4. Resultado agregado retorna via `VerificationResult`.
+
+## ⚠️ Atenção a Nomes de Constraints
+
+Os exemplos anteriores usavam chaves como `preserve_shape` ou `preserve_bounds`; porém os plugins usam `shape_preservation` e `bounds`. Utilize SEMPRE as chaves publicadas por `list_verifiers()` para garantir seleção automática.
+
+Exemplo de inspeção:
+```python
+from smart_inference_ai_fusion.verification import list_verifiers
+print(list_verifiers())  # Mostra supported_constraints por verificador
+```
+
+## 🛠 Exemplo de Uso Atualizado
+
+```python
+from smart_inference_ai_fusion.verification import verify
+
+result = verify(
+    name="data_pipeline_step",
+    constraints={
+        'bounds': {'min': 0, 'max': 1},
+        'shape_preservation': True,
+        'parameter_validity': {'required': ['n_estimators', 'max_depth']}
+    },
+    input_data={'X_shape': (100, 8)},
+    output_data={'X_shape': (100, 8)},
+    parameters={'n_estimators': 50, 'max_depth': 5}
+)
+
+print(result.status, result.constraints_satisfied, result.constraints_violated)
+```
+
+## 🔄 Controle Global
+
+```python
+from smart_inference_ai_fusion.verification import enable_verification, disable_verification
+
+disable_verification()  # Ignora verificações (retorna SKIPPED)
+enable_verification()
+```
+
+## ➕ Adicionando um Novo Solver (Exemplo Minimalista)
+
+```python
+from smart_inference_ai_fusion.verification import FormalVerifier, VerificationInput, VerificationResult, VerificationStatus, registry
+
+class DummyVerifier(FormalVerifier):
+    def __init__(self):
+        super().__init__("Dummy")
+    def is_available(self):
+        return True
+    def supported_constraints(self):
+        return ["bounds"]
+    def verify(self, input_data: VerificationInput) -> VerificationResult:
+        return VerificationResult(
+            status=VerificationStatus.SUCCESS,
+            verifier_name=self.name,
+            execution_time=0.0001,
+            constraints_checked=["bounds"],
+            constraints_satisfied=["bounds"],
+        )
+
+registry.register(DummyVerifier())
+```
+
+## 📊 Estado Consolidado
+
+### Concluído
+- [x] Interface base e registro
+- [x] Plugins Z3 e CVC5
+- [x] Seleção automática por interseção de chaves de constraints
+- [x] Circuit-breaker simples para solver instável
+- [x] Integração com pipeline de inferência (invocação programática)
+
+### Em Progresso / Planejado
+- [ ] `result_normalizer` (unificar formatos avançados de cada solver)
+- [ ] Captura opcional de estatísticas detalhadas (unsat core, modelo)
+- [ ] Script de agregação estatística multi-solver
+- [ ] Integração de métricas de overhead (tempo relativo baseline)
+- [ ] Parametrização fina de limites via config externa (YAML/JSON)
+- [ ] Benchmarks automatizados (Make target dedicado)
+
+## 🔬 Testes e Validação
+
+Atualmente os testes são executados via scripts de experimento (ex: em `examples/`) e geração de JSON em `logs/` & `results/`. Recomenda-se adicionar:
+
+| Futuro Teste | Objetivo |
+|--------------|----------|
+| Propriedades sintéticas | Validar cada chave suportada gera saída estável |
+| Stress (timeout) | Garantir status TIMEOUT coerente |
+| Multi-solver paridade | Conferir mesma classificação para propriedades básicas |
+
+## 🧭 Boas Práticas ao Definir Constraints
+
+1. Use chaves suportadas: consulte `list_verifiers()`.
+2. Prefira granularidade pequena (ex: `bounds` + `shape_preservation`).
+3. Evite inserir objetos grandes diretamente; passe metadados (ex: shapes, min/max).
+4. Trate resultado `SKIPPED` como sinal de mismatch de chave ou verificação desabilitada.
+
+## 🧪 Integração com Experimentos
+
+Exemplo (pseudo) dentro de pipeline:
+```python
+verification_constraints = {
+    'bounds': {'min': float(X.min()), 'max': float(X.max())},
+    'shape_preservation': True
+}
+verify(name='apply_data_inference', constraints=verification_constraints,
+       input_data={'shape_before': X.shape}, output_data={'shape_after': Xp.shape})
+```
+
+## 🚀 Conclusão
+
+O subsistema fornece base extensível e já funcional para verificação leve de propriedades estruturais e de parâmetros. O roadmap foca agora em: normalização, coleta aprofundada de métricas e expansão de cobertura sem inflar a complexidade da API pública.
+
+---
+_Última atualização automática deste documento para refletir o estado do branch `solver-interface`._
 
 ## 🎯 Como Usar
 
@@ -62,7 +220,7 @@ from smart_inference_ai_fusion.verification import enable_verification, disable_
 disable_verification()
 
 # Reabilitar
-enable_verification() 
+enable_verification()
 ```
 
 ## 🔧 Adicionar Novos Verificadores
@@ -75,13 +233,13 @@ from smart_inference_ai_fusion.verification import FormalVerifier, registry
 class MeuVerificador(FormalVerifier):
     def __init__(self):
         super().__init__("MeuVerificador")
-    
+
     def is_available(self) -> bool:
         return True  # Verificar dependências
-    
+
     def supported_constraints(self) -> List[str]:
         return ['meu_constraint_tipo']
-    
+
     def verify(self, input_data) -> VerificationResult:
         # Implementar lógica de verificação
         pass
@@ -108,7 +266,7 @@ registry.register(MeuVerificador())
 ### 🔬 Resultados dos Testes
 ```
 ✅ Interface de plugins funcionando
-✅ Z3 com capacidades avançadas funcionando  
+✅ Z3 com capacidades avançadas funcionando
 ✅ Controle de ativação/desativação funcionando
 ✅ 10/10 testes de capacidades Z3 bem-sucedidos
 ```
@@ -117,7 +275,7 @@ registry.register(MeuVerificador())
 
 O sistema está **completamente funcional** e pronto para discussão sobre onde aplicar cientificamente:
 1. **Base de dados** - Verificar integridade e constraints dos dados
-2. **Inferências** - Verificar transformações e algoritmos ML  
+2. **Inferências** - Verificar transformações e algoritmos ML
 3. **Ambos** - Verificação end-to-end completa
 
 Sistema robusto, extensível e de alta performance preparado para verificação formal em escala!
@@ -178,7 +336,7 @@ print(f"Sucesso: {result.success}")
 ### 🔬 Resultados dos Testes
 ```
 ✅ Interface de plugins funcionando
-✅ Z3 com capacidades avançadas funcionando  
+✅ Z3 com capacidades avançadas funcionando
 ✅ CVC5 integrado e validado
 ✅ Controle de ativação/desativação funcionando
 ✅ 10/10 testes de capacidades Z3 bem-sucedidos

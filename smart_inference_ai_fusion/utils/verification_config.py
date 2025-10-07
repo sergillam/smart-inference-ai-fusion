@@ -116,27 +116,18 @@ class VerificationConfig:
         return self.mode in [VerificationMode.BASIC, VerificationMode.ALL]
 
     def get_enabled_solvers(self) -> List[str]:
-        """Retorna lista de solvers habilitados."""
+        """Retorna lista de solvers habilitados.
+
+        Note: AUTO mode now returns BOTH solvers for fair comparison.
+        """
         if self.solver == SolverChoice.Z3:
             return ["Z3"]
         elif self.solver == SolverChoice.CVC5:
             return ["CVC5"]
         elif self.solver == SolverChoice.BOTH:
             return ["Z3", "CVC5"]
-        else:  # AUTO
-            # Prioriza Z3, mas usa CVC5 se Z3 não disponível
-            try:
-                from ..verification.core.plugin_interface import registry
-
-                available = [v.name for v in registry.get_available_verifiers()]
-                if "Z3" in available:
-                    return ["Z3"]
-                elif "CVC5" in available:
-                    return ["CVC5"]
-                else:
-                    return []
-            except Exception:
-                return []
+        else:  # AUTO - usa AMBOS para comparação justa
+            return ["Z3", "CVC5"]
 
     def __str__(self) -> str:
         """Representação string da configuração."""

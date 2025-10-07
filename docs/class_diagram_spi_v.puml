@@ -1,0 +1,78 @@
+@startuml ClassDiagramSPIV
+title "Class Diagram — SPI-V (core verification types)"
+
+left to right direction
+
+interface FormalVerifier {
+  +name: str
+  +is_available() : bool
+  +verify(VerificationInput) : VerificationResult
+}
+
+class Z3Plugin {
+  +version: str
+  +verify(VerificationInput)
+}
+
+class CVC5Plugin {
+  +version: str
+  +verify(VerificationInput)
+}
+
+class VerificationInput {
+  +name: str
+  +constraints: Dict[str, Any]
+  +input_data: Any
+  +output_data: Any
+}
+
+class VerificationResult {
+  +status: str
+  +verifier_name: str
+  +execution_time: float
+  +message: str
+}
+
+class StandardVerificationResult {
+  +verification_id: str
+  +timestamp: str
+  +verification_name: str
+  +overall_status: StandardStatus
+  +overall_message: str
+  +solver_metadata: SolverMetadata
+  +performance: PerformanceMetrics
+  +constraint_results: List<ConstraintResult>
+}
+
+class ConstraintResult {
+  +constraint_type: str
+  +constraint_name: str
+  +status: StandardStatus
+  +execution_time: float
+}
+
+class SolverMetadata {
+  +solver_name: str
+  +solver_version: str
+  +logic_used: str
+  +timeout_ms: int
+  +memory_limit_mb: int
+  +thread_count: int
+}
+
+class PerformanceMetrics {
+  +total_execution_time: float
+  +constraint_count: int
+  +constraints_satisfied: int
+  +constraints_violated: int
+  +constraints_unknown: int
+}
+
+FormalVerifier <|-- Z3Plugin
+FormalVerifier <|-- CVC5Plugin
+VerificationInput --> VerificationResult
+StandardVerificationResult --> ConstraintResult
+StandardVerificationResult --> SolverMetadata
+StandardVerificationResult --> PerformanceMetrics
+
+@enduml

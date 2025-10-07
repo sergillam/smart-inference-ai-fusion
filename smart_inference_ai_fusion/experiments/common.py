@@ -401,7 +401,7 @@ def create_inference_configs_make_moons():
 
 
 def create_inference_configs_make_blobs():
-    """Create inference configuration objects specific for Make Blobs dataset (2D/3 centers by default)."""
+    """Create inference configs for Make Blobs dataset (2D/3 centers by default)."""
     data_config = DataNoiseConfig(
         noise_level=0.15,
         truncate_decimals=1,
@@ -502,6 +502,7 @@ def run_inference_experiment(
     model_name: str,
     dataset_source: DatasetSourceType,
     dataset_name: Union[SklearnDatasetName, str],
+    *,
     filtered_params: Optional[dict] = None,
     verification_config: Optional[VerificationConfig] = None,
 ):
@@ -612,6 +613,7 @@ def run_standard_experiment(
     model_name: str,
     dataset_source: DatasetSourceType,
     dataset_name: Union[SklearnDatasetName, str],
+    *,
     model_params: Optional[dict] = None,
     verification_config: Optional[VerificationConfig] = None,
 ):
@@ -673,7 +675,12 @@ def run_standard_experiment(
         model_class, model_name, dataset_source, dataset_name, filtered_params
     )
     inference_metrics = run_inference_experiment(
-        model_class, model_name, dataset_source, dataset_name, filtered_params, verification_config
+        model_class,
+        model_name,
+        dataset_source,
+        dataset_name,
+        filtered_params=filtered_params,
+        verification_config=verification_config,
     )
 
     # Calculate total execution time

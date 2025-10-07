@@ -1,0 +1,31 @@
+@startuml
+title Verification sequence for a single experiment
+
+actor User
+participant "Experiment Runner" as Runner
+participant "Inference Pipeline" as Inference
+participant "Verification Manager" as Manager
+participant "Verifier Registry" as VReg
+participant "Z3 Plugin" as Z3
+participant "CVC5 Plugin" as CVC5
+participant "Result Normalizer" as Norm
+participant "Comparator / DB" as Comp
+
+User -> Runner : start experiment
+Runner -> Inference : prepare data, model
+Inference -> Manager : verify(name, constraints, input_data, timeout)
+Manager -> VReg : list available verifiers + capabilities
+VReg --> Manager : [Z3, CVC5] (metadata)
+Manager -> Z3 : verify(Input) (async)
+Manager -> CVC5 : verify(Input) (async)
+Z3 --> Manager : raw_result_z3 (status, stdout, time)
+CVC5 --> Manager : raw_result_cvc5
+Manager -> Norm : normalize(raw_result_z3) / normalize(raw_result_cvc5)
+Norm --> Manager : norm_z3, norm_cvc5 (unified schema)
+Manager -> Comp : compare([norm_z3, norm_cvc5])
+Comp --> Manager : comparison_report (agreements, time diffs)
+Manager --> Inference : aggregated_verdict (constraints ok / violated / uncertainty)
+Inference -> Runner : continue experiment (apply outcome)
+Runner -> Comp : store final report / logs
+
+@enduml

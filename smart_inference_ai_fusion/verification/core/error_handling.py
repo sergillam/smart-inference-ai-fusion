@@ -45,6 +45,27 @@ class ErrorContext:
     fallback_strategy: Optional[FallbackStrategy] = None
 
 
+# Flag global para desabilitar circuit breaker (para experimentos científicos)
+_circuit_breaker_enabled = True
+
+
+def set_circuit_breaker(enabled: bool):
+    """Habilita/desabilita o circuit breaker para experimentos científicos.
+
+    Quando desabilitado, solvers nunca serão desabilitados automaticamente,
+    garantindo que AMBOS os solvers (Z3 e CVC5) recebam os mesmos dados.
+    """
+    global _circuit_breaker_enabled
+    _circuit_breaker_enabled = enabled
+    status = "ENABLED" if enabled else "DISABLED"
+    logger.info(f"⚡ Circuit breaker {status}")
+
+
+def is_circuit_breaker_enabled() -> bool:
+    """Retorna se o circuit breaker está habilitado."""
+    return _circuit_breaker_enabled
+
+
 class VerificationErrorHandler:
     """Manipulador robusto de erros para verificação formal."""
 
@@ -428,11 +449,26 @@ class VerificationErrorHandler:
         }
 
     def should_disable_solver(self, solver_name: str) -> bool:
-        """Determina se um solver deve ser desabilitado devido a muitos erros."""
+        """Determina se um solver deve ser desabilitado devido a muitos erros.
+
+        NOTA: Se o circuit breaker estiver desabilitado (para experimentos científicos),
+        esta função SEMPRE retorna False, garantindo que ambos os solvers recebam
+        os mesmos dados para verificação.
+        """
+        # Se circuit breaker desabilitado, nunca desabilitar solvers
+        if not _circuit_breaker_enabled:
+            return False
+
         reliability = self.solver_reliability.get(solver_name, 1.0)
         recent_errors = sum(1 for e in self.error_history[-10:] if e.solver_name == solver_name)
 
         return reliability < 0.3 or recent_errors > 5
+
+    def reset(self):
+        """Reseta o estado do error handler (útil entre experimentos)."""
+        self.error_history.clear()
+        self.solver_reliability.clear()
+        logger.info("🔄 Error handler resetado")
 
 
 # Instância global do manipulador de erros
@@ -454,3 +490,8 @@ def get_error_summary() -> Dict[str, Any]:
 def should_disable_solver(solver_name: str) -> bool:
     """Função de conveniência para verificar se solver deve ser desabilitado."""
     return global_error_handler.should_disable_solver(solver_name)
+
+
+def reset_error_handler():
+    """Função de conveniência para resetar o error handler."""
+    global_error_handler.reset()

@@ -15,6 +15,10 @@ import os
 import sys
 
 from smart_inference_ai_fusion.utils.logging import setup_logger
+from smart_inference_ai_fusion.verification.core.error_handling import (
+    set_circuit_breaker,
+    reset_error_handler,
+)
 
 from . import run_all_experiments
 
@@ -27,7 +31,7 @@ def parse_arguments():
         epilog="""
 Examples:
   python -m smart_inference_ai_fusion.experiments wine
-  python -m smart_inference_ai_fusion.experiments wine --mode verification 
+  python -m smart_inference_ai_fusion.experiments wine --mode verification
   python -m smart_inference_ai_fusion.experiments wine --mode verification --solvers z3
   python -m smart_inference_ai_fusion.experiments wine --mode all --solvers z3,cvc5
   python -m smart_inference_ai_fusion.experiments digits --debug
@@ -98,6 +102,11 @@ if __name__ == "__main__":
 
     # Use the proper logging system that saves to files
     setup_logger("smart_inference_ai_fusion.experiments")
+
+    # IMPORTANTE: Desabilitar circuit breaker para experimentos científicos
+    # Isso garante que AMBOS os solvers (Z3 e CVC5) recebam os mesmos dados
+    set_circuit_breaker(False)
+    reset_error_handler()
 
     # Execute experiments
     success = run_all_experiments(args.dataset)

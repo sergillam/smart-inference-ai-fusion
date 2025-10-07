@@ -518,14 +518,11 @@ class InferencePipeline:
             },
         }
 
-    def _verify_data_integrity(
-        self, step_name: str, X_train, X_test, original_train=None, original_test=None
-    ):
-        """Verifica integridade dos dados com constraints estruturados."""
-        # Mapear para constraints compatíveis com Z3 com dados estruturados
+    def _build_data_constraints(self, original_train=None, original_test=None) -> Dict[str, Any]:
+        """Constrói constraints para verificação de dados."""
         constraints = {
-            "shape_preservation": True,  # Compatible with Z3
-            "type_safety": True,  # Compatible with Z3
+            "shape_preservation": True,
+            "type_safety": True,
             "bounds": {"min": -1000.0, "max": 1000.0, "strict": False, "allow_nan": False},
             "range_check": {
                 "type": "continuous",
@@ -534,90 +531,124 @@ class InferencePipeline:
                 "tolerance": 1e-6,
             },
         }
-
         if original_train is not None and original_test is not None:
-            constraints.update(
-                {
-                    "bounds": True,  # Preserve bounds during transformation
-                    "non_negative": True,  # Ensure non-negative values if applicable
-                }
-            )
+            constraints.update({"bounds": True, "non_negative": True})
+        return constraints
 
-        verification_result = verification_manager.verify(
-            name=f"pipeline.data.{step_name}",
-            constraints=constraints,
-            input_data=(
-                {"train": original_train, "test": original_test}
-                if original_train is not None
-                else None
-            ),
-            output_data={"train": X_train, "test": X_test},
-            timeout=self.config.timeout_per_constraint if self.config else 30.0,
+    def _build_label_constraints(self, original_train=None, original_test=None) -> Dict[str, Any]:
+        """Constrói constraints para verificação de labels."""
+        constraints = {
+            "shape_preservation": True,
+            "type_safety": True,
+            "bounds": {"min": 0, "max": 10, "strict": False, "allow_nan": False},
+            "range_check": {
+                "type": "discrete",
+                "discrete_values": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+                "allow_empty": False,
+            },
+        }
+        if original_train is not None and original_test is not None:
+            constraints.update({"bounds": True, "integer_arithmetic": True})
+        return constraints
+
+    def _build_input_data(self, original_train, original_test) -> Optional[Dict[str, Any]]:
+        """Constrói dados de entrada para verificação."""
+        if original_train is not None:
+            return {"train": original_train, "test": original_test}
+        return None
+
+    def _run_multi_solver_verification(
+        self,
+        comparison_key: str,
+        pipeline_prefix: str,
+        constraints: Dict[str, Any],
+        input_data: Any,
+        output_data: Any,
+        model_name: str,
+    ):
+        """Executa verificação com múltiplos solvers e adiciona à comparação."""
+        if self._verifier_cache:
+            results = self._verify_generic_multi_solver(
+                f"{pipeline_prefix}.{comparison_key.split('_')[-1]}",
+                constraints,
+                input_data,
+                output_data,
+                model_name.replace("Pipeline", ""),
+            )
+            if len(results) > 1:
+                add_comparison_result(comparison_key, results)
+
+    def _verify_generic_multi_solver(
+        self,
+        name: str,
+        constraints: Dict[str, Any],
+        input_data: Any,
+        output_data: Any,
+        category: str,
+    ) -> Dict[str, Any]:
+        """Verificação genérica com múltiplos solvers."""
+        results = {}
+        for solver_name, verifier in self._verifier_cache.items():
+            try:
+                result = self._verify_with_solver(
+                    verifier, name, constraints, {"input": input_data, "output": output_data}
+                )
+                results[solver_name] = result
+                logger.info(f"✅ {category} verification with {solver_name} completed")
+            except Exception as e:
+                logger.error(f"❌ {category} verification error with {solver_name}: {e}")
+                results[solver_name] = {"error": str(e), "status": "ERROR"}
+        return results
+
+    def _verify_data_integrity(
+        self, step_name: str, X_train, X_test, original_train=None, original_test=None
+    ):
+        """Verifica integridade dos dados com múltiplos solvers para comparação justa."""
+        constraints = self._build_data_constraints(original_train, original_test)
+        input_data = self._build_input_data(original_train, original_test)
+        output_data = {"train": X_train, "test": X_test}
+
+        self._run_multi_solver_verification(
+            f"data_{step_name}",
+            "pipeline.data",
+            constraints,
+            input_data,
+            output_data,
+            "DataPipeline",
         )
 
-        # Reportar resultados detalhados
-        if verification_result:
-            report_verification_results(
-                verification_result=verification_result,
-                model_name="DataPipeline",
-                dataset_name="unknown",
-                transformation_name=f"data_integrity_{step_name}",
-            )
-
-        if self.fail_on_verification_error and verification_result.status.value == "FAILED":
-            raise RuntimeError(
-                f"Data verification failed at {step_name}: {verification_result.message}"
-            )
+    def _verify_data_multi_solver(
+        self, step_name: str, constraints: Dict[str, Any], input_data: Any, output_data: Any
+    ) -> Dict[str, Any]:
+        """Verifica dados usando múltiplos solvers para comparação justa."""
+        return self._verify_generic_multi_solver(
+            f"pipeline.data.{step_name}", constraints, input_data, output_data, "Data"
+        )
 
     def _verify_label_integrity(
         self, step_name: str, y_train, y_test, original_train=None, original_test=None
     ):
-        """Verifica integridade dos labels."""
-        # Mapear para constraints compatíveis com Z3 com dados estruturados
-        constraints = {
-            "shape_preservation": True,  # Compatible with Z3
-            "type_safety": True,  # Compatible with Z3
-            "bounds": {"min": 0, "max": 10, "strict": False, "allow_nan": False},
-            "range_check": {
-                "type": "discrete",
-                "discrete_values": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],  # Para classificação
-                "allow_empty": False,
-            },
-        }
+        """Verifica integridade dos labels com múltiplos solvers para comparação justa."""
+        constraints = self._build_label_constraints(original_train, original_test)
+        input_data = self._build_input_data(original_train, original_test)
+        output_data = {"train": y_train, "test": y_test}
 
-        if original_train is not None and original_test is not None:
-            constraints.update(
-                {
-                    "bounds": True,  # Preserve bounds during transformation
-                    "integer_arithmetic": True,  # Labels are typically integers
-                }
-            )
-
-        verification_result = verification_manager.verify(
-            name=f"pipeline.labels.{step_name}",
-            constraints=constraints,
-            input_data=(
-                {"train": original_train, "test": original_test}
-                if original_train is not None
-                else None
-            ),
-            output_data={"train": y_train, "test": y_test},
-            timeout=self.config.timeout_per_constraint if self.config else 30.0,
+        self._run_multi_solver_verification(
+            f"label_{step_name}",
+            "pipeline.labels",
+            constraints,
+            input_data,
+            output_data,
+            "LabelPipeline",
         )
 
-        # Reportar resultados detalhados
-        if verification_result:
-            report_verification_results(
-                verification_result=verification_result,
-                model_name="LabelPipeline",
-                dataset_name="unknown",
-                transformation_name=f"label_integrity_{step_name}",
-            )
-
-        if self.fail_on_verification_error and verification_result.status.value == "FAILED":
-            raise RuntimeError(
-                f"Label verification failed at {step_name}: {verification_result.message}"
-            )
+    def _verify_label_multi_solver(
+        self, step_name: str, constraints: Dict[str, Any], input_data: Any, output_data: Any
+    ) -> Dict[str, Any]:
+        """Verifica labels usando múltiplos solvers para comparação justa."""
+        return self._verify_generic_multi_solver(
+            f"pipeline.labels.{step_name}", constraints, input_data, output_data, "Label"
+        )
 
     def _verify_parameters(
         self,

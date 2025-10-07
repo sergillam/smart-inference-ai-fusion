@@ -1,19 +1,18 @@
-# Integração de Verificação Formal nos Experimentos
+# Guia de Integração da Verificação Formal
 
-Este documento explica como usar a verificação formal integrada no sistema Smart Inference AI Fusion.
+Estado referente ao branch `solver-interface` (2025-10). Este guia mostra como ativar, configurar e estender a verificação formal multi-solver (Z3, CVC5) integrada aos experimentos e ao pipeline de inferência.
 
-## 🎯 **Visão Geral**
+## 🎯 Visão Geral
 
-A verificação formal agora está completamente integrada ao sistema de experimentos, permitindo:
-
-- **Verificação Automática**: Aplicada em cada etapa do pipeline de inferência
-- **Configuração Flexível**: Controle fino sobre constraints e comportamento
-- **Múltiplos Verificadores**: Suporte a diferentes engines de verificação (Z3, etc.)
-- **Relatórios Detalhados**: Logs de verificação integrados aos resultados
+Objetivos principais:
+- Garantir propriedades básicas das transformações (ex: `bounds`, `shape_preservation`)
+- Validar coerência de parâmetros (`parameter_validity`)
+- Suportar múltiplos solvers com seleção automática ou explícita
+- Manter overhead controlado para uso em experimentos repetitivos
 
 ## 🚀 **Como Usar**
 
-### **1. Verificação Básica**
+### 1. Verificação Básica
 
 ```python
 from smart_inference_ai_fusion.experiments.common import run_standard_experiment
@@ -26,9 +25,9 @@ verification_config = VerificationConfig(
     timeout=30.0,
     fail_on_error=False,
     constraints={
-        'preserve_shape': True,
-        'preserve_bounds': True,
-        'parameter_validity': True
+        'shape_preservation': True,
+        'bounds': {'min': 0, 'max': 1},
+        'parameter_validity': {'required': ['n_estimators']}
     }
 )
 
@@ -43,7 +42,7 @@ baseline, inference = run_standard_experiment(
 )
 ```
 
-### **2. Usando Registry de Experimentos**
+### 2. Usando Registry de Experimentos
 
 ```python
 from smart_inference_ai_fusion.experiments.experiment_registry import DIGITS_EXPERIMENTS
@@ -55,7 +54,7 @@ config = DIGITS_EXPERIMENTS[RandomForestClassifierModel]
 config.verification_config = VerificationConfig(
     enabled=True,
     timeout=30.0,
-    constraints={'preserve_shape': True}
+    constraints={'shape_preservation': True}
 )
 
 # Executar
@@ -69,7 +68,7 @@ baseline, inference = run_standard_experiment(
 )
 ```
 
-### **3. Configuração Avançada**
+### 3. Configuração Avançada (Solver específico + tolerâncias)
 
 ```python
 # Verificação rigorosa com verificador específico
@@ -77,25 +76,24 @@ verification_config = VerificationConfig(
     enabled=True,
     timeout=60.0,
     fail_on_error=True,  # Falhar se verificação encontrar problemas
-    verifier_name="Z3",  # Usar verificador específico
+    verifier_name="Z3",
     constraints={
-        'type': 'data_integrity',
-        'preserve_shape': True,
-        'preserve_bounds': True,
-        'bounds_tolerance': 0.05,  # Tolerância de 5%
-        'parameter_validity': True,
-        'parameter_bounds_check': True,
-        'parameter_bounds': {
-            'n_estimators': {'min': 1, 'max': 1000},
-            'max_depth': {'min': 1, 'max': 50}
+        'shape_preservation': True,
+        'bounds': {'min': 0, 'max': 1, 'tolerance': 0.05},
+        'parameter_validity': {
+            'required': ['n_estimators', 'max_depth'],
+            'bounds': {
+                'n_estimators': {'min': 1, 'max': 1000},
+                'max_depth': {'min': 1, 'max': 50}
+            }
         }
     }
 )
 ```
 
-## ⚙️ **Opções de Configuração**
+## ⚙️ Opções de Configuração
 
-### **VerificationConfig**
+### VerificationConfig
 
 | Campo | Tipo | Padrão | Descrição |
 |-------|------|--------|-----------|
@@ -103,65 +101,40 @@ verification_config = VerificationConfig(
 | `timeout` | `float` | `30.0` | Timeout em segundos |
 | `fail_on_error` | `bool` | `False` | Falhar quando encontrar erros |
 | `verifier_name` | `str` | `None` | Verificador específico (auto-select se None) |
-| `constraints` | `dict` | `{}` | Constraints customizados |
+| `constraints` | `dict` | `{}` | Dicionário de constraints (usar chaves suportadas por solver) |
 
-### **Constraints Disponíveis**
+### Chaves de Constraints Básicas (Usuais)
 
-#### **Dados (Data)**
-- `preserve_shape`: Manter dimensões dos dados
-- `preserve_bounds`: Manter limites min/max dos valores
-- `bounds_tolerance`: Tolerância para mudanças de bounds (padrão: 0.1)
+| Chave | Escopo | Payload Esperado | Uso Atual |
+|-------|--------|------------------|-----------|
+| `bounds` | Dados | `{min: float, max: float, (opcional) tolerance: float}` | Compara extremos antes/depois |
+| `shape_preservation` | Dados | `True` | Garante shape idêntico |
+| `parameter_validity` | Parâmetros | `{required: [...], bounds: {...}}` | Checa presença e limites declarados |
 
-#### **Labels**
-- `preserve_class_distribution`: Manter distribuição de classes
-- `distribution_tolerance`: Tolerância para mudanças de distribuição (padrão: 0.05)
+Outras chaves listadas pelos plugins existem como taxonomia para futura expansão.
 
-#### **Parâmetros**
-- `parameter_validity`: Verificar validade dos parâmetros
-- `preserve_parameter_types`: Manter tipos dos parâmetros
-- `parameter_bounds_check`: Verificar bounds dos parâmetros
-- `parameter_bounds`: Definir bounds específicos
-
-## 🔍 **Pontos de Verificação**
+## 🔍 Pontos de Verificação no Pipeline
 
 A verificação é aplicada automaticamente em:
 
-### **1. Pipeline de Dados**
+### 1. Dados
 - **Entrada**: Integridade dos dados originais
 - **Saída**: Preservação de propriedades após transformações
 
-### **2. Pipeline de Labels**
+### 2. Labels
 - **Entrada**: Integridade dos labels originais
 - **Saída**: Preservação da distribuição de classes
 
-### **3. Pipeline de Parâmetros**
+### 3. Parâmetros
 - **Pré-perturbação**: Validade dos parâmetros base
 - **Pós-perturbação**: Validade dos parâmetros perturbados
 - **Modelo**: Integridade do modelo criado
 
-## 📊 **Verificadores Específicos**
+## 📊 Verificadores Disponíveis
 
-### **DataIntegrityVerifier**
-- Verifica preservação de forma dos dados
-- Verifica preservação de bounds/limites
-- Detecta mudanças excessivas nos dados
+Atualmente a arquitetura utiliza diretamente `FormalVerifier` SMT (Z3 / CVC5). Verificadores conceituais (ex: `DataIntegrityVerifier`) podem ser adicionados posteriormente como wrappers que traduzem verificações de alto nível em constraints SMT delimitadas.
 
-### **LabelIntegrityVerifier**
-- Verifica distribuição de classes
-- Detecta mudanças inválidas em labels
-- Preserva balanceamento de classes
-
-### **ParameterIntegrityVerifier**
-- Verifica tipos de parâmetros
-- Verifica bounds de parâmetros
-- Detecta parâmetros inválidos
-
-### **TransformationVerifier**
-- Verifica injeção de outliers
-- Verifica transformações específicas
-- Detecta anomalias em transformações
-
-## 🎛️ **Controle Global**
+## 🎛️ Controle Global
 
 ```python
 from smart_inference_ai_fusion.verification.core.formal_verification import (
@@ -179,19 +152,19 @@ verificadores = list_verifiers()
 print(verificadores)
 ```
 
-## 🚨 **Tratamento de Erros**
+## 🚨 Tratamento de Erros
 
-### **Modo Não-Rigoroso** (`fail_on_error=False`)
+### Modo Não-Rigoroso (`fail_on_error=False`)
 - Logs de verificação são gerados
 - Experimento continua mesmo com falhas
 - Resultados incluem status de verificação
 
-### **Modo Rigoroso** (`fail_on_error=True`)
+### Modo Rigoroso (`fail_on_error=True`)
 - Experimento para se verificação falhar
 - `RuntimeError` é lançado com detalhes
 - Útil para validação crítica
 
-## 📝 **Logs e Relatórios**
+## 📝 Logs e Relatórios
 
 A verificação gera logs detalhados:
 
@@ -203,15 +176,15 @@ DEBUG - Verification message: Shape preserved successfully
 
 Os resultados de verificação são incluídos nos metadados dos experimentos.
 
-## 🔧 **Extensibilidade**
+## 🔧 Extensibilidade
 
-### **Adicionando Verificadores Personalizados**
+### Adicionando Verificadores Personalizados
 ```python
 # Implementar na pasta smart_inference_ai_fusion/verification/plugins/
 # Seguir interface FormalVerifier
 ```
 
-### **Constraints Personalizados**
+### Constraints Personalizados
 ```python
 verification_config = VerificationConfig(
     constraints={
@@ -222,11 +195,11 @@ verification_config = VerificationConfig(
 )
 ```
 
-## ✅ **Exemplos Completos**
+## ✅ Exemplos Completos
 
 Veja `examples/verification_integration_example.py` para exemplos completos de uso.
 
-## 🎯 **Benefícios**
+## 🎯 Benefícios
 
 1. **Confiabilidade**: Garantia de integridade dos dados e transformações
 2. **Debugging**: Detecção precoce de problemas em transformações
@@ -236,7 +209,7 @@ Veja `examples/verification_integration_example.py` para exemplos completos de u
 
 A integração está completa e pronta para uso em produção! 🚀
 
-## 🔌 Suporte Multi-Solver e Seleção Dinâmica
+## 🔌 Multi-Solver (Seleção Dinâmica)
 
 O sistema suporta múltiplos verificadores (Z3, CVC5, etc) e permite seleção dinâmica via parâmetro `verifier_name`:
 
@@ -244,10 +217,10 @@ O sistema suporta múltiplos verificadores (Z3, CVC5, etc) e permite seleção d
 verification_config = VerificationConfig(
     enabled=True,
     timeout=30.0,
-    verifier_name="CVC5",  # Seleciona CVC5
+    verifier_name="CVC5",
     constraints={
-        'preserve_shape': True,
-        'preserve_bounds': True
+        'shape_preservation': True,
+        'bounds': {'min': 0, 'max': 1}
     }
 )
 ```
@@ -265,10 +238,37 @@ experiment_registry["meu_dataset"] = "scripts/meu_experimento.py"
 
 Para adicionar novos verificadores ou constraints, basta implementar um plugin seguindo a interface `FormalVerifier` e registrar no sistema.
 
-## 📊 Benchmarks Automatizados
+## 📊 Benchmarks Automatizados (Futuro)
 
 Com a arquitetura atual, é possível automatizar benchmarks entre diferentes verificadores e configurações, facilitando comparações e validação científica.
 
 ---
 
-O sistema está pronto para produção, com suporte multi-solver, registro dinâmico, automação de benchmarks e fácil extensão via plugins!
+## 📦 (Opcional) Definição de Constraints via YAML
+
+Proposta (futuro) para carregar constraints por arquivo:
+
+```yaml
+step: apply_data_inference
+constraints:
+    bounds: {min: 0, max: 1, tolerance: 0.05}
+    shape_preservation: true
+    parameter_validity:
+        required: [n_estimators, max_depth]
+        bounds:
+            n_estimators: {min: 1, max: 500}
+```
+
+Carregamento (exemplo conceitual):
+```python
+import yaml
+from smart_inference_ai_fusion.verification import verify
+
+with open('constraints.yaml') as f:
+        cfg = yaml.safe_load(f)
+
+verify(name=cfg['step'], constraints=cfg['constraints'])
+```
+
+---
+Guia revisado para refletir nomenclatura de constraints e multi-solver atual.

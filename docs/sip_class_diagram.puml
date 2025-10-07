@@ -1,0 +1,69 @@
+@startuml SIP_Class_Diagram
+title "SIP — Smart Inference Pipeline (class diagram)"
+
+left to right direction
+
+class ExperimentRegistry {
+  +resolve_config(exp_name)
+}
+
+class Runner {
+  +run_standard_experiment(config)
+}
+
+class InferencePipeline {
+  -data_engine: InferenceEngine
+  -label_engine: LabelInferenceEngine
+  -param_engine: ParameterInferenceEngine
+  +apply_data_inference(X_train, X_test)
+  +apply_label_inference(y_train, y_test)
+  +apply_param_inference(model_class, base_params)
+}
+
+class InferenceEngine {
+  -pipeline: List[Transformation]
+  +__init__(config: DataNoiseConfig)
+  +apply(X_train, X_test)
+  -_build_pipeline(config)
+}
+
+class LabelInferenceEngine {
+  -label_pipeline: List[LabelTransformation]
+  +__init__(config: LabelNoiseConfig, X_train=None)
+  +apply(y_train, y_test, model=None, X_train=None, X_test=None)
+}
+
+class ParameterInferenceEngine {
+  -perturber_classes: List
+  -log: dict
+  +__init__(config: ParameterNoiseConfig=None)
+  +apply(params: dict) : dict
+  +export_log() : dict
+}
+
+class Transformation
+class DataTransformation
+class LabelTransformation
+class ParamPerturber
+
+Transformation <|-- DataTransformation
+Transformation <|-- LabelTransformation
+ParamPerturber <|-- ParameterInferenceEngine
+
+InferencePipeline --> InferenceEngine : uses
+InferencePipeline --> LabelInferenceEngine : uses
+InferencePipeline --> ParameterInferenceEngine : uses
+InferenceEngine --> DataTransformation : composes
+LabelInferenceEngine --> LabelTransformation : composes
+ParameterInferenceEngine --> ParamPerturber : composes
+
+note left of InferenceEngine
+  _build_pipeline() maps config fields to concrete
+  transformation classes (GaussianNoise, FeatureSelectiveNoise, ...)
+end note
+
+note right of ParameterInferenceEngine
+  CrossDependencyPerturbation run last to ensure compatibility
+end note
+
+@enduml

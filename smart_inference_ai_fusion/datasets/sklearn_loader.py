@@ -2,6 +2,7 @@
 
 from typing import Tuple
 
+import numpy as np
 from sklearn.datasets import (
     fetch_20newsgroups_vectorized,
     fetch_lfw_people,
@@ -10,12 +11,13 @@ from sklearn.datasets import (
     load_digits,
     load_iris,
     load_wine,
-    make_moons,
     make_blobs,
+    make_moons,
 )
 from sklearn.decomposition import TruncatedSVD
 from sklearn.feature_selection import SelectKBest, chi2
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
 
 from smart_inference_ai_fusion.core.base_dataset import BaseDataset
 from smart_inference_ai_fusion.utils.types import SklearnDatasetName
@@ -107,35 +109,32 @@ class SklearnDatasetLoader(BaseDataset):
         Returns:
             Bunch object with data and target attributes.
         """
-        import numpy as np
-        from sklearn.preprocessing import LabelEncoder
-
         # Load Adult dataset from OpenML (dataset ID 1590)
         # This is the classic "Census Income" dataset for binary classification
         data = fetch_openml(data_id=1590, as_frame=True, parser="auto")
 
         # Convert categorical features to numeric using label encoding
-        X = data.data.copy()
-        y = data.target.copy()
+        features = data.data.copy()
+        target = data.target.copy()
 
         # Identify categorical columns
-        categorical_columns = X.select_dtypes(include=["object", "category"]).columns
+        categorical_columns = features.select_dtypes(include=["object", "category"]).columns
 
         # Apply label encoding to categorical features
         label_encoders = {}
         for col in categorical_columns:
-            le = LabelEncoder()
-            X[col] = le.fit_transform(X[col].astype(str))
-            label_encoders[col] = le
+            encoder = LabelEncoder()
+            features[col] = encoder.fit_transform(features[col].astype(str))
+            label_encoders[col] = encoder
 
         # Convert target to binary (0/1)
-        if y.dtype == "object" or y.dtype.name == "category":
+        if target.dtype == "object" or target.dtype.name == "category":
             target_encoder = LabelEncoder()
-            y = target_encoder.fit_transform(y.astype(str))
+            target = target_encoder.fit_transform(target.astype(str))
 
         # Convert to numpy arrays
-        X_array = X.values.astype(np.float64)
-        y_array = y.astype(np.int64)
+        features_array = features.values.astype(np.float64)
+        target_array = target.astype(np.int64)
 
         # Return in scikit-learn Bunch format
         class MockBunch:
@@ -143,7 +142,7 @@ class SklearnDatasetLoader(BaseDataset):
                 self.data = data
                 self.target = target
 
-        return MockBunch(X_array, y_array)
+        return MockBunch(features_array, target_array)
 
     def _load_make_moons(self):
         """Load synthetic make_moons dataset.
