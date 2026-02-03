@@ -4,7 +4,11 @@ This module provides a centralized registry of experiment configurations
 to eliminate code duplication across experiment scripts.
 """
 
-from typing import Any, Dict, Type
+# pylint: disable=too-many-lines
+
+import logging
+import os
+from typing import Any, Dict, Optional, Type
 
 from smart_inference_ai_fusion.core.base_model import BaseModel
 from smart_inference_ai_fusion.experiments.common import run_standard_experiment
@@ -14,6 +18,7 @@ from smart_inference_ai_fusion.models.agglomerative_clustering_model import (
 from smart_inference_ai_fusion.models.fastica_model import FastICAModel
 from smart_inference_ai_fusion.models.gaussian_mixture_model import GaussianMixtureModel
 from smart_inference_ai_fusion.models.gradient_boosting_model import GradientBoostingModel
+from smart_inference_ai_fusion.models.logistic_regression_model import LogisticRegressionModel
 from smart_inference_ai_fusion.models.minibatch_kmeans_model import MiniBatchKMeansModel
 from smart_inference_ai_fusion.models.mlp_model import MLPModel
 from smart_inference_ai_fusion.models.random_forest_classifier_model import (
@@ -24,7 +29,14 @@ from smart_inference_ai_fusion.models.random_forest_regressor_model import (
 )
 from smart_inference_ai_fusion.models.ridge_model import RidgeModel
 from smart_inference_ai_fusion.models.spectral_clustering_model import SpectralClusteringModel
-from smart_inference_ai_fusion.utils.types import DatasetSourceType, SklearnDatasetName
+from smart_inference_ai_fusion.models.tree_model import DecisionTreeModel
+from smart_inference_ai_fusion.utils.types import (
+    DatasetSourceType,
+    SklearnDatasetName,
+    VerificationConfig,
+)
+
+logger = logging.getLogger(__name__)
 
 
 class ExperimentConfig:
@@ -34,8 +46,10 @@ class ExperimentConfig:
         self,
         model_class: Type[BaseModel],
         model_params: Dict[str, Any],
+        *,
         dataset_source: DatasetSourceType = DatasetSourceType.SKLEARN,
         dataset_name: SklearnDatasetName = SklearnDatasetName.DIGITS,
+        verification_config: Optional[VerificationConfig] = None,
     ):
         """Initialize experiment configuration.
 
@@ -44,12 +58,14 @@ class ExperimentConfig:
             model_params: Parameters to pass to the model constructor.
             dataset_source: Source type for the dataset.
             dataset_name: Name of the dataset.
+            verification_config: Configuration for formal verification.
         """
         self.model_class = model_class
         self.model_name = model_class.__name__  # Auto-generate from class name
         self.model_params = model_params
         self.dataset_source = dataset_source
         self.dataset_name = dataset_name
+        self.verification_config = verification_config
 
 
 # Registry of experiment configurations for the digits dataset
@@ -66,6 +82,16 @@ DIGITS_EXPERIMENTS = {
             "max_iter": 1000,
             "tol": 1e-4,
         },  # Scientific parameters
+    ),
+    DecisionTreeModel: ExperimentConfig(
+        model_class=DecisionTreeModel,
+        model_params={
+            "max_depth": 8,
+            "random_state": 42,
+            "min_samples_split": 5,
+            "min_samples_leaf": 2,
+            "criterion": "gini",
+        },  # Balanced parameters for digit classification
     ),
     GaussianMixtureModel: ExperimentConfig(
         model_class=GaussianMixtureModel,
@@ -84,6 +110,15 @@ DIGITS_EXPERIMENTS = {
             "max_depth": 3,
             "random_state": 42,
         },  # Standard parameters
+    ),
+    LogisticRegressionModel: ExperimentConfig(
+        model_class=LogisticRegressionModel,
+        model_params={
+            "random_state": 42,
+            "max_iter": 1000,
+            "solver": "lbfgs",
+            "C": 1.0,  # Standard regularization
+        },  # Optimized for digits classification
     ),
     MiniBatchKMeansModel: ExperimentConfig(
         model_class=MiniBatchKMeansModel,
@@ -158,6 +193,16 @@ WINE_EXPERIMENTS = {
             "tol": 1e-4,
         },  # Suitable for wine features
     ),
+    DecisionTreeModel: ExperimentConfig(
+        model_class=DecisionTreeModel,
+        model_params={
+            "max_depth": 5,
+            "random_state": 42,
+            "min_samples_split": 2,
+            "min_samples_leaf": 1,
+            "criterion": "gini",
+        },  # Balanced parameters for wine classification
+    ),
     GaussianMixtureModel: ExperimentConfig(
         model_class=GaussianMixtureModel,
         model_params={
@@ -175,6 +220,15 @@ WINE_EXPERIMENTS = {
             "max_depth": 3,
             "random_state": 42,
         },  # Conservative for small dataset
+    ),
+    LogisticRegressionModel: ExperimentConfig(
+        model_class=LogisticRegressionModel,
+        model_params={
+            "random_state": 42,
+            "max_iter": 1000,
+            "solver": "lbfgs",
+            "C": 1.0,  # Standard regularization
+        },  # Optimized for wine classification
     ),
     MiniBatchKMeansModel: ExperimentConfig(
         model_class=MiniBatchKMeansModel,
@@ -229,6 +283,369 @@ WINE_EXPERIMENTS = {
             "gamma": 1.0,  # Balanced gamma for wine data
             "assign_labels": "kmeans",  # More stable than discretize
         },
+    ),
+}
+
+
+# Registry of experiment configurations for the breast cancer dataset
+BREAST_CANCER_EXPERIMENTS = {
+    AgglomerativeClusteringModel: ExperimentConfig(
+        model_class=AgglomerativeClusteringModel,
+        model_params={"n_clusters": 2, "linkage": "ward"},  # 2 classes: malignant/benign
+        dataset_name=SklearnDatasetName.BREAST_CANCER,
+    ),
+    FastICAModel: ExperimentConfig(
+        model_class=FastICAModel,
+        model_params={
+            "n_components": 15,
+            "random_state": 42,
+            "max_iter": 1000,
+            "tol": 1e-4,
+        },  # Suitable for breast cancer features (30 features)
+        dataset_name=SklearnDatasetName.BREAST_CANCER,
+    ),
+    DecisionTreeModel: ExperimentConfig(
+        model_class=DecisionTreeModel,
+        model_params={
+            "max_depth": 8,
+            "random_state": 42,
+            "min_samples_split": 5,
+            "min_samples_leaf": 2,
+            "criterion": "gini",
+        },  # Balanced parameters for binary classification
+        dataset_name=SklearnDatasetName.BREAST_CANCER,
+    ),
+    GaussianMixtureModel: ExperimentConfig(
+        model_class=GaussianMixtureModel,
+        model_params={
+            "n_components": 2,
+            "random_state": 42,
+            "covariance_type": "full",
+            "max_iter": 100,
+        },  # 2 classes: malignant/benign
+        dataset_name=SklearnDatasetName.BREAST_CANCER,
+    ),
+    GradientBoostingModel: ExperimentConfig(
+        model_class=GradientBoostingModel,
+        model_params={
+            "n_estimators": 100,
+            "learning_rate": 0.1,
+            "max_depth": 4,
+            "random_state": 42,
+        },  # Conservative for medical data
+        dataset_name=SklearnDatasetName.BREAST_CANCER,
+    ),
+    LogisticRegressionModel: ExperimentConfig(
+        model_class=LogisticRegressionModel,
+        model_params={
+            "random_state": 42,
+            "max_iter": 1000,
+            "solver": "lbfgs",
+            "C": 1.0,  # Standard regularization
+        },  # Optimized for binary classification
+        dataset_name=SklearnDatasetName.BREAST_CANCER,
+    ),
+    MiniBatchKMeansModel: ExperimentConfig(
+        model_class=MiniBatchKMeansModel,
+        model_params={
+            "n_clusters": 2,
+            "random_state": 42,
+            "batch_size": 100,
+            "max_iter": 100,
+        },  # Larger batch for larger dataset
+        dataset_name=SklearnDatasetName.BREAST_CANCER,
+    ),
+    MLPModel: ExperimentConfig(
+        model_class=MLPModel,
+        model_params={
+            "hidden_layer_sizes": (100, 50),
+            "random_state": 42,
+            "max_iter": 1000,
+            "alpha": 0.001,
+        },  # More complex for medical data
+        dataset_name=SklearnDatasetName.BREAST_CANCER,
+    ),
+    RandomForestClassifierModel: ExperimentConfig(
+        model_class=RandomForestClassifierModel,
+        model_params={
+            "n_estimators": 100,
+            "max_depth": 10,
+            "random_state": 42,
+            "min_samples_split": 5,
+        },  # Balanced for breast cancer dataset
+        dataset_name=SklearnDatasetName.BREAST_CANCER,
+    ),
+    RandomForestRegressorModel: ExperimentConfig(
+        model_class=RandomForestRegressorModel,
+        model_params={
+            "n_estimators": 100,
+            "max_depth": 10,
+            "random_state": 42,
+            "min_samples_split": 5,
+        },
+        dataset_name=SklearnDatasetName.BREAST_CANCER,
+    ),
+    RidgeModel: ExperimentConfig(
+        model_class=RidgeModel,
+        model_params={
+            "alpha": 1.0,
+            "random_state": 42,
+            "max_iter": 1000,
+        },  # Standard regularization
+        dataset_name=SklearnDatasetName.BREAST_CANCER,
+    ),
+    SpectralClusteringModel: ExperimentConfig(
+        model_class=SpectralClusteringModel,
+        model_params={
+            "n_clusters": 2,
+            "random_state": 42,
+            "affinity": "rbf",  # Better for dense continuous data
+            "gamma": 1.0,  # Balanced gamma for medical data
+            "assign_labels": "kmeans",  # More stable than discretize
+        },
+        dataset_name=SklearnDatasetName.BREAST_CANCER,
+    ),
+}
+
+
+# Registry of experiment configurations for the adult dataset
+ADULT_EXPERIMENTS = {
+    AgglomerativeClusteringModel: ExperimentConfig(
+        model_class=AgglomerativeClusteringModel,
+        model_params={"n_clusters": 2, "linkage": "ward"},  # 2 classes: >50K/<=50K
+        dataset_name=SklearnDatasetName.ADULT,
+    ),
+    FastICAModel: ExperimentConfig(
+        model_class=FastICAModel,
+        model_params={
+            "n_components": 8,  # Reduced for adult dataset features
+            "random_state": 42,
+            "max_iter": 500,
+            "tol": 1e-04,
+        },
+        dataset_name=SklearnDatasetName.ADULT,
+    ),
+    GaussianMixtureModel: ExperimentConfig(
+        model_class=GaussianMixtureModel,
+        model_params={
+            "n_components": 2,
+            "random_state": 42,
+            "max_iter": 200,
+            "covariance_type": "full",
+        },  # Binary classification
+        dataset_name=SklearnDatasetName.ADULT,
+    ),
+    LogisticRegressionModel: ExperimentConfig(
+        model_class=LogisticRegressionModel,
+        model_params={
+            "solver": "lbfgs",
+            "max_iter": 2000,  # Higher for convergence with categorical features
+            "random_state": 42,
+            "C": 1.0,  # Standard regularization
+        },
+        dataset_name=SklearnDatasetName.ADULT,
+    ),
+    DecisionTreeModel: ExperimentConfig(
+        model_class=DecisionTreeModel,
+        model_params={
+            "max_depth": 12,  # Deeper for adult complexity
+            "random_state": 42,
+            "min_samples_split": 10,  # Higher for large dataset
+            "criterion": "gini",
+        },
+        dataset_name=SklearnDatasetName.ADULT,
+    ),
+    MLPModel: ExperimentConfig(
+        model_class=MLPModel,
+        model_params={
+            "hidden_layer_sizes": (100, 50),
+            "random_state": 42,
+            "max_iter": 1000,  # Higher for convergence
+            "solver": "adam",
+            "activation": "relu",
+        },
+        dataset_name=SklearnDatasetName.ADULT,
+    ),
+    RandomForestClassifierModel: ExperimentConfig(
+        model_class=RandomForestClassifierModel,
+        model_params={
+            "n_estimators": 100,
+            "max_depth": 12,  # Deeper for adult complexity
+            "random_state": 42,
+            "min_samples_split": 10,  # Higher for large dataset
+        },
+        dataset_name=SklearnDatasetName.ADULT,
+    ),
+    RandomForestRegressorModel: ExperimentConfig(
+        model_class=RandomForestRegressorModel,
+        model_params={
+            "n_estimators": 100,
+            "max_depth": 12,
+            "random_state": 42,
+            "min_samples_split": 10,
+        },
+        dataset_name=SklearnDatasetName.ADULT,
+    ),
+    RidgeModel: ExperimentConfig(
+        model_class=RidgeModel,
+        model_params={
+            "alpha": 1.0,
+            "random_state": 42,
+            "max_iter": 2000,  # Higher for convergence
+        },
+        dataset_name=SklearnDatasetName.ADULT,
+    ),
+    SpectralClusteringModel: ExperimentConfig(
+        model_class=SpectralClusteringModel,
+        model_params={
+            "n_clusters": 2,
+            "random_state": 42,
+            "affinity": "rbf",
+            "gamma": 0.1,  # Lower gamma for adult data
+            "assign_labels": "kmeans",
+        },
+        dataset_name=SklearnDatasetName.ADULT,
+    ),
+    MiniBatchKMeansModel: ExperimentConfig(
+        model_class=MiniBatchKMeansModel,
+        model_params={
+            "n_clusters": 2,
+            "random_state": 42,
+            "max_iter": 300,
+            "batch_size": 100,
+        },  # Binary classification
+        dataset_name=SklearnDatasetName.ADULT,
+    ),
+    GradientBoostingModel: ExperimentConfig(
+        model_class=GradientBoostingModel,
+        model_params={
+            "n_estimators": 100,
+            "learning_rate": 0.1,
+            "max_depth": 6,
+            "random_state": 42,
+        },
+        dataset_name=SklearnDatasetName.ADULT,
+    ),
+}
+
+# Registry of experiment configurations for the make_moons synthetic dataset
+MAKE_MOONS_EXPERIMENTS = {
+    AgglomerativeClusteringModel: ExperimentConfig(
+        model_class=AgglomerativeClusteringModel,
+        model_params={"n_clusters": 2, "linkage": "ward"},  # 2 clusters for binary classification
+        dataset_name=SklearnDatasetName.MAKE_MOONS,
+    ),
+    FastICAModel: ExperimentConfig(
+        model_class=FastICAModel,
+        model_params={
+            "n_components": 2,  # 2D dataset
+            "random_state": 42,
+            "max_iter": 200,
+            "tol": 1e-04,
+        },
+        dataset_name=SklearnDatasetName.MAKE_MOONS,
+    ),
+    LogisticRegressionModel: ExperimentConfig(
+        model_class=LogisticRegressionModel,
+        model_params={"max_iter": 1000, "random_state": 42},
+        dataset_name=SklearnDatasetName.MAKE_MOONS,
+    ),
+    MLPModel: ExperimentConfig(
+        model_class=MLPModel,
+        model_params={
+            "hidden_layer_sizes": (50, 30),  # Smaller network for 2D data
+            "max_iter": 500,
+            "random_state": 42,
+            "solver": "adam",
+        },
+        dataset_name=SklearnDatasetName.MAKE_MOONS,
+    ),
+    DecisionTreeModel: ExperimentConfig(
+        model_class=DecisionTreeModel,
+        model_params={"max_depth": 8, "random_state": 42},
+        dataset_name=SklearnDatasetName.MAKE_MOONS,
+    ),
+    RandomForestClassifierModel: ExperimentConfig(
+        model_class=RandomForestClassifierModel,
+        model_params={
+            "n_estimators": 100,
+            "max_depth": 8,
+            "random_state": 42,
+        },
+        dataset_name=SklearnDatasetName.MAKE_MOONS,
+    ),
+    GradientBoostingModel: ExperimentConfig(
+        model_class=GradientBoostingModel,
+        model_params={
+            "n_estimators": 100,
+            "learning_rate": 0.1,
+            "max_depth": 3,
+            "random_state": 42,
+        },
+        dataset_name=SklearnDatasetName.MAKE_MOONS,
+    ),
+    GaussianMixtureModel: ExperimentConfig(
+        model_class=GaussianMixtureModel,
+        model_params={"n_components": 2, "random_state": 42},
+        dataset_name=SklearnDatasetName.MAKE_MOONS,
+    ),
+    MiniBatchKMeansModel: ExperimentConfig(
+        model_class=MiniBatchKMeansModel,
+        model_params={"n_clusters": 2, "random_state": 42, "batch_size": 100},
+        dataset_name=SklearnDatasetName.MAKE_MOONS,
+    ),
+    RandomForestRegressorModel: ExperimentConfig(
+        model_class=RandomForestRegressorModel,
+        model_params={
+            "n_estimators": 100,
+            "max_depth": 8,
+            "random_state": 42,
+        },
+        dataset_name=SklearnDatasetName.MAKE_MOONS,
+    ),
+    RidgeModel: ExperimentConfig(
+        model_class=RidgeModel,
+        model_params={"alpha": 1.0, "random_state": 42},
+        dataset_name=SklearnDatasetName.MAKE_MOONS,
+    ),
+    SpectralClusteringModel: ExperimentConfig(
+        model_class=SpectralClusteringModel,
+        model_params={"n_clusters": 2, "random_state": 42},
+        dataset_name=SklearnDatasetName.MAKE_MOONS,
+    ),
+}
+
+# Registry of experiment configurations for the make_blobs synthetic dataset
+MAKE_BLOBS_EXPERIMENTS = {
+    LogisticRegressionModel: ExperimentConfig(
+        model_class=LogisticRegressionModel,
+        model_params={"max_iter": 1000, "random_state": 42},
+        dataset_name=SklearnDatasetName.MAKE_BLOBS,
+    ),
+    MiniBatchKMeansModel: ExperimentConfig(
+        model_class=MiniBatchKMeansModel,
+        model_params={"n_clusters": 3, "random_state": 42, "batch_size": 100},
+        dataset_name=SklearnDatasetName.MAKE_BLOBS,
+    ),
+    MLPModel: ExperimentConfig(
+        model_class=MLPModel,
+        model_params={
+            "hidden_layer_sizes": (50, 20),
+            "random_state": 42,
+            "max_iter": 500,
+            "solver": "adam",
+        },
+        dataset_name=SklearnDatasetName.MAKE_BLOBS,
+    ),
+    DecisionTreeModel: ExperimentConfig(
+        model_class=DecisionTreeModel,
+        model_params={"max_depth": 6, "random_state": 42},
+        dataset_name=SklearnDatasetName.MAKE_BLOBS,
+    ),
+    GaussianMixtureModel: ExperimentConfig(
+        model_class=GaussianMixtureModel,
+        model_params={"n_components": 3, "random_state": 42},
+        dataset_name=SklearnDatasetName.MAKE_BLOBS,
     ),
 }
 
@@ -330,98 +747,6 @@ LFW_PEOPLE_EXPERIMENTS = {
             "n_neighbors": 10,
             "assign_labels": "kmeans",  # More stable for face data
         },
-    ),
-}
-
-
-# Registry of experiment configurations for the Make Moons dataset (2D synthetic data)
-MAKE_MOONS_EXPERIMENTS = {
-    SpectralClusteringModel: ExperimentConfig(
-        model_class=SpectralClusteringModel,
-        model_params={
-            "n_clusters": 2,  # Two moons
-            "random_state": 42,
-            "affinity": "nearest_neighbors",
-            "n_neighbors": 15,  # Good for moon shapes
-            "assign_labels": "kmeans",
-            "gamma": 1.0,
-        },
-    ),
-    AgglomerativeClusteringModel: ExperimentConfig(
-        model_class=AgglomerativeClusteringModel,
-        model_params={"n_clusters": 2, "linkage": "ward"},  # Two moons - no random_state
-    ),
-    MiniBatchKMeansModel: ExperimentConfig(
-        model_class=MiniBatchKMeansModel,
-        model_params={
-            "n_clusters": 2,
-            "random_state": 42,
-            "batch_size": 100,
-            "max_iter": 100,
-        },  # Two moons
-    ),
-    GaussianMixtureModel: ExperimentConfig(
-        model_class=GaussianMixtureModel,
-        model_params={
-            "n_components": 2,
-            "random_state": 42,
-            "covariance_type": "full",
-            "max_iter": 100,
-        },  # Two moons
-    ),
-    # Classification algorithms to compare with clustering
-    RandomForestClassifierModel: ExperimentConfig(
-        model_class=RandomForestClassifierModel,
-        model_params={
-            "n_estimators": 100,
-            "max_depth": 5,
-            "random_state": 42,
-            "min_samples_split": 5,
-        },  # Simple for 2D data
-    ),
-    RandomForestRegressorModel: ExperimentConfig(
-        model_class=RandomForestRegressorModel,
-        model_params={
-            "n_estimators": 100,
-            "max_depth": 5,
-            "random_state": 42,
-            "min_samples_split": 5,
-        },  # Simple for 2D data
-    ),
-    MLPModel: ExperimentConfig(
-        model_class=MLPModel,
-        model_params={
-            "hidden_layer_sizes": (50, 25),
-            "random_state": 42,
-            "max_iter": 1000,
-            "alpha": 0.01,
-        },  # Simple for 2D
-    ),
-    GradientBoostingModel: ExperimentConfig(
-        model_class=GradientBoostingModel,
-        model_params={
-            "n_estimators": 100,
-            "learning_rate": 0.1,
-            "max_depth": 3,
-            "random_state": 42,
-        },  # Standard for 2D
-    ),
-    RidgeModel: ExperimentConfig(
-        model_class=RidgeModel,
-        model_params={
-            "alpha": 1.0,
-            "random_state": 42,
-            "max_iter": 1000,
-        },  # Simple regularization for 2D
-    ),
-    FastICAModel: ExperimentConfig(
-        model_class=FastICAModel,
-        model_params={
-            "n_components": 8,
-            "random_state": 42,
-            "max_iter": 1000,
-            "tol": 1e-4,
-        },  # Dimensionality reduction for 2D
     ),
 }
 
@@ -538,50 +863,57 @@ NEWSGROUPS_20_EXPERIMENTS = {
 }
 
 
-def run_experiment_by_name(
-    experiment_name: str,
-    dataset_name: SklearnDatasetName = SklearnDatasetName.DIGITS,
-    dataset_source: DatasetSourceType = DatasetSourceType.SKLEARN,
-):
-    """Run a registered experiment by name.
+# Mapeamento de datasets para registros de experimentos
+_DATASET_REGISTRY_MAP = {
+    SklearnDatasetName.WINE: "WINE_EXPERIMENTS",
+    SklearnDatasetName.BREAST_CANCER: "BREAST_CANCER_EXPERIMENTS",
+    SklearnDatasetName.ADULT: "ADULT_EXPERIMENTS",
+    SklearnDatasetName.LFW_PEOPLE: "LFW_PEOPLE_EXPERIMENTS",
+    SklearnDatasetName.MAKE_MOONS: "MAKE_MOONS_EXPERIMENTS",
+    SklearnDatasetName.MAKE_BLOBS: "MAKE_BLOBS_EXPERIMENTS",
+    SklearnDatasetName.NEWSGROUPS_20: "NEWSGROUPS_20_EXPERIMENTS",
+    SklearnDatasetName.DIGITS: "DIGITS_EXPERIMENTS",
+}
+
+
+def _get_registry_for_dataset(dataset_name: SklearnDatasetName) -> Dict:
+    """Get the experiment registry for a given dataset.
 
     Args:
-        experiment_name: Name of the experiment in the registry.
-        dataset_name: Dataset to run the experiment on.
-        dataset_source: Source type for the dataset (sklearn or external).
+        dataset_name: The dataset to get the registry for.
 
     Returns:
-        Result of the experiment.
+        The experiment registry dictionary.
 
     Raises:
-        KeyError: If experiment_name is not found in the registry.
+        ValueError: If dataset is not supported.
     """
-    # Get the appropriate registry based on dataset
-    if dataset_name == SklearnDatasetName.WINE:
-        registry = WINE_EXPERIMENTS
-    elif dataset_name == SklearnDatasetName.LFW_PEOPLE:
-        registry = LFW_PEOPLE_EXPERIMENTS
-    elif dataset_name == SklearnDatasetName.MAKE_MOONS:
-        registry = MAKE_MOONS_EXPERIMENTS
-    elif dataset_name == SklearnDatasetName.NEWSGROUPS_20:
-        registry = NEWSGROUPS_20_EXPERIMENTS
-    elif dataset_name == SklearnDatasetName.DIGITS:
-        registry = DIGITS_EXPERIMENTS
-    else:
+    registry_name = _DATASET_REGISTRY_MAP.get(dataset_name)
+    if registry_name is None:
         raise ValueError(f"Unsupported dataset: {dataset_name}")
+    return globals()[registry_name]
 
-    if experiment_name not in registry:
-        available = ", ".join(registry.keys())
-        raise KeyError(f"Experiment '{experiment_name}' not found. Available: {available}")
 
-    config = registry[experiment_name]
+def _create_verification_config(verification_strict: bool) -> VerificationConfig:
+    """Create verification config from environment settings.
 
-    return run_standard_experiment(
-        model_class=config.model_class,
-        model_name=config.model_name,
-        dataset_source=dataset_source,
-        dataset_name=dataset_name,
-        model_params=config.model_params,
+    Args:
+        verification_strict: Whether strict mode is enabled.
+
+    Returns:
+        VerificationConfig instance.
+    """
+    return VerificationConfig(
+        enabled=True,
+        timeout=60.0 if verification_strict else 30.0,
+        fail_on_error=verification_strict,
+        constraints={
+            "shape_preservation": True,
+            "bounds": True,
+            "range_check": True,
+            "type_safety": True,
+            "bounds_tolerance": 0.05 if verification_strict else 0.1,
+        },
     )
 
 
@@ -605,21 +937,8 @@ def run_experiment_by_model(
     Raises:
         ValueError: If model_class is not found in any registry.
     """
-    # Get the appropriate registry based on dataset
-    if dataset_name == SklearnDatasetName.WINE:
-        registry = WINE_EXPERIMENTS
-    elif dataset_name == SklearnDatasetName.LFW_PEOPLE:
-        registry = LFW_PEOPLE_EXPERIMENTS
-    elif dataset_name == SklearnDatasetName.MAKE_MOONS:
-        registry = MAKE_MOONS_EXPERIMENTS
-    elif dataset_name == SklearnDatasetName.NEWSGROUPS_20:
-        registry = NEWSGROUPS_20_EXPERIMENTS
-    elif dataset_name == SklearnDatasetName.DIGITS:
-        registry = DIGITS_EXPERIMENTS
-    else:
-        raise ValueError(f"Unsupported dataset: {dataset_name}")
+    registry = _get_registry_for_dataset(dataset_name)
 
-    # Get configuration directly using model class as key
     if model_class not in registry:
         available_models = [cls.__name__ for cls in registry]
         raise ValueError(
@@ -628,8 +947,24 @@ def run_experiment_by_model(
         )
 
     config = registry[model_class]
-    # Use custom params if provided, otherwise use registry defaults
     params = model_params if model_params is not None else config.model_params
+
+    # Detectar configuração de verificação formal via variáveis de ambiente
+    verification_config = None
+    verification_enabled = os.getenv("VERIFICATION_ENABLED", "false").lower() == "true"
+    verification_strict = os.getenv("VERIFICATION_STRICT", "false").lower() == "true"
+
+    if verification_enabled:
+        logger.info(
+            "🔍 Formal verification ENABLED for %s on %s",
+            model_class.__name__,
+            dataset_name,
+        )
+        verification_config = _create_verification_config(verification_strict)
+        verification_mode = "STRICT" if verification_strict else "FLEXIBLE"
+        logger.info("Verification mode: %s", verification_mode)
+    else:
+        logger.debug("Formal verification DISABLED for %s", model_class.__name__)
 
     return run_standard_experiment(
         model_class=model_class,
@@ -637,4 +972,40 @@ def run_experiment_by_model(
         dataset_source=dataset_source,
         dataset_name=dataset_name,
         model_params=params,
+        verification_config=verification_config,
+    )
+
+
+def run_experiment_by_name(
+    experiment_name: str,
+    dataset_name: SklearnDatasetName = SklearnDatasetName.DIGITS,
+    dataset_source: DatasetSourceType = DatasetSourceType.SKLEARN,
+):
+    """Run a registered experiment by name.
+
+    Args:
+        experiment_name: Name of the experiment in the registry.
+        dataset_name: Dataset to run the experiment on.
+        dataset_source: Source type for the dataset (sklearn or external).
+
+    Returns:
+        Result of the experiment.
+
+    Raises:
+        KeyError: If experiment_name is not found in the registry.
+    """
+    registry = _get_registry_for_dataset(dataset_name)
+
+    if experiment_name not in registry:
+        available = ", ".join(str(k) for k in registry.keys())
+        raise KeyError(f"Experiment '{experiment_name}' not found. Available: {available}")
+
+    config = registry[experiment_name]
+
+    return run_standard_experiment(
+        model_class=config.model_class,
+        model_name=config.model_name,
+        dataset_source=dataset_source,
+        dataset_name=dataset_name,
+        model_params=config.model_params,
     )

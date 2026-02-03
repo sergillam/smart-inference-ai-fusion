@@ -1,7 +1,7 @@
 """Categorize type the data used enumeration for the inference framework."""
 
 from enum import Enum
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel
 
@@ -41,6 +41,7 @@ class SklearnDatasetName(Enum):
         IRIS: Iris classification dataset.
         WINE: Wine classification dataset.
         BREAST_CANCER: Breast cancer dataset.
+        ADULT: Adult income dataset.
         DIGITS: Handwritten digits dataset.
         LFW_PEOPLE: Labeled Faces in the Wild people dataset.
         MAKE_MOONS: Synthetic make_moons dataset for clustering.
@@ -50,10 +51,30 @@ class SklearnDatasetName(Enum):
     IRIS = "iris"
     WINE = "wine"
     BREAST_CANCER = "breast_cancer"
+    ADULT = "adult"
     DIGITS = "digits"
     LFW_PEOPLE = "lfw_people"
     MAKE_MOONS = "make_moons"
+    MAKE_BLOBS = "make_blobs"
     NEWSGROUPS_20 = "newsgroups_20"
+
+
+class VerificationConfig(BaseModel):
+    """Configuration for formal verification in transformations.
+
+    Attributes:
+        enabled (bool): Whether verification is enabled.
+        timeout (float): Timeout for verification in seconds.
+        fail_on_error (bool): Whether to fail when verification errors occur.
+        verifier_name (Optional[str]): Specific verifier to use.
+        constraints (Dict[str, Any]): Custom constraints for verification.
+    """
+
+    enabled: bool = True
+    timeout: float = 30.0
+    fail_on_error: bool = False
+    verifier_name: Optional[str] = None
+    constraints: Dict[str, Any] = {}
 
 
 class DataNoiseConfig(BaseModel):
@@ -105,6 +126,9 @@ class DataNoiseConfig(BaseModel):
     group_outlier_cluster_fraction: Optional[float] = None
     temporal_drift_std: Optional[float] = None
 
+    # Configuração de verificação formal
+    verification: Optional[VerificationConfig] = None
+
 
 class LabelNoiseConfig(BaseModel):
     """Configuration for label inference/noise techniques.
@@ -124,6 +148,9 @@ class LabelNoiseConfig(BaseModel):
     confusion_matrix_noise_level: Optional[float] = None
     partial_label_fraction: Optional[float] = None
     swap_within_class_fraction: Optional[float] = None
+
+    # Configuração de verificação formal
+    verification: Optional[VerificationConfig] = None
 
 
 class ParameterNoiseConfig(BaseModel):
@@ -153,6 +180,9 @@ class ParameterNoiseConfig(BaseModel):
     bounded_numeric: Optional[bool] = None
     type_cast_perturbation: Optional[bool] = None
     enum_boundary_shift: Optional[bool] = None
+
+    # Configuração de verificação formal
+    verification: Optional[VerificationConfig] = None
 
 
 class CSVDatasetName(Enum):

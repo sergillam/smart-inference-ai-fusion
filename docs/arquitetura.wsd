@@ -1,0 +1,192 @@
+```plantuml
+@startuml SystemArch
+title "SPI-V: Sistema de Verificação Integrado (arquitetura real)" 
+
+left to right direction
+skinparam packageStyle rectangle
+
+package "Orquestração" #LightBlue {
+  [CLI / Makefile] as CLI
+  [ExperimentRegistry] as Registry
+  [Runner (run_standard_experiment)] as Runner
+}
+
+package "Smart Inference Pipeline (SIP)" #AliceBlue {
+  node "Input: X_train, X_test, y_train, y_test" as Input
+
+  package "Engines de Inferência" {
+    [InferencePipeline] as IP
+    [InferenceEngine (data)] as DataEngine
+    [LabelInferenceEngine] as LabelEngine
+    [ParameterInferenceEngine] as ParamEngine
+  }
+
+  package "Transformações" {
+    [Data Transformations\n(noise, scale, etc.)] as DataTrans
+    [Label Transformations\n(flip, confusion, etc.)] as LabelTrans
+    [Param Transformations\n(semantic, enum, etc.)] as ParamTrans
+  }
+
+  node "Output: Dados & Params perturbados" as Output
+
+  Input --> IP
+  IP --> DataEngine
+  IP --> LabelEngine
+  IP --> ParamEngine
+  DataEngine --> DataTrans
+  LabelEngine --> LabelTrans
+  ParamEngine --> ParamTrans
+  DataTrans --> Output
+  LabelTrans --> Output
+  ParamTrans --> Output
+}
+
+package "SPI-V (Subsystem de Verificação)" #Azure {
+  [VerificationManager\n(formal_verification.py)] as VM
+  [VerifierRegistry\n(plugin_interface.py)] as VR
+  [ResultSchema\n(result_schema.py)] as RS
+  [SolverComparison\n(utils/solver_comparison.py)] as COMP
+  [ErrorHandling\n(error_handling.py)] as EH
+  [VerificationConfig\n(env vars / config)] as VC
+
+  VM --> VR : get_verifiers_for_constraints()
+  VM --> RS : usa StandardVerificationResult
+  VM --> COMP : add_comparison_result()
+  VM --> EH : handle_verification_error()
+  VM --> VC : get_verification_config()
+}
+
+package "Plugins / Solvers" #LightGrey {
+  [Z3Plugin\n(z3_plugin.py)] as Z3
+  [CVC5Plugin\n(cvc5_plugin.py)] as CVC5
+
+  VR --> Z3 : registry.register()
+  VR --> CVC5 : registry.register()
+}
+
+package "Infra / Storage" #LightYellow {
+  database "logs/\n(JSON verificação)" as Logs
+  database "results/\n(métricas agregadas)" as Results
+  [ReportUtil\n(utils/report.py)] as Reports
+
+  Reports --> Logs
+  Reports --> Results
+}
+
+' Fluxo de orquestração
+CLI --> Registry
+Registry --> Runner
+Runner --> IP
+
+' Hooks de verificação na pipeline
+IP ..> VM : verify() em cada step
+DataEngine ..> VM : verificar pre/post dados
+LabelEngine ..> VM : verificar pre/post labels
+ParamEngine ..> VM : verificar pre/post params
+
+' Execução multi-solver
+VM --> Z3 : verify(VerificationInput)
+VM --> CVC5 : verify(VerificationInput)
+Z3 --> VM : VerificationResult + StandardVerificationResult
+CVC5 --> VM : VerificationResult + StandardVerificationResult
+
+' Consolidação e relatórios
+VM --> IP : VerificationResult (status, violated_constraints)
+VM --> Reports : report_verification_results()
+
+note top of VM
+  FormalVerificationManager:
+  - auto-seleciona solver via registry
+  - timeout nativo do solver
+  - StandardVerificationResult (schema padronizado)
+  - ErrorHandling para fallback e desabilitação
+end note
+
+note right of RS
+  ResultSchema: StandardStatus, ConstraintResult,
+  SolverMetadata, PerformanceMetrics
+  (normalização embutida nos plugins)
+end note
+
+@enduml
+
+@startuml MultiSolverSequence
+title "Sequência: Verificação Multi-Solver"
+autonumber
+
+actor Usuário as U
+participant Registry as R
+participant Runner as EXP
+participant Pipeline as PIPE
+participant VM as VER
+participant VR as VREG
+participant Z3 as Z3
+participant CVC5 as CVC5
+participant RS as Schema
+participant COMP as SolverComp
+participant Reports as REP
+
+U -> R : make run-verify EXP=... SOLVERS=z3,cvc5
+R -> EXP : run_standard_experiment(config)
+EXP -> PIPE : construir InferencePipeline
+
+note over PIPE
+  Pipeline carrega engines:
+  - InferenceEngine (data)
+  - LabelInferenceEngine
+  - ParameterInferenceEngine
+end note
+
+PIPE -> PIPE : _load_verifiers() from config
+PIPE -> VER : carrega verification_manager
+VER -> VREG : registry.get_available_verifiers()
+VREG --> VER : [Z3Plugin, CVC5Plugin]
+
+EXP -> PIPE : apply_data_inference(X_train, X_test)
+PIPE -> PIPE : aplicar data transformations
+
+alt Verificação habilitada
+  PIPE -> VER : verify(name="data_step", constraints={...})
+  VER -> VREG : get_verifiers_for_constraints(constraints)
+  VREG --> VER : [Z3, CVC5]
+  
+  loop Para cada solver habilitado
+    VER -> Z3 : verify(VerificationInput)
+    Z3 -> Z3 : solver.check() + timeout nativo
+    Z3 -> Schema : criar StandardVerificationResult
+    Z3 --> VER : VerificationResult + StandardVerificationResult
+    
+    VER -> CVC5 : verify(VerificationInput)
+    CVC5 -> CVC5 : solver.checkSat() + timeout nativo
+    CVC5 -> Schema : criar StandardVerificationResult
+    CVC5 --> VER : VerificationResult + StandardVerificationResult
+  end
+  
+  VER -> SolverComp : add_comparison_result(z3_result, cvc5_result)
+  SolverComp -> SolverComp : calcular agreement_rate, parity
+  
+  VER --> PIPE : VerificationResult (status, violated_constraints)
+end
+
+PIPE --> EXP : dados perturbados + verification status
+
+EXP -> Reports : report_verification_results()
+Reports -> Reports : gerar JSON logs/
+Reports -> Reports : gerar métricas results/
+Reports --> U : paths para logs & results
+
+note right of VER
+  Manager não tem cache/circuit-breaker separado;
+  timeouts são nativos dos solvers (Z3/CVC5).
+  ErrorHandling pode desabilitar solver se falhas repetidas.
+end note
+
+note right of Schema
+  result_schema.py:
+  - StandardStatus (enum)
+  - StandardVerificationResult (dataclass)
+  - ConstraintResult, SolverMetadata, PerformanceMetrics
+  Normalização ocorre nos próprios plugins.
+end note
+
+@enduml

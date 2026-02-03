@@ -13,6 +13,7 @@ from smart_inference_ai_fusion.models.agglomerative_clustering_model import (
 from smart_inference_ai_fusion.models.fastica_model import FastICAModel
 from smart_inference_ai_fusion.models.gaussian_mixture_model import GaussianMixtureModel
 from smart_inference_ai_fusion.models.gradient_boosting_model import GradientBoostingModel
+from smart_inference_ai_fusion.models.logistic_regression_model import LogisticRegressionModel
 from smart_inference_ai_fusion.models.minibatch_kmeans_model import MiniBatchKMeansModel
 from smart_inference_ai_fusion.models.mlp_model import MLPModel
 from smart_inference_ai_fusion.models.random_forest_classifier_model import (
@@ -23,6 +24,7 @@ from smart_inference_ai_fusion.models.random_forest_regressor_model import (
 )
 from smart_inference_ai_fusion.models.ridge_model import RidgeModel
 from smart_inference_ai_fusion.models.spectral_clustering_model import SpectralClusteringModel
+from smart_inference_ai_fusion.models.tree_model import DecisionTreeModel
 from smart_inference_ai_fusion.utils.preprocessing import (
     filter_sklearn_params,
     validate_sklearn_params,
@@ -38,6 +40,7 @@ from smart_inference_ai_fusion.utils.types import (
     LabelNoiseConfig,
     ParameterNoiseConfig,
     SklearnDatasetName,
+    VerificationConfig,
 )
 
 
@@ -71,6 +74,22 @@ def _create_mlp_label_config() -> LabelNoiseConfig:
 
 def _create_gradient_boosting_label_config() -> LabelNoiseConfig:
     """Create custom label configuration for GradientBoostingModel.
+
+    Uses same configuration as other classification models.
+    """
+    return _create_classification_label_config()
+
+
+def _create_decision_tree_label_config() -> LabelNoiseConfig:
+    """Create custom label configuration for DecisionTreeModel.
+
+    Removes flip_near_border_fraction to avoid model dependency issues.
+    """
+    return _create_classification_label_config()
+
+
+def _create_logistic_regression_label_config() -> LabelNoiseConfig:
+    """Create custom label configuration for LogisticRegressionModel.
 
     Uses same configuration as other classification models.
     """
@@ -130,6 +149,12 @@ MODEL_CONFIG_OVERRIDES: Dict[Type[BaseModel], Dict[str, Callable]] = {
     },
     GradientBoostingModel: {
         "label_config": _create_gradient_boosting_label_config,
+    },
+    DecisionTreeModel: {
+        "label_config": _create_decision_tree_label_config,
+    },
+    LogisticRegressionModel: {
+        "label_config": _create_logistic_regression_label_config,
     },
     # Regression models (no predict_proba)
     RandomForestRegressorModel: {
@@ -375,6 +400,53 @@ def create_inference_configs_make_moons():
     return data_config, label_config, param_config
 
 
+def create_inference_configs_make_blobs():
+    """Create inference configs for Make Blobs dataset (2D/3 centers by default)."""
+    data_config = DataNoiseConfig(
+        noise_level=0.15,
+        truncate_decimals=1,
+        quantize_bins=5,
+        cast_to_int=False,
+        shuffle_fraction=0.1,
+        scale_range=(0.9, 1.1),
+        zero_out_fraction=0.02,
+        insert_nan_fraction=0.02,
+        outlier_fraction=0.03,
+        add_dummy_features=1,
+        duplicate_features=1,
+        feature_selective_noise=(0.2, [0, 1]),
+        remove_features=[],
+        feature_swap=[0, 1],
+        conditional_noise=(0, 2.0, 0.1),
+        random_missing_block_fraction=0.05,
+        distribution_shift_fraction=0.05,
+        cluster_swap_fraction=0.05,
+        group_outlier_cluster_fraction=0.05,
+        temporal_drift_std=0.2,
+    )
+    label_config = LabelNoiseConfig(
+        label_noise_fraction=0.1,
+        flip_near_border_fraction=0.05,
+        confusion_matrix_noise_level=0.05,
+        partial_label_fraction=0.05,
+        swap_within_class_fraction=0.05,
+    )
+    param_config = ParameterNoiseConfig(
+        integer_noise=True,
+        boolean_flip=True,
+        string_mutator=True,
+        semantic_mutation=True,
+        scale_hyper=True,
+        cross_dependency=True,
+        random_from_space=True,
+        bounded_numeric=True,
+        type_cast_perturbation=True,
+        enum_boundary_shift=True,
+    )
+
+    return data_config, label_config, param_config
+
+
 def run_baseline_experiment(
     model_class: Type[BaseModel],
     model_name: str,
@@ -430,7 +502,9 @@ def run_inference_experiment(
     model_name: str,
     dataset_source: DatasetSourceType,
     dataset_name: Union[SklearnDatasetName, str],
+    *,
     filtered_params: Optional[dict] = None,
+    verification_config: Optional[VerificationConfig] = None,
 ):
     """Run experiment with full inference pipeline.
 
@@ -440,6 +514,7 @@ def run_inference_experiment(
         dataset_source (DatasetSourceType): Source type of the dataset (SKLEARN, CSV, etc.).
         dataset_name (SklearnDatasetName | str): Name/identifier of the dataset.
         filtered_params (Optional[dict]): Optional filtered parameters for the model.
+        verification_config (Optional[VerificationConfig]): Configuration for formal verification.
 
     Returns:
         dict: Experiment results.
@@ -453,18 +528,17 @@ def run_inference_experiment(
     )
 
     # Create base configurations - use dataset specific config if needed
-    if (
-        isinstance(dataset_name, SklearnDatasetName)
-        and dataset_name == SklearnDatasetName.MAKE_MOONS
-    ):
-        data_config, label_config, _ = create_inference_configs_make_moons()
-    elif (
-        isinstance(dataset_name, SklearnDatasetName)
-        and dataset_name == SklearnDatasetName.LFW_PEOPLE
-    ):
-        data_config, label_config, _ = create_inference_configs_lfw_people()
+    if isinstance(dataset_name, SklearnDatasetName):
+        if dataset_name == SklearnDatasetName.MAKE_MOONS:
+            data_config, label_config, _ = create_inference_configs_make_moons()
+        elif dataset_name == SklearnDatasetName.MAKE_BLOBS:
+            data_config, label_config, _ = create_inference_configs_make_blobs()
+        elif dataset_name == SklearnDatasetName.LFW_PEOPLE:
+            data_config, label_config, _ = create_inference_configs_lfw_people()
+        else:
+            data_config, label_config, _ = create_inference_configs()
     else:
-        data_config, label_config, _ = create_inference_configs()  # param_config is unused here
+        data_config, label_config, _ = create_inference_configs()
 
     # Apply model-specific configuration overrides
     model_configs = get_model_specific_configs(model_class, model_name)
@@ -475,8 +549,19 @@ def run_inference_experiment(
     X_train, X_test, y_train, y_test = dataset.load_data()
 
     # Create pipeline and model
+    pipeline_verification_config = None
+    if verification_config:
+        pipeline_verification_config = {
+            "enabled": verification_config.enabled,
+            "timeout": verification_config.timeout,
+            "fail_on_error": verification_config.fail_on_error,
+        }
+
     pipeline = InferencePipeline(
-        data_noise_config=data_config, label_noise_config=label_config, X_train=X_train
+        data_noise_config=data_config,
+        label_noise_config=label_config,
+        X_train=X_train,
+        verification_config=pipeline_verification_config,
     )
 
     params = filtered_params or {}
@@ -528,7 +613,9 @@ def run_standard_experiment(
     model_name: str,
     dataset_source: DatasetSourceType,
     dataset_name: Union[SklearnDatasetName, str],
+    *,
     model_params: Optional[dict] = None,
+    verification_config: Optional[VerificationConfig] = None,
 ):
     """Run both baseline and inference experiments for a model on any dataset.
 
@@ -538,6 +625,7 @@ def run_standard_experiment(
         dataset_source (DatasetSourceType): Source type of the dataset (SKLEARN, CSV, etc.).
         dataset_name (SklearnDatasetName | str): Name/identifier of the dataset.
         model_params (Optional[dict]): Optional parameters specific to the model.
+        verification_config (Optional[VerificationConfig]): Configuration for formal verification.
 
     Returns:
         tuple: A tuple of (baseline_metrics, inference_metrics).
@@ -587,7 +675,12 @@ def run_standard_experiment(
         model_class, model_name, dataset_source, dataset_name, filtered_params
     )
     inference_metrics = run_inference_experiment(
-        model_class, model_name, dataset_source, dataset_name, filtered_params
+        model_class,
+        model_name,
+        dataset_source,
+        dataset_name,
+        filtered_params=filtered_params,
+        verification_config=verification_config,
     )
 
     # Calculate total execution time

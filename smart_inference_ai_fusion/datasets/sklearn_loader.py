@@ -2,18 +2,22 @@
 
 from typing import Tuple
 
+import numpy as np
 from sklearn.datasets import (
     fetch_20newsgroups_vectorized,
     fetch_lfw_people,
+    fetch_openml,
     load_breast_cancer,
     load_digits,
     load_iris,
     load_wine,
+    make_blobs,
     make_moons,
 )
 from sklearn.decomposition import TruncatedSVD
 from sklearn.feature_selection import SelectKBest, chi2
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
 
 from smart_inference_ai_fusion.core.base_dataset import BaseDataset
 from smart_inference_ai_fusion.utils.types import SklearnDatasetName
@@ -44,9 +48,11 @@ class SklearnDatasetLoader(BaseDataset):
             SklearnDatasetName.IRIS: load_iris,
             SklearnDatasetName.WINE: load_wine,
             SklearnDatasetName.BREAST_CANCER: load_breast_cancer,
+            SklearnDatasetName.ADULT: self._load_adult,
             SklearnDatasetName.DIGITS: load_digits,
             SklearnDatasetName.LFW_PEOPLE: self._load_lfw_people,
             SklearnDatasetName.MAKE_MOONS: self._load_make_moons,
+            SklearnDatasetName.MAKE_BLOBS: self._load_make_blobs,
             SklearnDatasetName.NEWSGROUPS_20: self._load_newsgroups_20,
         }
 
@@ -97,6 +103,47 @@ class SklearnDatasetLoader(BaseDataset):
         # resize=0.3 further reduces image size for speed
         return fetch_lfw_people(min_faces_per_person=50, resize=0.3)
 
+    def _load_adult(self):
+        """Load Adult dataset (Census Income) from OpenML with preprocessing.
+
+        Returns:
+            Bunch object with data and target attributes.
+        """
+        # Load Adult dataset from OpenML (dataset ID 1590)
+        # This is the classic "Census Income" dataset for binary classification
+        data = fetch_openml(data_id=1590, as_frame=True, parser="auto")
+
+        # Convert categorical features to numeric using label encoding
+        features = data.data.copy()
+        target = data.target.copy()
+
+        # Identify categorical columns
+        categorical_columns = features.select_dtypes(include=["object", "category"]).columns
+
+        # Apply label encoding to categorical features
+        label_encoders = {}
+        for col in categorical_columns:
+            encoder = LabelEncoder()
+            features[col] = encoder.fit_transform(features[col].astype(str))
+            label_encoders[col] = encoder
+
+        # Convert target to binary (0/1)
+        if target.dtype == "object" or target.dtype.name == "category":
+            target_encoder = LabelEncoder()
+            target = target_encoder.fit_transform(target.astype(str))
+
+        # Convert to numpy arrays
+        features_array = features.values.astype(np.float64)
+        target_array = target.astype(np.int64)
+
+        # Return in scikit-learn Bunch format
+        class MockBunch:
+            def __init__(self, data, target):
+                self.data = data
+                self.target = target
+
+        return MockBunch(features_array, target_array)
+
     def _load_make_moons(self):
         """Load synthetic make_moons dataset.
 
@@ -107,6 +154,22 @@ class SklearnDatasetLoader(BaseDataset):
         X, y = make_moons(n_samples=1000, noise=0.3, random_state=self.random_state)
 
         # Return in scikit-learn Bunch format
+        class MockBunch:
+            def __init__(self, data, target):
+                self.data = data
+                self.target = target
+
+        return MockBunch(X, y)
+
+    def _load_make_blobs(self):
+        """Load synthetic make_blobs dataset.
+
+        Returns:
+            Bunch-like object with data and target attributes.
+        """
+        # Create synthetic dataset with 3 centers by default
+        X, y = make_blobs(n_samples=1000, centers=3, n_features=2, random_state=self.random_state)
+
         class MockBunch:
             def __init__(self, data, target):
                 self.data = data

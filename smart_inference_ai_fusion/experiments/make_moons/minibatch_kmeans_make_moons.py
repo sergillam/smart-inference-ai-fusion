@@ -1,8 +1,6 @@
 """Experiment script for MiniBatchKMeansModel on the Make Moons dataset."""
 
-from smart_inference_ai_fusion.experiments.experiment_registry import (
-    run_experiment_by_model,
-)
+from smart_inference_ai_fusion.experiments.experiment_registry import run_experiment_by_model
 from smart_inference_ai_fusion.models.minibatch_kmeans_model import MiniBatchKMeansModel
 from smart_inference_ai_fusion.utils.types import SklearnDatasetName
 

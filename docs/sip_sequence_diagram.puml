@@ -1,0 +1,53 @@
+@startuml SIP_Sequence
+title "SIP — Execution Sequence (data -> verification -> report)"
+
+actor User as U
+participant ExperimentRegistry as R
+participant Runner as EXP
+participant InferencePipeline as PIPE
+participant InferenceEngine as DATA
+participant LabelInferenceEngine as LABEL
+participant ParameterInferenceEngine as PARAM
+participant VerificationManager as VM
+participant VerifierRegistry as VREG
+participant Z3 as Z3
+participant CVC5 as CVC5
+participant Reports as REP
+
+U -> R : request run (exp, dataset, flags)
+R -> EXP : resolve config
+EXP -> PIPE : build pipeline (data,label,param)
+PIPE -> DATA : apply(X_train,X_test)
+DATA -> DATA : for transform in pipeline: apply()
+DATA -> PIPE : return X_train', X_test'
+PIPE -> LABEL : apply(y_train,y_test)
+LABEL -> LABEL : for transform in label_pipeline: apply()
+LABEL -> PIPE : return y_train', y_test'
+PIPE -> PARAM : apply(params)
+PARAM -> PARAM : apply perturbations, log
+PARAM -> PIPE : return params'
+
+alt verification enabled
+  PIPE -> VM : verify(step='data', constraints={...})
+  VM -> VREG : get_verifiers_for_constraints()
+  VREG --> VM : [Z3, CVC5]
+  par parallel
+    VM -> Z3 : verify(VerificationInput)
+    VM -> CVC5 : verify(VerificationInput)
+  end
+  Z3 --> VM : StandardVerificationResult
+  CVC5 --> VM : StandardVerificationResult
+  VM -> REP : report_verification_results()
+  VM --> PIPE : consolidated_veredict
+end
+
+EXP -> REP : report_metrics_and_results()
+REP --> U : paths to logs/ and results/
+
+note over VM
+  - auto-select verifiers via registry
+  - plugins create StandardVerificationResult
+  - no separate cache: timeouts are solver-native
+end note
+
+@enduml

@@ -1,22 +1,53 @@
 # Smart Inference AI Fusion
 
-Um framework modular e extensível para experimentos de inferência sintética e perturbações controladas em algoritmos de Inteligência Artificial (IA), com foco em robustez, variabilidade e testes de falhas em dados e parâmetros.
+Um framework modular e extensível para experimentos de inferência sintética e perturbações controladas em algoritmos de Inteligência Artificial (IA), com foco em **verificação formal multi-solver** aplicando variabilidade e testes de falhas em dados, labels e parâmetros de modelos.
 
+## 🎯 Características Principais
+
+- **🔬 Verificação Formal Multi-Solver**: Integração com Z3 e CVC5 para validação matemática de propriedades
+- **🧪 Framework Modular**: Arquitetura plugável para experimentos reproduzíveis
+- **⚡ Pipeline de Inferência**: Perturbações controladas em dados, labels e parâmetros
+- **📈 Comparação Sistemática**: Framework automático de comparação entre solvers SMT
+- **🔄 Reprodutibilidade**: Configuração versionada e logging estruturado
+
+## 🔧 Arquitetura Multi-Solver
+
+### Sistema de Plugins de Verificadores
+```python
+# Plugins disponíveis
+smart_inference_ai_fusion/verification/plugins/
+├── z3_plugin.py          # Plugin Z3 SMT Solver
+├── cvc5_plugin.py        # Plugin CVC5 SMT Solver  
+└── base_plugin.py        # Interface base para novos solvers
+```
+
+### Constraints Implementados
+- **Integridade de Dados**: Preservação de forma, tipo e bounds
+- **Integridade de Labels**: Validação de tipos e ranges
+- **Integridade de Parâmetros**: Verificação de pré/pós-perturbação
+- **Aritmética Real/Inteira**: Constraints matemáticos avançados
 
 ## 📁 Estrutura do Projeto
 ```
 ├── pyproject.toml               # Arquivo de configuração que gerencia dependências e build do projeto
 ├── makefile                     # Comandos automatizados para execução, lint, testes etc.
 ├── README.md                    # Documentação principal do projeto
+├── configs/                     # Configurações de experimentos avançados
 ├── datasets/                    # Contém os datasets não oriundos do scikit-learn (ex: arquivos .csv)
 ├── docs/                        # Documentação adicional e resumos
-├── logs/                        # Logs de execução e inferência
-├── results/                     # Resultados dos experimentos e inferências
-├── scripts/                     # Contém scripts utilizados para automação de configuração;
+├── examples/                    # Exemplos de uso do framework de verificação
+├── logs/                        # Logs de execução e verificação formal
+├── results/                     # Resultados dos experimentos e verificações SMT
+├── scripts/                     # Scripts de automação e configuração
 ├── smart_inference_ai_fusion/   # Código-fonte principal do framework
 │   ├── core/                    # Classes base para Experimento, Modelo e Dataset
-│   ├── datasets/                # Módulos para carregar datasets (de arquivos CSV, scikit-learn etc.)
-│   ├── experiments/             # Scripts de experimentos, agora parte do pacote, com um `run.py` orquestrador
+│   ├── datasets/                # Módulos para carregar datasets (CSV, scikit-learn etc.)
+│   ├── experiments/             # Scripts de experimentos organizados por dataset:
+│   │   ├── wine/                # Experimentos dataset Wine (logistic, tree, mlp)
+│   │   ├── adult/               # Experimentos dataset Adult (logistic, tree, mlp) 
+│   │   ├── breast_cancer/       # Experimentos dataset Breast Cancer (logistic, tree, mlp)
+│   │   ├── make_moons/          # Experimentos dataset Make Moons (logistic, tree, mlp)
+│   │   └── experiment_registry.py # Registry central de experimentos
 │   ├── inference/               # Módulo central de inferência de ruídos
 │   │   ├── engine/              # Motores que orquestram a aplicação das perturbações
 │   │   ├── pipeline/            # Pipeline que integra e aplica as transformações
@@ -25,210 +56,260 @@ Um framework modular e extensível para experimentos de inferência sintética e
 │   │       ├── label/           # Técnicas aplicadas aos rótulos (y)
 │   │       └── params/          # Estratégias de perturbação nos hiperparâmetros
 │   ├── models/                  # Wrappers de modelos (BaseModel-compatíveis)
+│   ├── verification/            # Sistema de verificação formal multi-solver
+│   │   ├── plugins/             # Plugins para diferentes solvers SMT
+│   │   │   ├── z3_plugin.py     # Plugin Z3 SMT Solver
+│   │   │   ├── cvc5_plugin.py   # Plugin CVC5 SMT Solver
+│   │   │   └── base_plugin.py   # Interface base para novos solvers
+│   │   ├── framework/           # Framework de comparação multi-solver
+│   │   └── constraints/         # Definições de constraints formais
 │   └── utils/                   # Funções utilitárias, tipos, métricas e relatórios
 └── tests/                       # Testes unitários do framework
 ```
 
-- **MLPModel**: Otimizado para datasets grandes (NEWSGROUPS_20) com arquiteturas simplificadas e early stopping
-- **Paralelização Inteligente**: `n_jobs=-1` automático quando aplicável, com proteção contra valores inválidos
-- **Configurações Adaptativas**: Parâmetros ajustados automaticamente baseados no dataset (alta dimensionalidade vs. poucos samples)
+### Características dos Modelos por Dataset
+- **LogisticRegression**: Otimizado para convergência rápida com solver `liblinear`
+- **DecisionTree**: Profundidade controlada, critério `gini` para classificação
+- **MLPModel**: Arquitetura adaptativa com early stopping e regularização
 
 ## 🚀 Guia de Instalação e Execução
-### Este guia assume que você está em um ambiente `Linux` ou `MacOS`.
-#### **Pré-requisitos**:
-- `Git`
-- `Python 3.10`
-- `Make` para usar os comandos automatizados
 
-#### **Instalação (Método Recomendado: `make`)**
+### Pré-requisitos
+- **Git** 
+- **Python 3.10+**
+- **Make** para comandos automatizados
+- **Sistema Operacional**: Linux ou MacOS
 
-O `Makefile` automatiza todo o processo de configuração. Você só precisa de um comando.
-1. **Clone o repositório:**
-    ```bash
-    git clone git@github.com:sergillam/smart-inference-ai-fusion.git
-    cd smart-inference-ai-fusion
-    ```
+### Instalação Rápida
 
-2. **Instale as dependências:**
-    
-    - **Para desenvolver no projeto (Recomendado):**
-    
-        Este comando cria o ambiente virtual, instala todas as dependências (de execução, testes, linting, etc.) e o pacote em modo editável.
-        ```bash
-        make install-dev
-        ```
-    
-    - **Apenas para executar os experimentos:**
-    
+O `Makefile` automatiza todo o processo de configuração:
 
-        Este comando faz uma instalação mínima, apenas com as dependências de execução.
-        ```bash
-        make install
-        ```
-
-    - **Nota: Você não precisa criar ou ativar o ambiente virtual (venv) manualmente. Os comandos make cuidam de tudo para você.**
-
-#### **Executando os Experimentos**
-
-Use `make run` para executar os scripts. A variável `EXP` define o alvo.
-
-1. **Executar Todos os Experimentos**
-    
-    Roda o orquestrador principal que executa todos os scripts de experimento.
-    ```bash
-    make run
-    ```
-
-2. **Executar um Pacote de Experimentos**
-    
-    Roda todos os experimentos de um diretório específico.
-    ```bash
-    make run EXP=name_data_set
-    ```
-
-3. **Executar um Único Experimentos**
-    
-    Roda um único arquivo de experimento.
-    ```bash
-    make run EXP=name_data_set.name_experiments
-    ```
-
-4. **Passando Argumentos para os Scripts**
-    
-    Use a variável `ARGS` para passar argumentos customizados para seus scripts.
-    ```bash
-    make run EXP=<seu_alvo> ARGS="--seed 42 --outro_parametro valor"
-    ```
-
-5. **Executar em Modo Debug**
-    
-    Para uma saída de log mais detalhada.
-    ```bash
-    make debug
-    ```
-
-#### **Workflow de Desenvolvimento**
-
-O `Makefile` inclui vários comandos para garantir a qualidade e a manutenção do código.
-
-**Comandos de Qualidade de Código:**
-- `make check`: Roda todas as verificações de qualidade (formatação, linting e estilo de docstrings).
-- `make format`: Formata o código automaticamente com `black` e `isort`.
-- `make check-format`: Verifica formatação sem fazer alterações.
-- `make lint`: Executa análise de código com `pylint`.
-- `make style`: Verifica docstrings no estilo Google.
-- `make test`: Roda a suíte de testes unitários com `pytest`.
-
-**Comandos de Limpeza:**
-- `make clean`: Remove arquivos de cache e build do Python.
-- `make clean-outputs`: Limpa as pastas de `logs` e `results` (útil para garantir uma execução limpa).
-- `make clean-pyc`: Remove apenas arquivos de bytecode Python.
-- `make clean-all`: Executa todas as tarefas de limpeza.
-- `make clean-venv`: Remove o ambiente virtual `.venv`.
-
-**Comandos de Dependências:**
-- `make compile-reqs`: Gera `requirements.txt` a partir do `pyproject.toml`.
-- `make compile-reqs-dev`: Gera `requirements-dev.txt` (inclui dependências de desenvolvimento).
-- `make freeze`: Gera `requirements-freeze.txt` (snapshot do ambiente atual).
-
-**Comandos de CI/CD:**
-- `make ci`: Executa o pipeline completo (qualidade, testes e execução).
-- `make build`: Constrói pacotes wheel e sdist.
-- `make publish`: Publica no TestPyPI.
-- `make publish-prod`: Publica no PyPI oficial.
-
-**Utilitários:**
-- `make help`: Lista todos os comandos disponíveis e o que eles fazem.
-- `make print-VARIAVEL`: Debug de variáveis do Makefile (ex: `make print-PKG`).
-
-#### **Instalação Manual (Alternativa)**
-Para usuários de `Windows` ou que não desejam usar `make`.
 ```bash
-# 1. Clone o repositório e entre na pasta
-
+# 1. Clone o repositório
 git clone git@github.com:sergillam/smart-inference-ai-fusion.git
-cd smart-inference-ai_fusion
+cd smart-inference-ai-fusion
 
-# 2. Crie e ative o ambiente virtual
-# No Windows:
-python -m venv .venv
-.\.venv\Scripts\activate
+# 2. Instalação completa para desenvolvimento (recomendado)
+make install-dev
 
-# No Linux / MacOS:
-# python3.10 -m venv .venv
-# source .venv/bin/activate
-
-# 3. Instale o projeto e suas dependências
-# O comando abaixo lê o `pyproject.toml` e instala tudo
-pip install -e .[dev]
-
-# Para instalação mínima (sem ferramentas de dev), use:
-# pip install -e .
+# OU instalação mínima apenas para execução
+make install
 ```
 
-## 🧪 Adicionando novos experimentos
+**Nota**: Não é necessário criar ou ativar ambiente virtual manualmente. Os comandos `make` gerenciam tudo automaticamente.
 
-Um experimento representa a aplicação de um algoritmo a um dataset, com ou sem inferência aplicada (nos dados e/ou nos parâmetros).
+## 🧪 Execução de Experimentos
 
+### Comandos Básicos
 
-### ✅ 1. Escolha e carregue o **dataset**
+#### 1. **Verificação Formal com Multi-Solver**
+```bash
+# Executar dataset específico com Z3
+make run verify EXP=wine SOLVERS=z3
 
-Utilize a `DatasetFactory` para criar dinamicamente o carregador com o dataset na origem (`sklearn`, `csv`, etc):
+# Executar com ambos os solvers (Z3 + CVC5)  
+make run verify EXP=adult SOLVERS="z3,cvc5"
+
+# Executar todos os datasets com comparação multi-solver
+make run verify SOLVERS="z3,cvc5"
+```
+
+#### 2. **Experimentos por Dataset**
+```bash
+# Dataset Wine (3 experimentos: logistic, tree, mlp)
+make run verify EXP=wine SOLVERS=z3
+
+# Dataset Adult (com preprocessamento categórico)
+make run verify EXP=adult SOLVERS=cvc5  
+
+# Dataset Breast Cancer (classificação binária)
+make run verify EXP=breast_cancer SOLVERS="z3,cvc5"
+
+# Dataset Make Moons (sintético 2D)
+make run verify EXP=make_moons SOLVERS=z3
+```
+
+#### 3. **Experimentos Específicos**
+```bash
+# Executar apenas modelo específico
+make run verify EXP=wine.logistic SOLVERS=z3
+make run verify EXP=adult.tree SOLVERS=cvc5
+make run verify EXP=make_moons.mlp SOLVERS="z3,cvc5"
+```
+
+### Configuração Avançada
+
+#### Variáveis de Ambiente
+```bash
+# Controle de logging detalhado
+LOG_LEVEL=DEBUG make run verify EXP=wine SOLVERS=z3
+
+# Configuração de timeout para verificação
+VERIFICATION_TIMEOUT=60.0 make run verify EXP=adult SOLVERS=cvc5
+
+# Modo de verificação (strict/flexible) 
+VERIFICATION_MODE=strict make run verify EXP=breast_cancer SOLVERS="z3,cvc5"
+```
+
+## 🔬 Verificação Formal Multi-Solver
+
+### Sistema de Constraints Implementados
+
+O framework implementa verificação formal usando SMT solvers (Z3 e CVC5) para validar propriedades matemáticas:
+
+#### **Constraints de Integridade de Dados**
+- **shape_preservation**: Preservação da dimensionalidade dos dados
+- **type_safety**: Validação de tipos (float64, int32, etc.)
+- **bounds**: Verificação de limites mínimos e máximos
+- **range_check**: Validação de ranges válidos contínuos
+
+#### **Constraints de Integridade de Labels**  
+- **shape_preservation**: Preservação do número de labels
+- **type_safety**: Validação de tipos de labels
+- **bounds**: Verificação de bounds dos labels
+- **integer_arithmetic**: Validação de aritmética inteira
+
+#### **Constraints de Integridade de Parâmetros**
+- **type_safety**: Validação de tipos de parâmetros
+- **bounds**: Verificação de ranges de hiperparâmetros
+- **range_check**: Validação de valores válidos
+- **real_arithmetic**: Verificação de aritmética real
+
+### Exemplo de Saída de Verificação
+
+```bash
+INFO: 🔍 ✅ FORMAL VERIFICATION - CVC5
+INFO:    📊 Contexto: DataPipeline → unknown
+INFO:    🔧 Transformation: data_integrity_input_data
+INFO:    ⚡ Status: SUCCESS (0.002s)
+INFO:    📋 Constraints: 4/4 satisfied
+INFO:    ✅ Satisfied: shape_preservation, type_safety, bounds, range_check
+INFO:    💬 Z3: CVC5 verified all 4 constraints successfully
+```
+
+## 📊 Resultados e Logging
+
+### Estrutura de Outputs
+
+```bash
+results/
+├── solver_comparison/                    # Comparações multi-solver
+├── datapipeline-*-verification-*.json   # Resultados verificação dados
+├── labelpipeline-*-verification-*.json  # Resultados verificação labels  
+├── z3-verification-*.json               # Resultados específicos Z3
+└── *-complete-results-*.json            # Resultados completos experimentos
+
+logs/
+├── verification-*.json                  # Logs de verificação formal
+└── experiments-*.log                    # Logs de execução de experimentos
+```
+
+### Métricas Coletadas
+
+- **Performance**: Accuracy, F1-score, Precision, Recall
+- **Verificação**: Número de constraints satisfeitos/violados, tempo de execução
+- **Comparação**: Agreement entre solvers, diferenças de performance
+- **Robustez**: Impacto das perturbações na precisão do modelo
+
+## 🛠️ Comandos de Desenvolvimento
+
+### Comandos de Qualidade
+```bash
+# Verificações completas de qualidade
+make check                # Todas as verificações
+make format              # Formatação automática (black + isort)
+make lint                # Análise estática (pylint)
+make test                # Testes unitários
+```
+
+### Comandos de Limpeza
+```bash
+make clean              # Remove cache Python
+make clean-outputs      # Limpa logs/ e results/
+make clean-venv         # Remove ambiente virtual
+make clean-all          # Limpeza completa
+```
+
+### Comandos de Build e Deploy
+```bash
+make build              # Build do pacote
+make publish            # Publica no TestPyPI
+make ci                 # Pipeline completo CI/CD
+```
+
+## 🧪 Adicionando Novos Experimentos
+
+### 1. Estrutura de um Experimento
+
+Cada experimento segue o padrão estabelecido:
 
 ```python
-from datasets.factory import DatasetFactory
-from utils.types import DatasetSourceType, SklearnDatasetName
+# smart_inference_ai_fusion/experiments/meu_dataset/logistic_meu_dataset.py
+from smart_inference_ai_fusion.core.experiment_runner import run_experiment_by_model
+from smart_inference_ai_fusion.models.logistic_regression_model import LogisticRegressionModel
+from smart_inference_ai_fusion.utils.types import SklearnDatasetName
 
-# Exemplo: carregar o dataset Iris do sklearn
-dataset = DatasetFactory.create(
-    source_type=DatasetSourceType.SKLEARN,
-    name=SklearnDatasetName.IRIS
-)
+def run():
+    """Executa experimento LogisticRegression no dataset personalizado."""
+    run_experiment_by_model(
+        model_class=LogisticRegressionModel,
+        dataset_name=SklearnDatasetName.MEU_DATASET,
+        experiment_name="logistic_meu_dataset"
+    )
+
+if __name__ == "__main__":
+    run()
 ```
 
-Para dataset externos (ex: `.csv`), troque o tipo e informe o caminho:
-```python
-dataset = DatasetFactory.create(
-    source_type=DatasetSourceType.CSV,
-    path="datasets/wine/wine.csv",
-    label_column="target"
-)
+### 2. Registrar no Registry
 
-```
-Como obter os splits:
-
-Obtenha os dados já separados em treino/teste (80% treino, 20% teste)
-```python
-X_train, X_test, y_train, y_test = dataset.load_split(test_size=0.2)
-```
-💡 Dica: Consulte a docstring da `DatasetFactory` para outros tipos suportados, como outros datasets do sklearn, arquivos csv customizados, etc.
-
-### ✅ 2. Defina o modelo (algoritmo de IA):
-
-Importe o modelo desejado e configure os parâmetros base:
+Adicione seu experimento no `experiment_registry.py`:
 
 ```python
-from models.knn_model import KNNModel
-base_params = {"n_neighbors": 3, "weights": "uniform"}
-model = KNNModel(base_params)
+# Definir experimentos do novo dataset
+MEU_DATASET_EXPERIMENTS = {
+    "LogisticRegressionModel": "smart_inference_ai_fusion.experiments.meu_dataset.logistic_meu_dataset",
+    "DecisionTreeModel": "smart_inference_ai_fusion.experiments.meu_dataset.tree_meu_dataset", 
+    "MLPModel": "smart_inference_ai_fusion.experiments.meu_dataset.mlp_meu_dataset",
+}
+
+# Mapear no registry principal
+DATASET_EXPERIMENT_MAPPING = {
+    # ... outros datasets
+    "meu_dataset": MEU_DATASET_EXPERIMENTS,
+}
 ```
-ℹ️ Observação: O framework possui modelos prontos para KNN, SVM, Decision Tree, Perceptron, GaussianNB e outros. Consulte o diretório `src/models/` para ver todos os disponíveis.
 
-➡️ Próximo passo: Configure sua pipeline de inferência para aplicar perturbações nos dados, rótulos ou parâmetros do modelo (veja o Passo 3).
+### 3. Implementar Loader do Dataset
 
-###  ✅ 3. Adicione inferência com o `InferencePipeline`
+Se necessário, adicione função de carregamento em `sklearn_loader.py`:
 
-#### ✅ 3.1 Inferência nos parâmetros
-- Informe as configurações separadas para dados `DataNoiseConfig`, rótulos `LabelNoiseConfig` e parâmetros do modelo `ParameterNoiseConfig`.
-Essas configs são validadas por Pydantic e cada uma ativa diferentes técnicas:
+```python
+def _load_meu_dataset(self) -> MockBunch:
+    """Carrega dataset personalizado."""
+    # Implementar lógica de carregamento
+    data, target = load_your_custom_data()
+    
+    return MockBunch(
+        data=data,
+        target=target,
+        feature_names=[f"feature_{i}" for i in range(data.shape[1])],
+        target_names=["class_0", "class_1"]  # ajustar conforme necessário
+    )
+```
 
-    ```python
-    from utils.types import DataNoiseConfig, LabelNoiseConfig, ParameterNoiseConfig
+### 4. Executar o Novo Dataset
 
-    data_noise_config = DataNoiseConfig(
-        noise_level=0.2,
-        truncate_decimals=1,
-        quantize_bins=5,
+```bash
+# Testar com um solver
+make run verify EXP=meu_dataset SOLVERS=z3
+
+# Testar com ambos os solvers  
+make run verify EXP=meu_dataset SOLVERS="z3,cvc5"
+
+# Executar modelo específico
+make run verify EXP=meu_dataset.logistic SOLVERS=z3
+```
         cast_to_int=False,
         shuffle_fraction=0.1,
         scale_range=(0.8, 1.2),
@@ -256,56 +337,116 @@ Essas configs são validadas por Pydantic e cada uma ativa diferentes técnicas:
         swap_within_class_fraction=0.1,
     )
 
-    param_noise_config = ParameterNoiseConfig(
-        integer_noise=True,
-        boolean_flip=True,
-        string_mutator=True,
-        semantic_mutation=True,
-        scale_hyper=True,
-        cross_dependency=True,
-        random_from_space=True,
-        bounded_numeric=True,
-        type_cast_perturbation=True,
-        enum_boundary_shift=True,
-    )
-    ```
+## 🚨 Troubleshooting
 
-#### ✅ 3.2 Instancie a pipeline de inferência
-- Instancie o pipeline passando as configs desejadas (todas opcionais):
-    ```python
-    from inference.pipeline.inference_pipeline import InferencePipeline
+### Problemas Comuns
 
-    pipeline = InferencePipeline(
-        data_noise_config=data_noise_config,
-        label_noise_config=label_noise_config,
-        X_train=X_train,  # X_train é necessário para algumas técnicas de rótulo
-    )
-    ```
+#### **1. Erro de Solver não Encontrado**
+```bash
+ERROR: Z3 solver not available
+```
+**Solução**: Instale as dependências SMT:
+```bash
+make install-dev  # Instala z3-solver e cvc5 automaticamente
+```
 
-#### ✅ 3.3 Aplique as perturbações
-- Dados (X):
-    ```python
-    X_train_pert, X_test_pert = pipeline.apply_data_inference(X_train, X_test)
-    ```
-- Rótulos (y):
-    ```python
-    y_train_pert, y_test_pert = pipeline.apply_label_inference(
-        y_train, y_test,
-        model=model,             # obrigatório para algumas técnicas (ex: flip_near_border)
-        X_train=X_train_pert,    # passe os dados já perturbados, se aplicável
-        X_test=X_test_pert
-    )
-    ```
-- Parâmetros (opcional, para perturbar hiperparâmetros):
-    ```python
-    from models.gaussian_model import GaussianNBModel
+#### **2. Timeout de Verificação**
+```bash
+WARNING: Verification timeout after 30.0s
+```
+**Solução**: Aumente o timeout:
+```bash
+VERIFICATION_TIMEOUT=60.0 make run verify EXP=wine SOLVERS=z3
+```
 
-    model, param_log = pipeline.apply_param_inference(
-        model_class=GaussianNBModel,
-        base_params={"var_smoothing": 1e-9}
-    )
-    ```
-##### Obs:
+#### **3. Erro de Registro de Experimento**
+```bash
+ERROR: Model 'LogisticRegressionModel' not found in registry
+```
+**Solução**: Verifique se o modelo está registrado em `experiment_registry.py`
+
+#### **4. Problema de Memória em Datasets Grandes**
+**Solução**: Use modelos otimizados para datasets grandes:
+```python
+# MLPModel já tem otimizações automáticas
+# Para Adult dataset, usar max_iter=300 automaticamente aplicado
+```
+
+### Logs de Debug
+
+Para debug detalhado:
+```bash
+# Ativar logging debug
+LOG_LEVEL=DEBUG make run verify EXP=wine SOLVERS=z3
+
+# Verificar logs específicos
+tail -f logs/verification-*.json
+tail -f logs/experiments-*.log
+```
+
+## 🤝 Contribuição
+
+### Como Contribuir
+
+1. **Fork** o repositório
+2. **Clone** sua fork localmente
+3. **Crie** uma branch para sua feature: `git checkout -b feature/nova-funcionalidade`
+4. **Implemente** sua mudança seguindo os padrões do projeto
+5. **Execute** os testes: `make check && make test`
+6. **Commit** suas mudanças: `git commit -m "feat: adiciona nova funcionalidade"`
+7. **Push** para sua branch: `git push origin feature/nova-funcionalidade`
+8. **Abra** um Pull Request
+
+### Padrões de Código
+
+- **Formatação**: Black + isort (executar `make format`)
+- **Linting**: Pylint com score > 8.0 (executar `make lint`)
+- **Docstrings**: Estilo Google (verificar com `make style`)
+- **Testes**: Pytest para novas funcionalidades
+- **Commits**: Conventional Commits (`feat:`, `fix:`, `docs:`, etc.)
+
+### Estrutura de Testes
+
+```bash
+tests/
+├── unit/                    # Testes unitários
+│   ├── test_models.py
+│   ├── test_verification.py
+│   └── test_datasets.py
+├── integration/             # Testes de integração
+│   ├── test_pipeline.py
+│   └── test_multi_solver.py
+└── fixtures/                # Dados de teste
+    └── sample_data.py
+```
+
+## 📄 Licença
+
+Este projeto está licenciado sob a **MIT License** - veja o arquivo [LICENSE](LICENSE) para detalhes.
+
+## 🔗 Links Úteis
+
+- **Documentação Z3**: [https://z3prover.github.io/api/html/index.html](https://z3prover.github.io/api/html/index.html)
+- **Documentação CVC5**: [https://cvc5.github.io/docs/](https://cvc5.github.io/docs/)
+- **Scikit-learn**: [https://scikit-learn.org/stable/](https://scikit-learn.org/stable/)
+- **SMT-LIB**: [https://smtlib.cs.uiowa.edu/](https://smtlib.cs.uiowa.edu/)
+
+## 📧 Contato
+
+Para dúvidas, sugestões ou colaborações:
+
+- **Autor**: Sergillam Barroso Oliveira
+- **Email**: sgm.oliveira96@gmail.com
+- **GitHub**: [@sergillam](https://github.com/sergillam)
+- **LinkedIn**: [Sergillam](https://www.linkedin.com/in/sergillam-oliveira-0b6a9b8b/
+
+---
+
+**⭐ Se este projeto foi útil para você, considere dar uma estrela no repositório!**
+
+---
+
+*Desenvolvido como parte da pesquisa em Verificação Formal aplicada a Machine Learning - Universidade Federal do Amazonas - UFAM*
 - Passe apenas as configs de interesse. Se não quiser inferência em algum aspecto, omita o argumento (por exemplo, `InferencePipeline(data_noise_config=data_noise_config))`.
 
 - Consulte os exemplos em `experiments/` para fluxos completos.

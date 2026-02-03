@@ -1,4 +1,4 @@
-"""Experiment script for MLPModel on the Make Moons dataset."""
+"""MLP experiment for Make Moons dataset."""
 
 from smart_inference_ai_fusion.experiments.experiment_registry import (
     run_experiment_by_model,
@@ -8,10 +8,7 @@ from smart_inference_ai_fusion.utils.types import SklearnDatasetName
 
 
 def run():
-    """Run MLPModel experiments on the Make Moons dataset.
-
-    Executes both baseline and inference experiments using standard configurations.
-    """
+    """Run Make Moons dataset MLP experiment."""
     return run_experiment_by_model(MLPModel, dataset_name=SklearnDatasetName.MAKE_MOONS)
 
 
