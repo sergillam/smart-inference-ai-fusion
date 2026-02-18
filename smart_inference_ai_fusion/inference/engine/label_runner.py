@@ -170,8 +170,9 @@ class LabelInferenceEngine:
         for transform in self.label_pipeline:
             transform_name = transform.__class__.__name__
 
-            # Store state before transformation
+            # Store state before transformation (both train and test)
             y_train_before = np.asarray(y_train).copy() if collect_statistics else None
+            y_test_before = np.asarray(y_test).copy() if collect_statistics else None
 
             if getattr(transform, "requires_model", False):
                 y_train = transform.apply(y_train, X=X_train, model=model)
@@ -180,12 +181,15 @@ class LabelInferenceEngine:
                 y_train = transform.apply(y_train)
                 y_test = transform.apply(y_test)
 
-            # Track transformation statistics
+            # Track transformation statistics (for both train and test)
             if collect_statistics:
                 statistics["transformations_applied"].append(transform_name)
-                if y_train_before is not None:
-                    transform_stats = _compute_label_changes(y_train_before, y_train)
-                    transform_stats["transformation_name"] = transform_name
+                if y_train_before is not None and y_test_before is not None:
+                    transform_stats = {
+                        "transformation_name": transform_name,
+                        "train": _compute_label_changes(y_train_before, y_train),
+                        "test": _compute_label_changes(y_test_before, y_test),
+                    }
                     statistics["per_transformation_stats"].append(transform_stats)
 
         if collect_statistics:
