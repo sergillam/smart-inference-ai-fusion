@@ -159,7 +159,7 @@ class InferencePipeline:
 
         return model, log_dict
 
-    def apply_data_inference(self, X_train, X_test):
+    def apply_data_inference(self, X_train, X_test, collect_statistics: bool = True):
         """Applies data perturbations to input features.
 
         Args:
@@ -167,18 +167,23 @@ class InferencePipeline:
                 Training features.
             X_test (Any):
                 Test features.
+            collect_statistics (bool):
+                Whether to collect transformation statistics. Defaults to True.
 
         Returns:
-            tuple: A tuple of `(X_train_perturbed, X_test_perturbed)`.
+            tuple: A tuple of `(X_train_perturbed, X_test_perturbed, statistics)`.
+                If collect_statistics is False, statistics will be an empty dict.
         """
         if not self.data_engine:
-            return X_train, X_test
+            return X_train, X_test, {}
 
         # Verificar integridade dos dados de entrada
         if self.config and self.config.should_verify():
             self._verify_data_integrity("input_data", X_train, X_test)
 
-        X_train_perturbed, X_test_perturbed = self.data_engine.apply(X_train, X_test)
+        X_train_perturbed, X_test_perturbed, statistics = self.data_engine.apply(
+            X_train, X_test, collect_statistics=collect_statistics
+        )
 
         # Verificar integridade dos dados após perturbação
         if self.config and self.config.should_verify():
@@ -190,9 +195,17 @@ class InferencePipeline:
                 original_test=X_test,
             )
 
-        return X_train_perturbed, X_test_perturbed
+        return X_train_perturbed, X_test_perturbed, statistics
 
-    def apply_label_inference(self, y_train, y_test, model=None, X_train=None, X_test=None):
+    def apply_label_inference(
+        self,
+        y_train,
+        y_test,
+        model=None,
+        X_train=None,
+        X_test=None,
+        collect_statistics: bool = True,
+    ):
         """Applies label perturbations to target labels.
 
         Args:
@@ -206,19 +219,27 @@ class InferencePipeline:
                 Training features, used by certain label techniques.
             X_test (Any, optional):
                 Test features, used by certain label techniques.
+            collect_statistics (bool):
+                Whether to collect distribution statistics. Defaults to True.
 
         Returns:
-            tuple: A tuple of `(y_train_perturbed, y_test_perturbed)`.
+            tuple: A tuple of `(y_train_perturbed, y_test_perturbed, statistics)`.
+                If collect_statistics is False, statistics will be an empty dict.
         """
         if not self.label_engine:
-            return y_train, y_test
+            return y_train, y_test, {}
 
         # Verificar integridade dos labels de entrada
         if self.config and self.config.should_verify():
             self._verify_label_integrity("input_labels", y_train, y_test)
 
-        y_train_perturbed, y_test_perturbed = self.label_engine.apply(
-            y_train=y_train, y_test=y_test, model=model, X_train=X_train, X_test=X_test
+        y_train_perturbed, y_test_perturbed, statistics = self.label_engine.apply(
+            y_train=y_train,
+            y_test=y_test,
+            model=model,
+            X_train=X_train,
+            X_test=X_test,
+            collect_statistics=collect_statistics,
         )
 
         # Verificar integridade dos labels após perturbação
@@ -231,7 +252,7 @@ class InferencePipeline:
                 original_test=y_test,
             )
 
-        return y_train_perturbed, y_test_perturbed
+        return y_train_perturbed, y_test_perturbed, statistics
 
     # ======= MÉTODOS DE VERIFICAÇÃO MULTI-SOLVER =======
 
