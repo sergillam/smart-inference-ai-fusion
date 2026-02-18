@@ -257,16 +257,25 @@ class InferenceEngine:
 
             # Store sampled state before transformation for per-transform stats
             if collect_statistics:
-                n_samples = X_train.shape[0]
-                if n_samples > _STATS_SAMPLE_SIZE:
-                    sample_idx = np.random.choice(n_samples, _STATS_SAMPLE_SIZE, replace=False)
-                    X_train_sample_before = X_train[sample_idx].copy()
+                n_train = X_train.shape[0]
+                n_test = X_test.shape[0]
+                if n_train > _STATS_SAMPLE_SIZE:
+                    train_sample_idx = np.random.choice(n_train, _STATS_SAMPLE_SIZE, replace=False)
+                    X_train_sample_before = X_train[train_sample_idx].copy()
                 else:
-                    sample_idx = None
+                    train_sample_idx = None
                     X_train_sample_before = X_train.copy()
+                if n_test > _STATS_SAMPLE_SIZE:
+                    test_sample_idx = np.random.choice(n_test, _STATS_SAMPLE_SIZE, replace=False)
+                    X_test_sample_before = X_test[test_sample_idx].copy()
+                else:
+                    test_sample_idx = None
+                    X_test_sample_before = X_test.copy()
             else:
-                sample_idx = None
+                train_sample_idx = None
+                test_sample_idx = None
                 X_train_sample_before = None
+                X_test_sample_before = None
 
             if isinstance(transform, clustering_transforms):
                 imputer = SimpleImputer(strategy="mean")
@@ -280,15 +289,22 @@ class InferenceEngine:
                 statistics["transformations_applied"].append(transform_name)
                 if X_train_sample_before is not None:
                     # Use same sample indices for after comparison
-                    if sample_idx is not None:
-                        X_train_sample_after = X_train[sample_idx]
-                    else:
-                        X_train_sample_after = X_train
-                    transform_stats = _compute_perturbation_diff(
-                        X_train_sample_before, X_train_sample_after
+                    X_train_sample_after = (
+                        X_train[train_sample_idx] if train_sample_idx is not None else X_train
                     )
-                    transform_stats["transformation_name"] = transform_name
-                    transform_stats["sampled"] = sample_idx is not None
+                    X_test_sample_after = (
+                        X_test[test_sample_idx] if test_sample_idx is not None else X_test
+                    )
+                    transform_stats = {
+                        "transformation_name": transform_name,
+                        "sampled": train_sample_idx is not None or test_sample_idx is not None,
+                        "train": _compute_perturbation_diff(
+                            X_train_sample_before, X_train_sample_after
+                        ),
+                        "test": _compute_perturbation_diff(
+                            X_test_sample_before, X_test_sample_after
+                        ),
+                    }
                     statistics["per_transformation_stats"].append(transform_stats)
 
         if collect_statistics:
