@@ -58,6 +58,77 @@ from smart_inference_ai_fusion.inference.transformations.data.temporal_drift_inj
 from smart_inference_ai_fusion.utils.types import DataNoiseConfig
 
 
+def _compute_data_statistics(X: np.ndarray, name: str) -> dict:
+    """Compute statistics for a data array.
+
+    Args:
+        X: Data array to analyze
+        name: Name identifier for the statistics
+
+    Returns:
+        Dictionary with statistics
+    """
+    stats = {
+        f"{name}_shape": list(X.shape),
+        f"{name}_mean": float(np.nanmean(X)),
+        f"{name}_std": float(np.nanstd(X)),
+        f"{name}_min": float(np.nanmin(X)),
+        f"{name}_max": float(np.nanmax(X)),
+        f"{name}_nan_count": int(np.isnan(X).sum()),
+        f"{name}_nan_fraction": float(np.isnan(X).sum() / X.size) if X.size > 0 else 0.0,
+    }
+    return stats
+
+
+def _compute_perturbation_diff(X_before: np.ndarray, X_after: np.ndarray) -> dict:
+    """Compute perturbation statistics between original and transformed data.
+
+    Args:
+        X_before: Original data array
+        X_after: Transformed data array
+
+    Returns:
+        Dictionary with perturbation statistics
+    """
+    # Handle shape differences (features may have been added/removed)
+    if X_before.shape != X_after.shape:
+        return {
+            "shape_changed": True,
+            "original_shape": list(X_before.shape),
+            "transformed_shape": list(X_after.shape),
+            "features_added": (
+                max(0, X_after.shape[1] - X_before.shape[1]) if len(X_after.shape) > 1 else 0
+            ),
+            "features_removed": (
+                max(0, X_before.shape[1] - X_after.shape[1]) if len(X_before.shape) > 1 else 0
+            ),
+        }
+
+    # Compute element-wise differences
+    diff = X_after - X_before
+    changed_mask = ~np.isclose(X_before, X_after, equal_nan=True)
+
+    stats = {
+        "shape_changed": False,
+        "samples_affected": (
+            int(np.any(changed_mask, axis=1).sum())
+            if len(changed_mask.shape) > 1
+            else int(changed_mask.sum())
+        ),
+        "samples_affected_fraction": (
+            float(np.any(changed_mask, axis=1).mean())
+            if len(changed_mask.shape) > 1
+            else float(changed_mask.mean())
+        ),
+        "elements_changed": int(changed_mask.sum()),
+        "elements_changed_fraction": float(changed_mask.mean()),
+        "mean_absolute_change": float(np.nanmean(np.abs(diff))),
+        "max_absolute_change": float(np.nanmax(np.abs(diff))) if changed_mask.any() else 0.0,
+        "mean_relative_change": float(np.nanmean(np.abs(diff) / (np.abs(X_before) + 1e-10))),
+    }
+    return stats
+
+
 class InferenceEngine:
     """Pipeline for applying multiple perturbation techniques to feature data (X).
 
@@ -123,7 +194,9 @@ class InferenceEngine:
 
         return pipeline
 
-    def apply(self, X_train: np.ndarray, X_test: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def apply(
+        self, X_train: np.ndarray, X_test: np.ndarray, collect_statistics: bool = True
+    ) -> Tuple[np.ndarray, np.ndarray, dict]:
         """Apply the pipeline of transformations to training and test data.
 
         Automatically imputes missing values (with `mean` strategy) before
@@ -135,21 +208,63 @@ class InferenceEngine:
                 Shape: (n_samples_train, n_features).
             X_test (np.ndarray): Test feature matrix.
                 Shape: (n_samples_test, n_features).
+            collect_statistics (bool): Whether to collect transformation statistics.
+                Defaults to True.
 
         Returns:
-            Tuple[np.ndarray, np.ndarray]: A tuple `(X_train_perturbed, X_test_perturbed)`
-            after applying the pipeline.
+            Tuple[np.ndarray, np.ndarray, dict]: A tuple `(X_train_perturbed, X_test_perturbed, statistics)`
+            after applying the pipeline. The statistics dict contains transformation details.
 
         Raises:
             ValueError: If `X_train` and `X_test` have mismatched feature dimensions.
             RuntimeError: If any transformation fails during execution.
         """
+        # Store original data for statistics
+        X_train_original = X_train.copy() if collect_statistics else None
+        X_test_original = X_test.copy() if collect_statistics else None
+
+        statistics = {
+            "transformations_applied": [],
+            "per_transformation_stats": [],
+        }
+
+        if collect_statistics:
+            statistics["original"] = {
+                "train": _compute_data_statistics(X_train, "train"),
+                "test": _compute_data_statistics(X_test, "test"),
+            }
+
         clustering_transforms = (ClusterSwap, GroupOutlierInjection)
         for transform in self.pipeline:
+            transform_name = transform.__class__.__name__
+
+            # Store state before transformation for per-transform stats
+            X_train_before = X_train.copy() if collect_statistics else None
+
             if isinstance(transform, clustering_transforms):
                 imputer = SimpleImputer(strategy="mean")
                 X_train = imputer.fit_transform(X_train)
                 X_test = imputer.transform(X_test)
             X_train = transform.apply(X_train)
             X_test = transform.apply(X_test)
-        return X_train, X_test
+
+            # Track transformation statistics
+            if collect_statistics:
+                statistics["transformations_applied"].append(transform_name)
+                if X_train_before is not None:
+                    transform_stats = _compute_perturbation_diff(X_train_before, X_train)
+                    transform_stats["transformation_name"] = transform_name
+                    statistics["per_transformation_stats"].append(transform_stats)
+
+        if collect_statistics:
+            statistics["transformed"] = {
+                "train": _compute_data_statistics(X_train, "train"),
+                "test": _compute_data_statistics(X_test, "test"),
+            }
+            # Overall perturbation summary
+            statistics["overall_perturbation"] = {
+                "train": _compute_perturbation_diff(X_train_original, X_train),
+                "test": _compute_perturbation_diff(X_test_original, X_test),
+            }
+
+        return X_train, X_test, statistics

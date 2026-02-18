@@ -1,5 +1,7 @@
 """Label inference engine for applying noise/perturbation techniques to target labels."""
 
+import numpy as np
+
 from smart_inference_ai_fusion.inference.transformations.label.label_confusion_matrix_noise import (
     LabelConfusionMatrixNoise,
 )
@@ -16,6 +18,72 @@ from smart_inference_ai_fusion.inference.transformations.label.random_label_nois
     RandomLabelNoise,
 )
 from smart_inference_ai_fusion.utils.types import LabelNoiseConfig
+
+
+def _compute_label_distribution(y: np.ndarray) -> dict:
+    """Compute label distribution statistics.
+
+    Args:
+        y: Label array
+
+    Returns:
+        Dictionary with distribution statistics
+    """
+    y_arr = np.asarray(y)
+    unique, counts = np.unique(y_arr, return_counts=True)
+
+    distribution = {
+        "unique_classes": len(unique),
+        "total_samples": int(len(y_arr)),
+        "class_counts": {str(cls): int(cnt) for cls, cnt in zip(unique, counts)},
+        "class_fractions": {str(cls): float(cnt / len(y_arr)) for cls, cnt in zip(unique, counts)},
+        "class_balance": {
+            "min_class_fraction": float(counts.min() / len(y_arr)) if len(counts) > 0 else 0.0,
+            "max_class_fraction": float(counts.max() / len(y_arr)) if len(counts) > 0 else 0.0,
+            "imbalance_ratio": (
+                float(counts.max() / counts.min()) if counts.min() > 0 else float("inf")
+            ),
+        },
+    }
+    return distribution
+
+
+def _compute_label_changes(y_before: np.ndarray, y_after: np.ndarray) -> dict:
+    """Compute statistics about label changes.
+
+    Args:
+        y_before: Original labels
+        y_after: Transformed labels
+
+    Returns:
+        Dictionary with change statistics
+    """
+    y_before_arr = np.asarray(y_before)
+    y_after_arr = np.asarray(y_after)
+
+    changed_mask = y_before_arr != y_after_arr
+    n_changed = int(changed_mask.sum())
+    n_total = len(y_before_arr)
+
+    stats = {
+        "labels_changed": n_changed,
+        "labels_unchanged": n_total - n_changed,
+        "change_fraction": float(n_changed / n_total) if n_total > 0 else 0.0,
+    }
+
+    # Compute transition matrix (which classes changed to which)
+    if n_changed > 0:
+        transitions = {}
+        for old, new in zip(y_before_arr[changed_mask], y_after_arr[changed_mask]):
+            key = f"{old}->{new}"
+            transitions[key] = transitions.get(key, 0) + 1
+        stats["transitions"] = transitions
+        stats["most_common_transition"] = max(transitions, key=transitions.get)
+    else:
+        stats["transitions"] = {}
+        stats["most_common_transition"] = None
+
+    return stats
 
 
 # pylint: disable=too-many-positional-arguments
@@ -56,7 +124,15 @@ class LabelInferenceEngine:
             if value is not None:
                 self.label_pipeline.append(cls(value))
 
-    def apply(self, y_train, y_test, model=None, X_train=None, X_test=None):
+    def apply(
+        self,
+        y_train,
+        y_test,
+        model=None,
+        X_train=None,
+        X_test=None,
+        collect_statistics: bool = True,
+    ):
         """Applies the configured label transformations to the training and test labels.
 
         Args:
@@ -70,15 +146,57 @@ class LabelInferenceEngine:
                 Training features.
             X_test (Any, optional):
                 Test features.
+            collect_statistics (bool):
+                Whether to collect distribution statistics. Defaults to True.
 
         Returns:
-            tuple: A tuple containing (y_train_perturbed, y_test_perturbed).
+            tuple: A tuple containing (y_train_perturbed, y_test_perturbed, statistics).
         """
+        statistics = {
+            "transformations_applied": [],
+            "per_transformation_stats": [],
+        }
+
+        # Store original labels
+        y_train_original = np.asarray(y_train).copy() if collect_statistics else None
+        y_test_original = np.asarray(y_test).copy() if collect_statistics else None
+
+        if collect_statistics:
+            statistics["original"] = {
+                "train": _compute_label_distribution(y_train),
+                "test": _compute_label_distribution(y_test),
+            }
+
         for transform in self.label_pipeline:
+            transform_name = transform.__class__.__name__
+
+            # Store state before transformation
+            y_train_before = np.asarray(y_train).copy() if collect_statistics else None
+
             if getattr(transform, "requires_model", False):
                 y_train = transform.apply(y_train, X=X_train, model=model)
                 y_test = transform.apply(y_test, X=X_test, model=model)
             else:
                 y_train = transform.apply(y_train)
                 y_test = transform.apply(y_test)
-        return y_train, y_test
+
+            # Track transformation statistics
+            if collect_statistics:
+                statistics["transformations_applied"].append(transform_name)
+                if y_train_before is not None:
+                    transform_stats = _compute_label_changes(y_train_before, y_train)
+                    transform_stats["transformation_name"] = transform_name
+                    statistics["per_transformation_stats"].append(transform_stats)
+
+        if collect_statistics:
+            statistics["transformed"] = {
+                "train": _compute_label_distribution(y_train),
+                "test": _compute_label_distribution(y_test),
+            }
+            # Overall change summary
+            statistics["overall_changes"] = {
+                "train": _compute_label_changes(y_train_original, y_train),
+                "test": _compute_label_changes(y_test_original, y_test),
+            }
+
+        return y_train, y_test, statistics
