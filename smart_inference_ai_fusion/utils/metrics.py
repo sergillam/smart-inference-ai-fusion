@@ -17,6 +17,7 @@ from sklearn.metrics import (
     mean_squared_error,
     median_absolute_error,
     normalized_mutual_info_score,
+    precision_recall_fscore_support,
     precision_score,
     r2_score,
     recall_score,
@@ -75,6 +76,7 @@ def evaluate_classification(
             - "precision": Precision score (using the specified average).
             - "recall": Recall score (using the specified average).
             - "confusion_matrix": Confusion matrix as a nested list.
+            - "per_class_metrics": Dictionary with per-class precision, recall, f1.
 
     Raises:
         ValueError: If ``average`` is not one of "macro", "micro", or "weighted".
@@ -83,14 +85,35 @@ def evaluate_classification(
     if average not in allowed_averages:
         raise ValueError(f"Invalid average '{average}'. Must be one of {allowed_averages}.")
 
+    y_true_arr = np.asarray(y_true)
+    y_pred_arr = np.asarray(y_pred)
+
+    # Get unique labels for per-class metrics
+    labels = np.unique(y_true_arr)
+
     metrics = {
-        "accuracy": accuracy_score(y_true, y_pred),
-        "balanced_accuracy": balanced_accuracy_score(y_true, y_pred),
-        "f1": f1_score(y_true, y_pred, average=average),
-        "precision": precision_score(y_true, y_pred, average=average, zero_division=0),
-        "recall": recall_score(y_true, y_pred, average=average, zero_division=0),
-        "confusion_matrix": confusion_matrix(y_true, y_pred).tolist(),
+        "accuracy": accuracy_score(y_true_arr, y_pred_arr),
+        "balanced_accuracy": balanced_accuracy_score(y_true_arr, y_pred_arr),
+        "f1": f1_score(y_true_arr, y_pred_arr, average=average),
+        "precision": precision_score(y_true_arr, y_pred_arr, average=average, zero_division=0),
+        "recall": recall_score(y_true_arr, y_pred_arr, average=average, zero_division=0),
+        "confusion_matrix": confusion_matrix(y_true_arr, y_pred_arr).tolist(),
     }
+
+    # Add per-class metrics using vectorized computation
+    precision_arr, recall_arr, f1_arr, support_arr = precision_recall_fscore_support(
+        y_true_arr, y_pred_arr, labels=labels, zero_division=0
+    )
+    per_class_metrics = {
+        f"class_{label}": {
+            "precision": float(precision_arr[i]),
+            "recall": float(recall_arr[i]),
+            "f1": float(f1_arr[i]),
+            "support": int(support_arr[i]),
+        }
+        for i, label in enumerate(labels)
+    }
+    metrics["per_class_metrics"] = per_class_metrics
     return metrics
 
 

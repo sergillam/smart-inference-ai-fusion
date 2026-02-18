@@ -1,7 +1,10 @@
 """Common utilities for experiment scripts."""
 
+import random
 import time
 from typing import Callable, Dict, Optional, Type, Union
+
+import numpy as np
 
 from smart_inference_ai_fusion.core.base_model import BaseModel
 from smart_inference_ai_fusion.core.experiment import Experiment
@@ -11,8 +14,10 @@ from smart_inference_ai_fusion.models.agglomerative_clustering_model import (
     AgglomerativeClusteringModel,
 )
 from smart_inference_ai_fusion.models.fastica_model import FastICAModel
+from smart_inference_ai_fusion.models.gaussian_model import GaussianNBModel
 from smart_inference_ai_fusion.models.gaussian_mixture_model import GaussianMixtureModel
 from smart_inference_ai_fusion.models.gradient_boosting_model import GradientBoostingModel
+from smart_inference_ai_fusion.models.knn_model import KNNModel
 from smart_inference_ai_fusion.models.logistic_regression_model import LogisticRegressionModel
 from smart_inference_ai_fusion.models.minibatch_kmeans_model import MiniBatchKMeansModel
 from smart_inference_ai_fusion.models.mlp_model import MLPModel
@@ -24,6 +29,7 @@ from smart_inference_ai_fusion.models.random_forest_regressor_model import (
 )
 from smart_inference_ai_fusion.models.ridge_model import RidgeModel
 from smart_inference_ai_fusion.models.spectral_clustering_model import SpectralClusteringModel
+from smart_inference_ai_fusion.models.svm_model import SVMModel
 from smart_inference_ai_fusion.models.tree_model import DecisionTreeModel
 from smart_inference_ai_fusion.utils.preprocessing import (
     filter_sklearn_params,
@@ -35,6 +41,7 @@ from smart_inference_ai_fusion.utils.report import (
     report_data,
 )
 from smart_inference_ai_fusion.utils.types import (
+    CSVDatasetName,
     DataNoiseConfig,
     DatasetSourceType,
     LabelNoiseConfig,
@@ -42,6 +49,11 @@ from smart_inference_ai_fusion.utils.types import (
     SklearnDatasetName,
     VerificationConfig,
 )
+
+# Target columns for known CSV datasets
+CSV_DATASET_TARGET_COLUMNS = {
+    CSVDatasetName.TITANIC: "Survived",
+}
 
 
 def _create_classification_label_config() -> LabelNoiseConfig:
@@ -179,6 +191,16 @@ MODEL_CONFIG_OVERRIDES: Dict[Type[BaseModel], Dict[str, Callable]] = {
     FastICAModel: {
         "label_config": _create_clustering_label_config,
     },
+    # Classification models without predict_proba support or special needs
+    KNNModel: {
+        "label_config": _create_classification_label_config,
+    },
+    SVMModel: {
+        "label_config": _create_classification_label_config,
+    },
+    GaussianNBModel: {
+        "label_config": _create_classification_label_config,
+    },
 }
 
 
@@ -216,7 +238,9 @@ def get_model_specific_configs(model_class: Type[BaseModel], model_name: str) ->
     return configs
 
 
-def create_dataset(source_type: DatasetSourceType, dataset_name: Union[SklearnDatasetName, str]):
+def create_dataset(
+    source_type: DatasetSourceType, dataset_name: Union[SklearnDatasetName, str, CSVDatasetName]
+):
     """Create a dataset from various sources.
 
     Args:
@@ -229,7 +253,7 @@ def create_dataset(source_type: DatasetSourceType, dataset_name: Union[SklearnDa
     Examples:
         >>> create_dataset(DatasetSourceType.SKLEARN, SklearnDatasetName.DIGITS)
         >>> create_dataset(DatasetSourceType.SKLEARN, SklearnDatasetName.IRIS)
-        >>> create_dataset(DatasetSourceType.CSV, "titanic")
+        >>> create_dataset(DatasetSourceType.CSV, CSVDatasetName.TITANIC)
     """
     if source_type == DatasetSourceType.SKLEARN:
         # Handle both enum and string inputs for sklearn datasets
@@ -241,8 +265,27 @@ def create_dataset(source_type: DatasetSourceType, dataset_name: Union[SklearnDa
         return DatasetFactory.create(DatasetSourceType.SKLEARN, name=name)
 
     if source_type == DatasetSourceType.CSV:
-        # For CSV datasets, dataset_name should be a string path/identifier
-        return DatasetFactory.create(DatasetSourceType.CSV, name=str(dataset_name))
+        # For CSV datasets, need file_path and target_column
+        if isinstance(dataset_name, CSVDatasetName):
+            file_path = dataset_name
+        else:
+            # Try to convert string to CSVDatasetName enum
+            try:
+                file_path = CSVDatasetName(dataset_name)
+            except ValueError:
+                # If not a known CSV dataset name, use as raw path
+                raise ValueError(f"Unknown CSV dataset: {dataset_name}. Use CSVDatasetName enum.")
+
+        # Get target column from known mappings
+        target_column = CSV_DATASET_TARGET_COLUMNS.get(file_path)
+        if target_column is None:
+            raise ValueError(f"Target column not defined for CSV dataset: {file_path}")
+
+        return DatasetFactory.create(
+            DatasetSourceType.CSV,
+            file_path=file_path,
+            target_column=target_column,
+        )
 
     raise ValueError(f"Unsupported dataset source type: {source_type}")
 
@@ -447,12 +490,82 @@ def create_inference_configs_make_blobs():
     return data_config, label_config, param_config
 
 
+def _compute_data_statistics(X: np.ndarray, name: str) -> dict:
+    """Compute statistics for data arrays.
+
+    Args:
+        X: Data array
+        name: Name prefix for the statistics
+
+    Returns:
+        Dictionary with data statistics (shape, mean, std, min, max, nan info)
+    """
+    X_arr = np.asarray(X, dtype=float)
+    return {
+        f"{name}_shape": list(X_arr.shape),
+        f"{name}_mean": float(np.nanmean(X_arr)),
+        f"{name}_std": float(np.nanstd(X_arr)),
+        f"{name}_min": float(np.nanmin(X_arr)),
+        f"{name}_max": float(np.nanmax(X_arr)),
+        f"{name}_nan_count": int(np.isnan(X_arr).sum()),
+        f"{name}_nan_fraction": (
+            float(np.isnan(X_arr).sum() / X_arr.size) if X_arr.size > 0 else 0.0
+        ),
+    }
+
+
+def _compute_label_distribution(y: np.ndarray) -> dict:
+    """Compute label distribution statistics.
+
+    Args:
+        y: Label array
+
+    Returns:
+        Dictionary with distribution statistics (class counts, fractions, balance)
+    """
+    y_arr = np.asarray(y)
+    total_samples = len(y_arr)
+
+    # Handle empty label arrays to avoid division by zero
+    if total_samples == 0:
+        return {
+            "unique_classes": 0,
+            "total_samples": 0,
+            "class_counts": {},
+            "class_fractions": {},
+            "class_balance": {
+                "min_class_fraction": 0.0,
+                "max_class_fraction": 0.0,
+                "imbalance_ratio": 0.0,
+            },
+        }
+
+    unique, counts = np.unique(y_arr, return_counts=True)
+
+    return {
+        "unique_classes": len(unique),
+        "total_samples": int(total_samples),
+        "class_counts": {str(cls): int(cnt) for cls, cnt in zip(unique, counts)},
+        "class_fractions": {
+            str(cls): float(cnt / total_samples) for cls, cnt in zip(unique, counts)
+        },
+        "class_balance": {
+            "min_class_fraction": float(counts.min() / total_samples) if len(counts) > 0 else 0.0,
+            "max_class_fraction": float(counts.max() / total_samples) if len(counts) > 0 else 0.0,
+            "imbalance_ratio": (
+                float(counts.max() / counts.min()) if counts.min() > 0 else float("inf")
+            ),
+        },
+    }
+
+
 def run_baseline_experiment(
     model_class: Type[BaseModel],
     model_name: str,
     dataset_source: DatasetSourceType,
-    dataset_name: Union[SklearnDatasetName, str],
+    dataset_name: Union[SklearnDatasetName, str, CSVDatasetName],
     filtered_params: Optional[dict] = None,
+    seed: Optional[int] = None,
 ):
     """Run baseline experiment without inference.
 
@@ -462,28 +575,56 @@ def run_baseline_experiment(
         dataset_source (DatasetSourceType): Source type of the dataset (SKLEARN, CSV, etc.).
         dataset_name (SklearnDatasetName | str): Name/identifier of the dataset.
         filtered_params (Optional[dict]): Optional filtered parameters for the model.
+        seed (Optional[int]): Random seed for reproducibility.
 
     Returns:
         dict: Experiment results.
     """
+    # Set random seed for reproducibility
+    if seed is not None:
+        np.random.seed(seed)
+        random.seed(seed)
+
     # Start timing
-    start_time = time.time()
+    start_time = time.perf_counter()
+    timing_breakdown = {}
 
     report_data(f"=== {dataset_name} WITHOUT INFERENCE {model_name} ===", mode=ReportMode.PRINT)
 
-    # Create dataset and model using generic function
+    # Phase 1: Dataset preparation
+    dataset_start = time.perf_counter()
     dataset = create_dataset(dataset_source, dataset_name)
     X_train, X_test, y_train, y_test = dataset.load_data()
+    timing_breakdown["dataset_preparation"] = time.perf_counter() - dataset_start
 
+    # Compute original data and label statistics (P1: baseline detail enhancement)
+    data_statistics = {
+        "original_train": _compute_data_statistics(X_train, "train"),
+        "original_test": _compute_data_statistics(X_test, "test"),
+    }
+    label_statistics = {
+        "original_train": _compute_label_distribution(y_train),
+        "original_test": _compute_label_distribution(y_test),
+    }
+
+    # Phase 2: Model initialization
+    model_init_start = time.perf_counter()
     params = filtered_params or {}
     model = model_class(**params)
+    timing_breakdown["model_initialization"] = time.perf_counter() - model_init_start
 
-    # Run experiment
+    # Phase 3: Run experiment (training + predictions + evaluation)
     experiment = Experiment(model=model, dataset=dataset)
+    experiment_start = time.perf_counter()
     metrics = experiment.run(X_train, X_test, y_train, y_test)
+    experiment_time = time.perf_counter() - experiment_start
 
-    # Calculate execution time
-    execution_time = time.time() - start_time
+    # Break down experiment time into training and evaluation
+    # This is a rough estimate since Experiment.run() does both
+    timing_breakdown["training_and_evaluation"] = experiment_time
+
+    # Calculate total execution time
+    execution_time = time.perf_counter() - start_time
 
     report_data("Evaluation metrics (no inference):", mode=ReportMode.PRINT)
     report_data(metrics, mode=ReportMode.PRINT)
@@ -491,6 +632,11 @@ def run_baseline_experiment(
 
     # Add execution time to metrics
     metrics["execution_time_seconds"] = execution_time
+    metrics["timing_breakdown"] = timing_breakdown
+
+    # P1: Add original data and label statistics (same format as inference experiments)
+    metrics["data_statistics"] = data_statistics
+    metrics["label_statistics"] = label_statistics
 
     # Note: Individual JSON files no longer generated - results will be in consolidated format
 
@@ -501,10 +647,11 @@ def run_inference_experiment(
     model_class: Type[BaseModel],
     model_name: str,
     dataset_source: DatasetSourceType,
-    dataset_name: Union[SklearnDatasetName, str],
+    dataset_name: Union[SklearnDatasetName, str, CSVDatasetName],
     *,
     filtered_params: Optional[dict] = None,
     verification_config: Optional[VerificationConfig] = None,
+    seed: Optional[int] = None,
 ):
     """Run experiment with full inference pipeline.
 
@@ -515,18 +662,27 @@ def run_inference_experiment(
         dataset_name (SklearnDatasetName | str): Name/identifier of the dataset.
         filtered_params (Optional[dict]): Optional filtered parameters for the model.
         verification_config (Optional[VerificationConfig]): Configuration for formal verification.
+        seed (Optional[int]): Random seed for reproducibility.
 
     Returns:
         dict: Experiment results.
     """
+    # Set random seed for reproducibility
+    if seed is not None:
+        np.random.seed(seed)
+        random.seed(seed)
+
     # Start timing
-    start_time = time.time()
+    start_time = time.perf_counter()
+    timing_breakdown = {}
 
     report_data(
         f"=== {dataset_name} WITH INFERENCE (data + param + label) {model_name} ===",
         mode=ReportMode.PRINT,
     )
 
+    # Phase 1: Configuration loading
+    config_start = time.perf_counter()
     # Create base configurations - use dataset specific config if needed
     if isinstance(dataset_name, SklearnDatasetName):
         if dataset_name == SklearnDatasetName.MAKE_MOONS:
@@ -547,6 +703,7 @@ def run_inference_experiment(
     # Create dataset and load data using generic function
     dataset = create_dataset(dataset_source, dataset_name)
     X_train, X_test, y_train, y_test = dataset.load_data()
+    timing_breakdown["configuration_and_dataset_load"] = time.perf_counter() - config_start
 
     # Create pipeline and model
     pipeline_verification_config = None
@@ -566,14 +723,22 @@ def run_inference_experiment(
 
     params = filtered_params or {}
 
-    # Apply inference transformations
-    X_train, X_test = pipeline.apply_data_inference(X_train, X_test)
-    y_train, y_test = pipeline.apply_label_inference(
+    # Phase 2: Data inference
+    data_inf_start = time.perf_counter()
+    X_train, X_test, data_inference_stats = pipeline.apply_data_inference(X_train, X_test)
+    timing_breakdown["data_inference"] = time.perf_counter() - data_inf_start
+
+    # Phase 3: Label inference
+    label_inf_start = time.perf_counter()
+    y_train, y_test, label_inference_stats = pipeline.apply_label_inference(
         y_train, y_test, model=None, X_train=X_train, X_test=X_test
     )
+    timing_breakdown["label_inference"] = time.perf_counter() - label_inf_start
 
-    # Apply parameter inference and create model
-    model, _ = pipeline.apply_param_inference(model_class, params)  # param_info is unused
+    # Phase 4: Parameter inference and create model
+    param_inf_start = time.perf_counter()
+    model, parameter_log = pipeline.apply_param_inference(model_class, params)
+    timing_breakdown["parameter_inference"] = time.perf_counter() - param_inf_start
 
     # Validate and fix any invalid parameters that may have been introduced by inference
     if (
@@ -589,19 +754,34 @@ def run_inference_experiment(
         if validated_params != sklearn_params:
             model.model.set_params(**validated_params)
 
-    # Run experiment
+    # Phase 5: Run experiment (training + predictions + evaluation)
     experiment = Experiment(model=model, dataset=dataset)
+    experiment_start = time.perf_counter()
     metrics = experiment.run(X_train, X_test, y_train, y_test)
+    timing_breakdown["training_and_evaluation"] = time.perf_counter() - experiment_start
 
-    # Calculate execution time
-    execution_time = time.time() - start_time
+    # Calculate total execution time
+    execution_time = time.perf_counter() - start_time
 
     report_data("Evaluation metrics (with inference):", mode=ReportMode.PRINT)
     report_data(metrics, mode=ReportMode.PRINT)
     report_data(f"Execution time: {execution_time:.2f} seconds", mode=ReportMode.PRINT)
 
-    # Add execution time to metrics
+    # Add execution time and timing breakdown to metrics
     metrics["execution_time_seconds"] = execution_time
+    metrics["timing_breakdown"] = timing_breakdown
+
+    # P0.1: Add parameter perturbation log if available
+    if parameter_log and "perturbed_params" in parameter_log:
+        metrics["parameter_perturbation_log"] = parameter_log.get("perturbed_params", {})
+
+    # P1.3: Add verification summary if verification was enabled
+    if parameter_log and "verification_results" in parameter_log:
+        metrics["verification_summary"] = parameter_log.get("verification_results", {})
+
+    # P1: Add phase-level transformation statistics
+    metrics["data_inference_statistics"] = data_inference_stats
+    metrics["label_inference_statistics"] = label_inference_stats
 
     # Note: Individual JSON files no longer generated - results will be in consolidated format
 
@@ -612,10 +792,11 @@ def run_standard_experiment(
     model_class: Type[BaseModel],
     model_name: str,
     dataset_source: DatasetSourceType,
-    dataset_name: Union[SklearnDatasetName, str],
+    dataset_name: Union[SklearnDatasetName, str, CSVDatasetName],
     *,
     model_params: Optional[dict] = None,
     verification_config: Optional[VerificationConfig] = None,
+    seed: Optional[int] = None,
 ):
     """Run both baseline and inference experiments for a model on any dataset.
 
@@ -626,6 +807,7 @@ def run_standard_experiment(
         dataset_name (SklearnDatasetName | str): Name/identifier of the dataset.
         model_params (Optional[dict]): Optional parameters specific to the model.
         verification_config (Optional[VerificationConfig]): Configuration for formal verification.
+        seed (Optional[int]): Random seed for reproducibility.
 
     Returns:
         tuple: A tuple of (baseline_metrics, inference_metrics).
@@ -672,7 +854,7 @@ def run_standard_experiment(
 
     # Run experiments
     baseline_metrics = run_baseline_experiment(
-        model_class, model_name, dataset_source, dataset_name, filtered_params
+        model_class, model_name, dataset_source, dataset_name, filtered_params, seed=seed
     )
     inference_metrics = run_inference_experiment(
         model_class,
@@ -681,6 +863,7 @@ def run_standard_experiment(
         dataset_name,
         filtered_params=filtered_params,
         verification_config=verification_config,
+        seed=seed,
     )
 
     # Calculate total execution time
@@ -708,6 +891,22 @@ def run_standard_experiment(
     baseline_time = baseline_metrics.get("execution_time_seconds", 0)
     inference_time = inference_metrics.get("execution_time_seconds", 0)
 
+    # Extract fields that should be in timing breakdown (not in metrics)
+    keys_to_exclude_from_metrics = {
+        "execution_time_seconds",
+        "timing_breakdown",
+        "parameter_perturbation_log",
+        "data_inference_statistics",
+        "label_inference_statistics",
+    }
+
+    baseline_result_metrics = {
+        k: v for k, v in baseline_metrics.items() if k not in keys_to_exclude_from_metrics
+    }
+    inference_result_metrics = {
+        k: v for k, v in inference_metrics.items() if k not in keys_to_exclude_from_metrics
+    }
+
     consolidated_results = {
         "experiment_info": {
             "model_name": model_name,
@@ -717,20 +916,26 @@ def run_standard_experiment(
                 dataset_source.value if hasattr(dataset_source, "value") else str(dataset_source)
             ),
             "model_params": filtered_params or {},
+            "seed": seed,
             "timestamp": baseline_metrics.get("timestamp") or inference_metrics.get("timestamp"),
         },
         "results": {
             "without_inference": {
-                "metrics": {
-                    k: v for k, v in baseline_metrics.items() if k != "execution_time_seconds"
-                },
+                "metrics": baseline_result_metrics,
                 "execution_time_seconds": baseline_time,
+                "timing_breakdown": baseline_metrics.get("timing_breakdown", {}),
             },
             "with_inference": {
-                "metrics": {
-                    k: v for k, v in inference_metrics.items() if k != "execution_time_seconds"
-                },
+                "metrics": inference_result_metrics,
                 "execution_time_seconds": inference_time,
+                "timing_breakdown": inference_metrics.get("timing_breakdown", {}),
+                "parameter_perturbation_log": inference_metrics.get(
+                    "parameter_perturbation_log", {}
+                ),
+                "data_inference_statistics": inference_metrics.get("data_inference_statistics", {}),
+                "label_inference_statistics": inference_metrics.get(
+                    "label_inference_statistics", {}
+                ),
             },
         },
         "timing_analysis": {
@@ -790,3 +995,377 @@ def run_standard_experiment_digits(
         dataset_name=SklearnDatasetName.DIGITS,
         model_params=model_params,
     )
+
+
+# ============================================================================
+# P2: ISOLATED PERTURBATION EXPERIMENTS (IMPACT ANALYZER)
+# ============================================================================
+
+
+def run_data_only_experiment(
+    model_class: Type[BaseModel],
+    model_name: str,
+    dataset_source: DatasetSourceType,
+    dataset_name: Union[SklearnDatasetName, str, CSVDatasetName],
+    *,
+    filtered_params: Optional[dict] = None,
+    seed: Optional[int] = None,
+):
+    """Run experiment with ONLY data perturbation (no label or parameter perturbation).
+
+    Args:
+        model_class: Model class to instantiate.
+        model_name: Name for logging and reporting.
+        dataset_source: Source type of the dataset.
+        dataset_name: Name/identifier of the dataset.
+        filtered_params: Optional filtered parameters for the model.
+        seed: Random seed for reproducibility.
+
+    Returns:
+        dict: Experiment results with data perturbation only.
+    """
+    if seed is not None:
+        np.random.seed(seed)
+        random.seed(seed)
+
+    start_time = time.perf_counter()
+
+    # Load dataset
+    dataset = create_dataset(dataset_source, dataset_name)
+    X_train, X_test, y_train, y_test = dataset.load_data()
+
+    # Get data config (no label config needed)
+    if isinstance(dataset_name, SklearnDatasetName):
+        if dataset_name == SklearnDatasetName.MAKE_MOONS:
+            data_config, _, _ = create_inference_configs_make_moons()
+        elif dataset_name == SklearnDatasetName.MAKE_BLOBS:
+            data_config, _, _ = create_inference_configs_make_blobs()
+        elif dataset_name == SklearnDatasetName.LFW_PEOPLE:
+            data_config, _, _ = create_inference_configs_lfw_people()
+        else:
+            data_config, _, _ = create_inference_configs()
+    else:
+        data_config, _, _ = create_inference_configs()
+
+    # Create pipeline with only data config
+    pipeline = InferencePipeline(
+        data_noise_config=data_config,
+        label_noise_config=None,
+        X_train=X_train,
+    )
+
+    # Apply only data inference
+    X_train, X_test, data_stats = pipeline.apply_data_inference(X_train, X_test)
+
+    # Create model with original params (no perturbation)
+    params = filtered_params or {}
+    model = model_class(**params)
+
+    # Run experiment
+    experiment = Experiment(model=model, dataset=dataset)
+    metrics = experiment.run(X_train, X_test, y_train, y_test)
+
+    metrics["execution_time_seconds"] = time.perf_counter() - start_time
+    metrics["perturbation_type"] = "data_only"
+    metrics["data_inference_statistics"] = data_stats
+
+    return metrics
+
+
+def run_label_only_experiment(
+    model_class: Type[BaseModel],
+    model_name: str,
+    dataset_source: DatasetSourceType,
+    dataset_name: Union[SklearnDatasetName, str, CSVDatasetName],
+    *,
+    filtered_params: Optional[dict] = None,
+    seed: Optional[int] = None,
+):
+    """Run experiment with ONLY label perturbation (no data or parameter perturbation).
+
+    Args:
+        model_class: Model class to instantiate.
+        model_name: Name for logging and reporting.
+        dataset_source: Source type of the dataset.
+        dataset_name: Name/identifier of the dataset.
+        filtered_params: Optional filtered parameters for the model.
+        seed: Random seed for reproducibility.
+
+    Returns:
+        dict: Experiment results with label perturbation only.
+    """
+    if seed is not None:
+        np.random.seed(seed)
+        random.seed(seed)
+
+    start_time = time.perf_counter()
+
+    # Load dataset
+    dataset = create_dataset(dataset_source, dataset_name)
+    X_train, X_test, y_train, y_test = dataset.load_data()
+
+    # Get label config
+    if isinstance(dataset_name, SklearnDatasetName):
+        if dataset_name == SklearnDatasetName.MAKE_MOONS:
+            _, label_config, _ = create_inference_configs_make_moons()
+        elif dataset_name == SklearnDatasetName.MAKE_BLOBS:
+            _, label_config, _ = create_inference_configs_make_blobs()
+        elif dataset_name == SklearnDatasetName.LFW_PEOPLE:
+            _, label_config, _ = create_inference_configs_lfw_people()
+        else:
+            _, label_config, _ = create_inference_configs()
+    else:
+        _, label_config, _ = create_inference_configs()
+
+    # Apply model-specific label config overrides
+    model_configs = get_model_specific_configs(model_class, model_name)
+    label_config = model_configs.get("label_config", label_config)
+
+    # Create pipeline with only label config
+    pipeline = InferencePipeline(
+        data_noise_config=None,
+        label_noise_config=label_config,
+        X_train=X_train,
+    )
+
+    # Apply only label inference
+    y_train, y_test, label_stats = pipeline.apply_label_inference(
+        y_train, y_test, model=None, X_train=X_train, X_test=X_test
+    )
+
+    # Create model with original params (no perturbation)
+    params = filtered_params or {}
+    model = model_class(**params)
+
+    # Run experiment
+    experiment = Experiment(model=model, dataset=dataset)
+    metrics = experiment.run(X_train, X_test, y_train, y_test)
+
+    metrics["execution_time_seconds"] = time.perf_counter() - start_time
+    metrics["perturbation_type"] = "label_only"
+    metrics["label_inference_statistics"] = label_stats
+
+    return metrics
+
+
+def run_param_only_experiment(
+    model_class: Type[BaseModel],
+    model_name: str,
+    dataset_source: DatasetSourceType,
+    dataset_name: Union[SklearnDatasetName, str, CSVDatasetName],
+    *,
+    filtered_params: Optional[dict] = None,
+    seed: Optional[int] = None,
+):
+    """Run experiment with ONLY parameter perturbation (no data or label perturbation).
+
+    Args:
+        model_class: Model class to instantiate.
+        model_name: Name for logging and reporting.
+        dataset_source: Source type of the dataset.
+        dataset_name: Name/identifier of the dataset.
+        filtered_params: Optional filtered parameters for the model.
+        seed: Random seed for reproducibility.
+
+    Returns:
+        dict: Experiment results with parameter perturbation only.
+    """
+    if seed is not None:
+        np.random.seed(seed)
+        random.seed(seed)
+
+    start_time = time.perf_counter()
+
+    # Load dataset
+    dataset = create_dataset(dataset_source, dataset_name)
+    X_train, X_test, y_train, y_test = dataset.load_data()
+
+    # Create pipeline (no data or label config)
+    pipeline = InferencePipeline(
+        data_noise_config=None,
+        label_noise_config=None,
+        X_train=X_train,
+    )
+
+    # Apply only parameter inference
+    params = filtered_params or {}
+    model, parameter_log = pipeline.apply_param_inference(model_class, params)
+
+    # Validate parameters
+    if (
+        hasattr(model, "model")
+        and model.model is not None
+        and hasattr(model.model, "get_params")
+        and hasattr(model.model, "__class__")
+    ):
+        sklearn_params = model.model.get_params()
+        validated_params = validate_sklearn_params(sklearn_params, model.model.__class__)
+        if validated_params != sklearn_params:
+            model.model.set_params(**validated_params)
+
+    # Run experiment
+    experiment = Experiment(model=model, dataset=dataset)
+    metrics = experiment.run(X_train, X_test, y_train, y_test)
+
+    metrics["execution_time_seconds"] = time.perf_counter() - start_time
+    metrics["perturbation_type"] = "param_only"
+    if parameter_log and "perturbed_params" in parameter_log:
+        metrics["parameter_perturbation_log"] = parameter_log.get("perturbed_params", {})
+
+    # P1.3: Add verification summary if verification was enabled
+    if parameter_log and "verification_results" in parameter_log:
+        metrics["verification_summary"] = parameter_log.get("verification_results", {})
+
+    return metrics
+
+
+def run_impact_analysis(
+    model_class: Type[BaseModel],
+    model_name: str,
+    dataset_source: DatasetSourceType,
+    dataset_name: Union[SklearnDatasetName, str, CSVDatasetName],
+    *,
+    model_params: Optional[dict] = None,
+    seed: Optional[int] = None,
+):
+    """Run complete impact analysis comparing isolated perturbations.
+
+    Runs 5 experiments:
+    1. Baseline (no perturbation)
+    2. Data-only perturbation
+    3. Label-only perturbation
+    4. Parameter-only perturbation
+    5. All perturbations combined
+
+    Args:
+        model_class: Model class to instantiate.
+        model_name: Name for logging and reporting.
+        dataset_source: Source type of the dataset.
+        dataset_name: Name/identifier of the dataset.
+        model_params: Optional parameters for the model.
+        seed: Random seed for reproducibility.
+
+    Returns:
+        dict: Impact analysis results with all experiments and comparison.
+    """
+    # Filter parameters if needed
+    filtered_params = model_params
+    if model_params:
+        try:
+            sample_model = model_class()
+            if hasattr(sample_model, "model"):
+                filtered_params = filter_sklearn_params(sample_model.model.__class__, model_params)
+        except (TypeError, ValueError, AttributeError):
+            filtered_params = model_params
+
+    # Run all experiments
+    baseline = run_baseline_experiment(
+        model_class, model_name, dataset_source, dataset_name, filtered_params, seed=seed
+    )
+
+    data_only = run_data_only_experiment(
+        model_class,
+        model_name,
+        dataset_source,
+        dataset_name,
+        filtered_params=filtered_params,
+        seed=seed,
+    )
+
+    label_only = run_label_only_experiment(
+        model_class,
+        model_name,
+        dataset_source,
+        dataset_name,
+        filtered_params=filtered_params,
+        seed=seed,
+    )
+
+    param_only = run_param_only_experiment(
+        model_class,
+        model_name,
+        dataset_source,
+        dataset_name,
+        filtered_params=filtered_params,
+        seed=seed,
+    )
+
+    all_combined = run_inference_experiment(
+        model_class,
+        model_name,
+        dataset_source,
+        dataset_name,
+        filtered_params=filtered_params,
+        seed=seed,
+    )
+
+    # Extract accuracy for comparison
+    baseline_acc = baseline.get("accuracy", 0)
+    data_acc = data_only.get("accuracy", 0)
+    label_acc = label_only.get("accuracy", 0)
+    param_acc = param_only.get("accuracy", 0)
+    combined_acc = all_combined.get("accuracy", 0)
+
+    # Calculate impact (drop from baseline)
+    impact_analysis = {
+        "baseline_accuracy": baseline_acc,
+        "isolated_impacts": {
+            "data_perturbation": {
+                "accuracy": data_acc,
+                "accuracy_drop": baseline_acc - data_acc,
+                "accuracy_drop_pct": ((baseline_acc - data_acc) / max(baseline_acc, 0.001)) * 100,
+            },
+            "label_perturbation": {
+                "accuracy": label_acc,
+                "accuracy_drop": baseline_acc - label_acc,
+                "accuracy_drop_pct": ((baseline_acc - label_acc) / max(baseline_acc, 0.001)) * 100,
+            },
+            "param_perturbation": {
+                "accuracy": param_acc,
+                "accuracy_drop": baseline_acc - param_acc,
+                "accuracy_drop_pct": ((baseline_acc - param_acc) / max(baseline_acc, 0.001)) * 100,
+            },
+        },
+        "combined_impact": {
+            "accuracy": combined_acc,
+            "accuracy_drop": baseline_acc - combined_acc,
+            "accuracy_drop_pct": ((baseline_acc - combined_acc) / max(baseline_acc, 0.001)) * 100,
+        },
+        "impact_ranking": sorted(
+            [
+                ("data", baseline_acc - data_acc),
+                ("label", baseline_acc - label_acc),
+                ("param", baseline_acc - param_acc),
+            ],
+            key=lambda x: x[1],
+            reverse=True,
+        ),
+        "synergy_effect": {
+            "sum_of_isolated_drops": (baseline_acc - data_acc)
+            + (baseline_acc - label_acc)
+            + (baseline_acc - param_acc),
+            "combined_drop": baseline_acc - combined_acc,
+            "synergy": (baseline_acc - combined_acc)
+            - ((baseline_acc - data_acc) + (baseline_acc - label_acc) + (baseline_acc - param_acc)),
+        },
+    }
+
+    return {
+        "experiment_info": {
+            "model_name": model_name,
+            "model_class": model_class.__name__,
+            "dataset_name": str(dataset_name),
+            "dataset_source": (
+                dataset_source.value if hasattr(dataset_source, "value") else str(dataset_source)
+            ),
+            "seed": seed,
+        },
+        "experiments": {
+            "baseline": baseline,
+            "data_only": data_only,
+            "label_only": label_only,
+            "param_only": param_only,
+            "all_combined": all_combined,
+        },
+        "impact_analysis": impact_analysis,
+    }
