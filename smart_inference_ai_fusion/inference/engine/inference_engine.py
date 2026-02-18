@@ -207,7 +207,7 @@ class InferenceEngine:
         return pipeline
 
     def apply(
-        self, X_train: np.ndarray, X_test: np.ndarray, collect_statistics: bool = True
+        self, X_train: np.ndarray, X_test: np.ndarray, collect_statistics: bool = False
     ) -> Tuple[np.ndarray, np.ndarray, dict]:
         """Apply the pipeline of transformations to training and test data.
 
@@ -221,7 +221,8 @@ class InferenceEngine:
             X_test (np.ndarray): Test feature matrix.
                 Shape: (n_samples_test, n_features).
             collect_statistics (bool): Whether to collect transformation statistics.
-                Defaults to True.
+                Defaults to False. When True, samples up to 10,000 rows for
+                per-transformation statistics to limit memory overhead.
 
         Returns:
             Tuple[np.ndarray, np.ndarray, dict]: A tuple `(X_train_perturbed, X_test_perturbed, statistics)`
@@ -247,11 +248,25 @@ class InferenceEngine:
             }
 
         clustering_transforms = (ClusterSwap, GroupOutlierInjection)
+
+        # Maximum sample size for per-transformation statistics (reduces memory overhead)
+        _STATS_SAMPLE_SIZE = 10_000
+
         for transform in self.pipeline:
             transform_name = transform.__class__.__name__
 
-            # Store state before transformation for per-transform stats
-            X_train_before = X_train.copy() if collect_statistics else None
+            # Store sampled state before transformation for per-transform stats
+            if collect_statistics:
+                n_samples = X_train.shape[0]
+                if n_samples > _STATS_SAMPLE_SIZE:
+                    sample_idx = np.random.choice(n_samples, _STATS_SAMPLE_SIZE, replace=False)
+                    X_train_sample_before = X_train[sample_idx].copy()
+                else:
+                    sample_idx = None
+                    X_train_sample_before = X_train.copy()
+            else:
+                sample_idx = None
+                X_train_sample_before = None
 
             if isinstance(transform, clustering_transforms):
                 imputer = SimpleImputer(strategy="mean")
@@ -263,9 +278,17 @@ class InferenceEngine:
             # Track transformation statistics
             if collect_statistics:
                 statistics["transformations_applied"].append(transform_name)
-                if X_train_before is not None:
-                    transform_stats = _compute_perturbation_diff(X_train_before, X_train)
+                if X_train_sample_before is not None:
+                    # Use same sample indices for after comparison
+                    if sample_idx is not None:
+                        X_train_sample_after = X_train[sample_idx]
+                    else:
+                        X_train_sample_after = X_train
+                    transform_stats = _compute_perturbation_diff(
+                        X_train_sample_before, X_train_sample_after
+                    )
                     transform_stats["transformation_name"] = transform_name
+                    transform_stats["sampled"] = sample_idx is not None
                     statistics["per_transformation_stats"].append(transform_stats)
 
         if collect_statistics:
