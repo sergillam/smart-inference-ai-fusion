@@ -14,8 +14,8 @@ from smart_inference_ai_fusion.models.agglomerative_clustering_model import (
     AgglomerativeClusteringModel,
 )
 from smart_inference_ai_fusion.models.fastica_model import FastICAModel
-from smart_inference_ai_fusion.models.gaussian_model import GaussianNBModel
 from smart_inference_ai_fusion.models.gaussian_mixture_model import GaussianMixtureModel
+from smart_inference_ai_fusion.models.gaussian_model import GaussianNBModel
 from smart_inference_ai_fusion.models.gradient_boosting_model import GradientBoostingModel
 from smart_inference_ai_fusion.models.knn_model import KNNModel
 from smart_inference_ai_fusion.models.logistic_regression_model import LogisticRegressionModel
@@ -500,6 +500,7 @@ def _compute_data_statistics(X: np.ndarray, name: str) -> dict:
     Returns:
         Dictionary with data statistics (shape, mean, std, min, max, nan info)
     """
+    # pylint: disable=invalid-name
     X_arr = np.asarray(X, dtype=float)
     return {
         f"{name}_shape": list(X_arr.shape),

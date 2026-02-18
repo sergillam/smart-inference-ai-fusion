@@ -2,7 +2,7 @@
 
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional
 
 from smart_inference_ai_fusion.inference.engine.inference_engine import InferenceEngine
 from smart_inference_ai_fusion.inference.engine.label_runner import LabelInferenceEngine
@@ -12,7 +12,6 @@ from smart_inference_ai_fusion.utils.verification_config import get_verification
 from smart_inference_ai_fusion.utils.verification_report import report_verification_results
 from smart_inference_ai_fusion.verification.core.formal_verification import verification_manager
 from smart_inference_ai_fusion.verification.core.plugin_interface import registry
-from smart_inference_ai_fusion.verification.decorators import verify_pipeline_step
 
 logger = logging.getLogger(__name__)
 
@@ -181,6 +180,7 @@ class InferencePipeline:
         if self.config and self.config.should_verify():
             self._verify_data_integrity("input_data", X_train, X_test)
 
+        # pylint: disable=invalid-name
         X_train_perturbed, X_test_perturbed, statistics = self.data_engine.apply(
             X_train, X_test, collect_statistics=collect_statistics
         )

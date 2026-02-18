@@ -46,6 +46,7 @@ class ErrorContext:
 
 
 # Flag global para desabilitar circuit breaker (para experimentos científicos)
+# pylint: disable=invalid-name
 _circuit_breaker_enabled = True
 
 

@@ -102,6 +102,7 @@ def _compute_perturbation_diff(X_before: np.ndarray, X_after: np.ndarray) -> dic
     Returns:
         Dictionary with perturbation statistics
     """
+    # pylint: disable=invalid-name
     # Handle shape differences (features may have been added/removed)
     if X_before.shape != X_after.shape:
         return {
@@ -233,6 +234,7 @@ class InferenceEngine:
             RuntimeError: If any transformation fails during execution.
         """
         # Store original data for statistics
+        # pylint: disable=invalid-name
         X_train_original = X_train.copy() if collect_statistics else None
         X_test_original = X_test.copy() if collect_statistics else None
 
@@ -250,7 +252,7 @@ class InferenceEngine:
         clustering_transforms = (ClusterSwap, GroupOutlierInjection)
 
         # Maximum sample size for per-transformation statistics (reduces memory overhead)
-        _STATS_SAMPLE_SIZE = 10_000
+        _STATS_SAMPLE_SIZE = 10_000  # pylint: disable=invalid-name
 
         for transform in self.pipeline:
             transform_name = transform.__class__.__name__

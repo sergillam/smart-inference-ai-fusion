@@ -2,7 +2,7 @@
 
 import logging
 import time
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from ...utils.report import report_data
 from ...utils.types import ReportMode
@@ -3360,6 +3360,7 @@ class CVC5Verifier(FormalVerifier):
             int_sort = self.solver.getIntegerSort()
             array_sort = self.solver.mkArraySort(int_sort, int_sort)
 
+            # pylint: disable=invalid-name
             A = self.solver.mkConst(array_sort, "A")
             i = self.solver.mkConst(int_sort, "i")
             j = self.solver.mkConst(int_sort, "j")

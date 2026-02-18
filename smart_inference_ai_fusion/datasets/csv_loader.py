@@ -64,6 +64,7 @@ class CSVDatasetLoader(BaseDataset):
         y = df[self.target_column]
 
         # Convert to numpy arrays to ensure consistency with sklearn datasets
+        # pylint: disable=invalid-name
         X_data = X.values.astype(np.float64)
         y_data = y.values.astype(np.int64)
 

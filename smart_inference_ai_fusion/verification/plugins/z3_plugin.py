@@ -2,7 +2,7 @@
 
 import logging
 import time
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List
 
 from ..core.error_handling import handle_verification_error, should_disable_solver
 from ..core.plugin_interface import (
@@ -1735,6 +1735,8 @@ class Z3Verifier(FormalVerifier):
         - PARIDADE com CVC5: Mesma lógica de verificação
         """
         try:
+            import numpy as np
+
             # Obter regras de consistência
             consistency_rules = []
             if isinstance(constraint_data, dict):
@@ -2197,6 +2199,7 @@ class Z3Verifier(FormalVerifier):
 
     def _verify_array_theory(self, constraint_data: Dict[str, Any]) -> bool:
         """Verifica constraints usando teoria de arrays."""
+        # pylint: disable=invalid-name
         # Array de inteiros
         A = z3.Array("A", z3.IntSort(), z3.IntSort())
         i = z3.Int("i")
@@ -3063,6 +3066,7 @@ class Z3Verifier(FormalVerifier):
         self, constraint_data: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Gera contra-exemplo para teoria de arrays."""
+        # pylint: disable=invalid-name
         A = z3.Array("A", z3.IntSort(), z3.IntSort())
         i = z3.Int("i")
         j = z3.Int("j")
