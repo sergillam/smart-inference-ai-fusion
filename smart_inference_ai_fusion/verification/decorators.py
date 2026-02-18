@@ -66,7 +66,7 @@ def verify_transformation(
                     logger.debug(f"Verification message: {verification_result.message}")
 
                 # Falhar se necessário
-                if fail_on_error and verification_result.status == VerificationStatus.FAILED:
+                if fail_on_error and verification_result.status == VerificationStatus.FAILURE:
                     raise RuntimeError(
                         f"Verification failed for {func.__name__}: {verification_result.message}"
                     )
@@ -134,14 +134,9 @@ def _infer_constraints(func_name: str, input_data: Any, output_data: Any) -> Dic
 
     # Adicionar constraints de integridade básicos
     if input_data is not None and output_data is not None:
-        try:
-            import numpy as np
-
-            if hasattr(input_data, "shape") and hasattr(output_data, "shape"):
-                constraints["input_shape"] = list(input_data.shape)
-                constraints["output_shape"] = list(output_data.shape)
-        except ImportError:
-            pass
+        if hasattr(input_data, "shape") and hasattr(output_data, "shape"):
+            constraints["input_shape"] = list(input_data.shape)
+            constraints["output_shape"] = list(output_data.shape)
 
     return constraints
 

@@ -1,9 +1,9 @@
 """Verificações específicas para dados, labels e parâmetros."""
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
-from ..core.plugin_interface import VerificationInput, VerificationResult, VerificationStatus
+from .core.plugin_interface import VerificationInput, VerificationResult, VerificationStatus
 
 logger = logging.getLogger(__name__)
 
@@ -26,14 +26,14 @@ class DataIntegrityVerifier:
 
             if input_data.shape != output_data.shape:
                 return VerificationResult(
-                    status=VerificationStatus.FAILED,
+                    status=VerificationStatus.FAILURE,
                     verifier_name="DataIntegrityVerifier",
                     execution_time=0.0,
                     message=f"Shape mismatch: {input_data.shape} != {output_data.shape}",
                 )
 
             return VerificationResult(
-                status=VerificationStatus.PASSED,
+                status=VerificationStatus.SUCCESS,
                 verifier_name="DataIntegrityVerifier",
                 execution_time=0.0,
                 message="Shape preserved successfully",
@@ -53,8 +53,6 @@ class DataIntegrityVerifier:
     ) -> VerificationResult:
         """Verifica se os bounds dos dados foram preservados."""
         try:
-            import numpy as np
-
             if not (hasattr(input_data, "min") and hasattr(input_data, "max")):
                 return VerificationResult(
                     status=VerificationStatus.SKIPPED,
@@ -72,25 +70,25 @@ class DataIntegrityVerifier:
 
             if min_diff > tolerance or max_diff > tolerance:
                 return VerificationResult(
-                    status=VerificationStatus.FAILED,
+                    status=VerificationStatus.FAILURE,
                     verifier_name="DataIntegrityVerifier",
                     execution_time=0.0,
                     message=f"Bounds changed beyond tolerance: min_diff={min_diff:.4f}, max_diff={max_diff:.4f}",
                 )
 
             return VerificationResult(
-                status=VerificationStatus.PASSED,
+                status=VerificationStatus.SUCCESS,
                 verifier_name="DataIntegrityVerifier",
                 execution_time=0.0,
                 message="Bounds preserved within tolerance",
             )
 
-        except ImportError:
+        except TypeError:
             return VerificationResult(
                 status=VerificationStatus.SKIPPED,
                 verifier_name="DataIntegrityVerifier",
                 execution_time=0.0,
-                message="NumPy not available for bounds verification",
+                message="Data type does not support min/max operations",
             )
         except Exception as e:
             return VerificationResult(
@@ -129,7 +127,7 @@ class LabelIntegrityVerifier:
             # Verificar se as classes são as mesmas
             if not np.array_equal(np.sort(input_unique), np.sort(output_unique)):
                 return VerificationResult(
-                    status=VerificationStatus.FAILED,
+                    status=VerificationStatus.FAILURE,
                     verifier_name="LabelIntegrityVerifier",
                     execution_time=0.0,
                     message=f"Class sets differ: {input_unique} vs {output_unique}",
@@ -143,14 +141,14 @@ class LabelIntegrityVerifier:
 
             if max_diff > tolerance:
                 return VerificationResult(
-                    status=VerificationStatus.FAILED,
+                    status=VerificationStatus.FAILURE,
                     verifier_name="LabelIntegrityVerifier",
                     execution_time=0.0,
                     message=f"Class distribution changed beyond tolerance: max_diff={max_diff:.4f}",
                 )
 
             return VerificationResult(
-                status=VerificationStatus.PASSED,
+                status=VerificationStatus.SUCCESS,
                 verifier_name="LabelIntegrityVerifier",
                 execution_time=0.0,
                 message="Class distribution preserved within tolerance",
@@ -195,14 +193,14 @@ class ParameterIntegrityVerifier:
 
             if type_mismatches:
                 return VerificationResult(
-                    status=VerificationStatus.FAILED,
+                    status=VerificationStatus.FAILURE,
                     verifier_name="ParameterIntegrityVerifier",
                     execution_time=0.0,
                     message=f"Parameter type mismatches: {', '.join(type_mismatches)}",
                 )
 
             return VerificationResult(
-                status=VerificationStatus.PASSED,
+                status=VerificationStatus.SUCCESS,
                 verifier_name="ParameterIntegrityVerifier",
                 execution_time=0.0,
                 message="Parameter types preserved",
@@ -251,14 +249,14 @@ class ParameterIntegrityVerifier:
 
             if bound_violations:
                 return VerificationResult(
-                    status=VerificationStatus.FAILED,
+                    status=VerificationStatus.FAILURE,
                     verifier_name="ParameterIntegrityVerifier",
                     execution_time=0.0,
                     message=f"Parameter bound violations: {', '.join(bound_violations)}",
                 )
 
             return VerificationResult(
-                status=VerificationStatus.PASSED,
+                status=VerificationStatus.SUCCESS,
                 verifier_name="ParameterIntegrityVerifier",
                 execution_time=0.0,
                 message="All parameters within bounds",
@@ -288,7 +286,7 @@ class TransformationVerifier:
             if hasattr(input_data, "shape") and hasattr(output_data, "shape"):
                 if input_data.shape != output_data.shape:
                     return VerificationResult(
-                        status=VerificationStatus.FAILED,
+                        status=VerificationStatus.FAILURE,
                         verifier_name="TransformationVerifier",
                         execution_time=0.0,
                         message="Shape mismatch in outlier injection",
@@ -302,14 +300,14 @@ class TransformationVerifier:
 
                 if outlier_ratio > max_outlier_ratio:
                     return VerificationResult(
-                        status=VerificationStatus.FAILED,
+                        status=VerificationStatus.FAILURE,
                         verifier_name="TransformationVerifier",
                         execution_time=0.0,
                         message=f"Outlier ratio {outlier_ratio:.4f} exceeds maximum {max_outlier_ratio}",
                     )
 
             return VerificationResult(
-                status=VerificationStatus.PASSED,
+                status=VerificationStatus.SUCCESS,
                 verifier_name="TransformationVerifier",
                 execution_time=0.0,
                 message="Outlier injection within acceptable bounds",
