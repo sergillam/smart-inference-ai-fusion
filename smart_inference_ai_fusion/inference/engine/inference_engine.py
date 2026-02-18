@@ -68,6 +68,18 @@ def _compute_data_statistics(X: np.ndarray, name: str) -> dict:
     Returns:
         Dictionary with statistics
     """
+    # Guard against empty arrays to avoid ValueError from nanmin/nanmax
+    if X.size == 0:
+        return {
+            f"{name}_shape": list(X.shape),
+            f"{name}_mean": float("nan"),
+            f"{name}_std": float("nan"),
+            f"{name}_min": float("nan"),
+            f"{name}_max": float("nan"),
+            f"{name}_nan_count": 0,
+            f"{name}_nan_fraction": 0.0,
+        }
+
     stats = {
         f"{name}_shape": list(X.shape),
         f"{name}_mean": float(np.nanmean(X)),
@@ -75,7 +87,7 @@ def _compute_data_statistics(X: np.ndarray, name: str) -> dict:
         f"{name}_min": float(np.nanmin(X)),
         f"{name}_max": float(np.nanmax(X)),
         f"{name}_nan_count": int(np.isnan(X).sum()),
-        f"{name}_nan_fraction": float(np.isnan(X).sum() / X.size) if X.size > 0 else 0.0,
+        f"{name}_nan_fraction": float(np.isnan(X).sum() / X.size),
     }
     return stats
 
