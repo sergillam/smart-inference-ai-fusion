@@ -75,6 +75,7 @@ def evaluate_classification(
             - "precision": Precision score (using the specified average).
             - "recall": Recall score (using the specified average).
             - "confusion_matrix": Confusion matrix as a nested list.
+            - "per_class_metrics": Dictionary with per-class precision, recall, f1.
 
     Raises:
         ValueError: If ``average`` is not one of "macro", "micro", or "weighted".
@@ -83,14 +84,36 @@ def evaluate_classification(
     if average not in allowed_averages:
         raise ValueError(f"Invalid average '{average}'. Must be one of {allowed_averages}.")
 
+    y_true_arr = np.asarray(y_true)
+    y_pred_arr = np.asarray(y_pred)
+
+    # Get unique labels for per-class metrics
+    labels = np.unique(y_true_arr)
+
     metrics = {
-        "accuracy": accuracy_score(y_true, y_pred),
-        "balanced_accuracy": balanced_accuracy_score(y_true, y_pred),
-        "f1": f1_score(y_true, y_pred, average=average),
-        "precision": precision_score(y_true, y_pred, average=average, zero_division=0),
-        "recall": recall_score(y_true, y_pred, average=average, zero_division=0),
-        "confusion_matrix": confusion_matrix(y_true, y_pred).tolist(),
+        "accuracy": accuracy_score(y_true_arr, y_pred_arr),
+        "balanced_accuracy": balanced_accuracy_score(y_true_arr, y_pred_arr),
+        "f1": f1_score(y_true_arr, y_pred_arr, average=average),
+        "precision": precision_score(y_true_arr, y_pred_arr, average=average, zero_division=0),
+        "recall": recall_score(y_true_arr, y_pred_arr, average=average, zero_division=0),
+        "confusion_matrix": confusion_matrix(y_true_arr, y_pred_arr).tolist(),
     }
+
+    # Add per-class metrics
+    per_class_metrics = {}
+    for label in labels:
+        # Calculate per-class metrics by treating each class as binary (one-vs-rest)
+        y_true_binary = (y_true_arr == label).astype(int)
+        y_pred_binary = (y_pred_arr == label).astype(int)
+
+        per_class_metrics[f"class_{label}"] = {
+            "precision": precision_score(y_true_binary, y_pred_binary, zero_division=0),
+            "recall": recall_score(y_true_binary, y_pred_binary, zero_division=0),
+            "f1": f1_score(y_true_binary, y_pred_binary, zero_division=0),
+            "support": int(np.sum(y_true_arr == label)),
+        }
+
+    metrics["per_class_metrics"] = per_class_metrics
     return metrics
 
 
