@@ -17,6 +17,7 @@ from sklearn.metrics import (
     mean_squared_error,
     median_absolute_error,
     normalized_mutual_info_score,
+    precision_recall_fscore_support,
     precision_score,
     r2_score,
     recall_score,
@@ -99,20 +100,19 @@ def evaluate_classification(
         "confusion_matrix": confusion_matrix(y_true_arr, y_pred_arr).tolist(),
     }
 
-    # Add per-class metrics
-    per_class_metrics = {}
-    for label in labels:
-        # Calculate per-class metrics by treating each class as binary (one-vs-rest)
-        y_true_binary = (y_true_arr == label).astype(int)
-        y_pred_binary = (y_pred_arr == label).astype(int)
-
-        per_class_metrics[f"class_{label}"] = {
-            "precision": precision_score(y_true_binary, y_pred_binary, zero_division=0),
-            "recall": recall_score(y_true_binary, y_pred_binary, zero_division=0),
-            "f1": f1_score(y_true_binary, y_pred_binary, zero_division=0),
-            "support": int(np.sum(y_true_arr == label)),
+    # Add per-class metrics using vectorized computation
+    precision_arr, recall_arr, f1_arr, support_arr = precision_recall_fscore_support(
+        y_true_arr, y_pred_arr, labels=labels, zero_division=0
+    )
+    per_class_metrics = {
+        f"class_{label}": {
+            "precision": float(precision_arr[i]),
+            "recall": float(recall_arr[i]),
+            "f1": float(f1_arr[i]),
+            "support": int(support_arr[i]),
         }
-
+        for i, label in enumerate(labels)
+    }
     metrics["per_class_metrics"] = per_class_metrics
     return metrics
 
