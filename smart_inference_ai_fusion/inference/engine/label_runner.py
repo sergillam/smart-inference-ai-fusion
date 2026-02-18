@@ -30,16 +30,34 @@ def _compute_label_distribution(y: np.ndarray) -> dict:
         Dictionary with distribution statistics
     """
     y_arr = np.asarray(y)
+    total_samples = len(y_arr)
+
+    # Handle empty label array to avoid division by zero
+    if total_samples == 0:
+        return {
+            "unique_classes": 0,
+            "total_samples": 0,
+            "class_counts": {},
+            "class_fractions": {},
+            "class_balance": {
+                "min_class_fraction": 0.0,
+                "max_class_fraction": 0.0,
+                "imbalance_ratio": 0.0,
+            },
+        }
+
     unique, counts = np.unique(y_arr, return_counts=True)
 
     distribution = {
         "unique_classes": len(unique),
-        "total_samples": int(len(y_arr)),
+        "total_samples": int(total_samples),
         "class_counts": {str(cls): int(cnt) for cls, cnt in zip(unique, counts)},
-        "class_fractions": {str(cls): float(cnt / len(y_arr)) for cls, cnt in zip(unique, counts)},
+        "class_fractions": {
+            str(cls): float(cnt / total_samples) for cls, cnt in zip(unique, counts)
+        },
         "class_balance": {
-            "min_class_fraction": float(counts.min() / len(y_arr)) if len(counts) > 0 else 0.0,
-            "max_class_fraction": float(counts.max() / len(y_arr)) if len(counts) > 0 else 0.0,
+            "min_class_fraction": float(counts.min() / total_samples) if len(counts) > 0 else 0.0,
+            "max_class_fraction": float(counts.max() / total_samples) if len(counts) > 0 else 0.0,
             "imbalance_ratio": (
                 float(counts.max() / counts.min()) if counts.min() > 0 else float("inf")
             ),
