@@ -1,5 +1,6 @@
 """CSVDatasetLoader for custom CSV datasets with preprocessing."""
 
+import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
@@ -50,7 +51,8 @@ class CSVDatasetLoader(BaseDataset):
         """Loads and preprocesses the dataset, then splits into train and test sets.
 
         Returns:
-            tuple: (X_train, X_test, y_train, y_test) after preprocessing and splitting.
+            tuple: (X_train, X_test, y_train, y_test) after preprocessing and splitting,
+                   all as numpy arrays.
         """
         df = pd.read_csv(self.file_path.value)
 
@@ -60,4 +62,11 @@ class CSVDatasetLoader(BaseDataset):
 
         X = df.drop(columns=[self.target_column])
         y = df[self.target_column]
-        return train_test_split(X, y, test_size=self.test_size, random_state=self.random_state)
+
+        # Convert to numpy arrays to ensure consistency with sklearn datasets
+        X_data = X.values.astype(np.float64)
+        y_data = y.values.astype(np.int64)
+
+        return train_test_split(
+            X_data, y_data, test_size=self.test_size, random_state=self.random_state
+        )
