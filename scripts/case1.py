@@ -10,7 +10,8 @@ Algorithms: KNN, SVM, DT (Decision Tree), GNB (Gaussian Naive Bayes), MLP
 Protocol: Two scenarios per algorithm and dataset - baseline (no perturbations)
           and SIP activated, repeated 5 times with distinct seeds.
 
-Total experiments: 5 datasets × 5 algorithms × 2 scenarios × 5 seeds = 250 runs
+Experiment pairs: 5 datasets × 5 algorithms × 5 seeds = 125 experiment pairs (baseline + SIP)
+Total scenario runs: 125 pairs × 2 scenarios = 250 runs
 """
 
 import argparse
