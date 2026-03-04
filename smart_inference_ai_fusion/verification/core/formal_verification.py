@@ -4,7 +4,6 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from .plugin_interface import (
-    FormalVerifier,
     VerificationInput,
     VerificationResult,
     VerificationStatus,
@@ -30,7 +29,7 @@ class FormalVerificationManager:
 
             logger.debug("Z3 plugin loaded")
         except ImportError as e:
-            logger.warning(f"Could not load Z3 plugin: {e}")
+            logger.warning("Could not load Z3 plugin: %s", e)
 
         # Aqui você pode adicionar imports de outros plugins no futuro
         # from ..plugins import bmc_plugin
@@ -113,7 +112,7 @@ class FormalVerificationManager:
             verifier = verifiers[0]  # Pegar o primeiro disponível
 
         # Executar verificação
-        logger.info(f"Running verification '{name}' with {verifier.name}")
+        logger.info("Running verification '%s' with %s", name, verifier.name)
         return verifier.verify(verification_input)
 
     def list_verifiers(self) -> Dict[str, Dict[str, Any]]:
@@ -129,7 +128,7 @@ class FormalVerificationManager:
         verifier = registry.get_verifier(name)
         if verifier:
             verifier.enable()
-            logger.info(f"Enabled verifier: {name}")
+            logger.info("Enabled verifier: %s", name)
             return True
         return False
 
@@ -138,7 +137,7 @@ class FormalVerificationManager:
         verifier = registry.get_verifier(name)
         if verifier:
             verifier.disable()
-            logger.info(f"Disabled verifier: {name}")
+            logger.info("Disabled verifier: %s", name)
             return True
         return False
 

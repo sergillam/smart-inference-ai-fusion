@@ -46,7 +46,7 @@ class ErrorContext:
 
 
 # Flag global para desabilitar circuit breaker (para experimentos científicos)
-_circuit_breaker_enabled = True
+_CIRCUIT_BREAKER_ENABLED = True
 
 
 def set_circuit_breaker(enabled: bool):
@@ -55,15 +55,15 @@ def set_circuit_breaker(enabled: bool):
     Quando desabilitado, solvers nunca serão desabilitados automaticamente,
     garantindo que AMBOS os solvers (Z3 e CVC5) recebam os mesmos dados.
     """
-    global _circuit_breaker_enabled
-    _circuit_breaker_enabled = enabled
+    global _CIRCUIT_BREAKER_ENABLED
+    _CIRCUIT_BREAKER_ENABLED = enabled
     status = "ENABLED" if enabled else "DISABLED"
-    logger.info(f"⚡ Circuit breaker {status}")
+    logger.info("⚡ Circuit breaker %s", status)
 
 
 def is_circuit_breaker_enabled() -> bool:
     """Retorna se o circuit breaker está habilitado."""
-    return _circuit_breaker_enabled
+    return _CIRCUIT_BREAKER_ENABLED
 
 
 class VerificationErrorHandler:
@@ -86,10 +86,10 @@ class VerificationErrorHandler:
         logger.info("🛡️ Sistema de error handling inicializado")
 
     def handle_verification_error(
-        self, error: Exception, solver_name: str, operation: str, context: Dict[str, Any] = None
+        self, error: Exception, solver_name: str, operation: str, _context: Dict[str, Any] = None
     ) -> Dict[str, Any]:
         """Manipula erro de verificação com estratégia de recuperação."""
-        context = context or {}
+        _context = _context or {}
 
         # Classificar erro e criar contexto
         error_context = self._classify_error(error, solver_name, operation)
@@ -99,14 +99,14 @@ class VerificationErrorHandler:
         self._update_solver_reliability(solver_name, False)
 
         # Log detalhado do erro
-        self._log_error(error_context, context)
+        self._log_error(error_context, _context)
 
         # Tentar recuperação baseada no tipo de erro
-        recovery_result = self._attempt_recovery(error_context, context)
+        recovery_result = self._attempt_recovery(error_context, _context)
 
         # Aplicar estratégia de fallback se necessário
         if not recovery_result.get("success", False):
-            fallback_result = self._apply_fallback_strategy(error_context, context)
+            fallback_result = self._apply_fallback_strategy(error_context, _context)
             recovery_result.update(fallback_result)
 
         return recovery_result
@@ -114,7 +114,6 @@ class VerificationErrorHandler:
     def _classify_error(self, error: Exception, solver_name: str, operation: str) -> ErrorContext:
         """Classifica o erro e determina severidade."""
         error_message = str(error)
-        error_type = type(error).__name__
 
         # Determinação de severidade baseada no tipo de erro
         if "timeout" in error_message.lower() or "time limit" in error_message.lower():
@@ -152,29 +151,29 @@ class VerificationErrorHandler:
         )
 
     def _attempt_recovery(
-        self, error_context: ErrorContext, context: Dict[str, Any]
+        self, error_context: ErrorContext, _context: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Tenta recuperação específica baseada no tipo de erro."""
         recovery_strategy = self.recovery_strategies.get(error_context.error_type)
 
         if not recovery_strategy:
-            logger.warning(f"⚠️ No recovery strategy for error: {error_context.error_type}")
+            logger.warning("⚠️ No recovery strategy for error: %s", error_context.error_type)
             return {"success": False, "message": "No recovery strategy available"}
 
         try:
             error_context.recovery_attempted = True
-            result = recovery_strategy(error_context, context)
+            result = recovery_strategy(error_context, _context)
             error_context.recovery_successful = result.get("success", False)
             return result
-        except Exception as recovery_error:
-            logger.error(f"❌ Recovery failed: {recovery_error}")
+        except RuntimeError as recovery_error:
+            logger.error("❌ Recovery failed: %s", recovery_error)
             return {"success": False, "message": f"Recovery failed: {recovery_error}"}
 
     def _handle_timeout_error(
-        self, error_context: ErrorContext, context: Dict[str, Any]
+        self, error_context: ErrorContext, _context: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Recupera de erro de timeout."""
-        logger.info(f"⏰ Recuperando de timeout em {error_context.solver_name}")
+        logger.info("⏰ Recuperando de timeout em %s", error_context.solver_name)
 
         # Estratégias para timeout:
         # 1. Reduzir timeout e tentar novamente
@@ -185,29 +184,29 @@ class VerificationErrorHandler:
             "success": True,
             "message": "Timeout handled, trying with reduced constraints",
             "action": "reduce_timeout",
-            "new_timeout": context.get("timeout", 30) * 0.5,
+            "new_timeout": _context.get("timeout", 30) * 0.5,
             "simplified_constraints": True,
         }
 
     def _handle_memory_error(
-        self, error_context: ErrorContext, context: Dict[str, Any]
+        self, error_context: ErrorContext, _context: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Recupera de erro de memória."""
-        logger.info(f"💾 Recovering from memory error in {error_context.solver_name}")
+        logger.info("💾 Recovering from memory error in %s", error_context.solver_name)
 
         return {
             "success": True,
             "message": "Memory error handled, reducing problem complexity",
             "action": "reduce_complexity",
-            "batch_size": min(context.get("batch_size", 100), 10),
+            "batch_size": min(_context.get("batch_size", 100), 10),
             "simplified_constraints": True,
         }
 
     def _handle_syntax_error(
-        self, error_context: ErrorContext, context: Dict[str, Any]
+        self, error_context: ErrorContext, _context: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Recupera de erro de sintaxe."""
-        logger.info(f"📝 Recuperando de erro de sintaxe em {error_context.solver_name}")
+        logger.info("📝 Recuperando de erro de sintaxe em %s", error_context.solver_name)
 
         return {
             "success": True,
@@ -217,10 +216,10 @@ class VerificationErrorHandler:
         }
 
     def _handle_solver_unavailable(
-        self, error_context: ErrorContext, context: Dict[str, Any]
+        self, error_context: ErrorContext, _context: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Recupera quando solver não está disponível."""
-        logger.warning(f"🚫 Solver {error_context.solver_name} not available")
+        logger.warning("🚫 Solver %s not available", error_context.solver_name)
 
         return {
             "success": False,  # Precisa de fallback para outro solver
@@ -230,10 +229,10 @@ class VerificationErrorHandler:
         }
 
     def _handle_unsupported_constraint(
-        self, error_context: ErrorContext, context: Dict[str, Any]
+        self, error_context: ErrorContext, _context: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Recupera de constraint não suportado."""
-        logger.info(f"🔧 Constraint not supported in {error_context.solver_name}")
+        logger.info("🔧 Constraint not supported in %s", error_context.solver_name)
 
         return {
             "success": True,
@@ -243,10 +242,10 @@ class VerificationErrorHandler:
         }
 
     def _handle_installation_error(
-        self, error_context: ErrorContext, context: Dict[str, Any]
+        self, error_context: ErrorContext, _context: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Recupera de erro de instalação."""
-        logger.error(f"📦 Installation error in {error_context.solver_name}")
+        logger.error("📦 Installation error in %s", error_context.solver_name)
 
         return {
             "success": False,
@@ -257,10 +256,10 @@ class VerificationErrorHandler:
         }
 
     def _handle_import_error(
-        self, error_context: ErrorContext, context: Dict[str, Any]
+        self, error_context: ErrorContext, _context: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Recupera de erro de importação."""
-        logger.error(f"📥 Import error in {error_context.solver_name}")
+        logger.error("📥 Import error in %s", error_context.solver_name)
 
         return {
             "success": False,
@@ -271,7 +270,7 @@ class VerificationErrorHandler:
         }
 
     def _apply_fallback_strategy(
-        self, error_context: ErrorContext, context: Dict[str, Any]
+        self, error_context: ErrorContext, _context: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Aplica estratégia de fallback configurada."""
         error_context.fallback_strategy = self.fallback_strategy
@@ -279,25 +278,25 @@ class VerificationErrorHandler:
         if self.fallback_strategy == FallbackStrategy.NONE:
             return {"success": False, "message": "No fallback configured"}
 
-        elif self.fallback_strategy == FallbackStrategy.NEXT_SOLVER:
-            return self._fallback_to_next_solver(error_context, context)
+        if self.fallback_strategy == FallbackStrategy.NEXT_SOLVER:
+            return self._fallback_to_next_solver(error_context, _context)
 
-        elif self.fallback_strategy == FallbackStrategy.DEFAULT_SOLVER:
-            return self._fallback_to_default_solver(error_context, context)
+        if self.fallback_strategy == FallbackStrategy.DEFAULT_SOLVER:
+            return self._fallback_to_default_solver(error_context, _context)
 
-        elif self.fallback_strategy == FallbackStrategy.SEQUENTIAL:
-            return self._fallback_sequential(error_context, context)
+        if self.fallback_strategy == FallbackStrategy.SEQUENTIAL:
+            return self._fallback_sequential(error_context, _context)
 
-        elif self.fallback_strategy == FallbackStrategy.GRACEFUL_DEGRADATION:
-            return self._fallback_graceful_degradation(error_context, context)
+        if self.fallback_strategy == FallbackStrategy.GRACEFUL_DEGRADATION:
+            return self._fallback_graceful_degradation(error_context, _context)
 
         return {"success": False, "message": "Unknown fallback strategy"}
 
     def _fallback_to_next_solver(
-        self, error_context: ErrorContext, context: Dict[str, Any]
+        self, error_context: ErrorContext, _context: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Fallback para próximo solver disponível."""
-        available_solvers = context.get("available_solvers", ["Z3", "CVC5"])
+        available_solvers = _context.get("available_solvers", ["Z3", "CVC5"])
         current_solver = error_context.solver_name
 
         try:
@@ -308,7 +307,7 @@ class VerificationErrorHandler:
 
         if next_solvers:
             next_solver = next_solvers[0]
-            logger.info(f"🔄 Fallback: {current_solver} → {next_solver}")
+            logger.info("🔄 Fallback: %s → %s", current_solver, next_solver)
             return {
                 "success": True,
                 "message": f"Falling back to {next_solver}",
@@ -319,13 +318,13 @@ class VerificationErrorHandler:
         return {"success": False, "message": "No alternative solver available"}
 
     def _fallback_to_default_solver(
-        self, error_context: ErrorContext, context: Dict[str, Any]
+        self, error_context: ErrorContext, _context: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Fallback para solver padrão (Z3)."""
         if error_context.solver_name == "Z3":
             return {"success": False, "message": "Default solver already failed"}
 
-        logger.info(f"🏠 Fallback to default solver: Z3")
+        logger.info("🏠 Fallback to default solver: Z3")
         return {
             "success": True,
             "message": "Falling back to default solver (Z3)",
@@ -334,16 +333,16 @@ class VerificationErrorHandler:
         }
 
     def _fallback_sequential(
-        self, error_context: ErrorContext, context: Dict[str, Any]
+        self, error_context: ErrorContext, _context: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Tenta todos os solvers sequencialmente."""
-        available_solvers = context.get("available_solvers", ["Z3", "CVC5"])
+        available_solvers = _context.get("available_solvers", ["Z3", "CVC5"])
         failed_solver = error_context.solver_name
 
         remaining_solvers = [s for s in available_solvers if s != failed_solver]
 
         if remaining_solvers:
-            logger.info(f"🔄 Fallback sequencial: tentando {remaining_solvers}")
+            logger.info("🔄 Fallback sequencial: tentando %s", remaining_solvers)
             return {
                 "success": True,
                 "message": "Trying remaining solvers sequentially",
@@ -354,10 +353,10 @@ class VerificationErrorHandler:
         return {"success": False, "message": "All solvers exhausted"}
 
     def _fallback_graceful_degradation(
-        self, error_context: ErrorContext, context: Dict[str, Any]
+        self, error_context: ErrorContext, _context: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Degradação graciosa - reduz funcionalidade mas continua."""
-        logger.info(f"⬇️ Graceful degradation for {error_context.solver_name}")
+        logger.info("⬇️ Graceful degradation for %s", error_context.solver_name)
 
         return {
             "success": True,
@@ -380,7 +379,7 @@ class VerificationErrorHandler:
         else:
             self.solver_reliability[solver_name] = max(0.0, current - 0.2)
 
-    def _log_error(self, error_context: ErrorContext, context: Dict[str, Any]):
+    def _log_error(self, error_context: ErrorContext, _context: Dict[str, Any]):
         """Log detalhado do erro para debugging."""
         severity_emoji = {
             ErrorSeverity.LOW: "🟡",
@@ -392,17 +391,17 @@ class VerificationErrorHandler:
         emoji = severity_emoji.get(error_context.severity, "❓")
 
         logger.error(
-            f"{emoji} ERRO {error_context.severity.value.upper()}: {error_context.solver_name}"
+            "%s ERRO %s: %s", emoji, error_context.severity.value.upper(), error_context.solver_name
         )
-        logger.error(f"   Operation: {error_context.operation}")
-        logger.error(f"   Tipo: {error_context.error_type}")
-        logger.error(f"   Mensagem: {error_context.error_message}")
+        logger.error("   Operation: %s", error_context.operation)
+        logger.error("   Tipo: %s", error_context.error_type)
+        logger.error("   Mensagem: %s", error_context.error_message)
 
-        if context:
-            logger.debug(f"   Contexto: {context}")
+        if _context:
+            logger.debug("   Contexto: %s", _context)
 
         if error_context.severity in [ErrorSeverity.HIGH, ErrorSeverity.CRITICAL]:
-            logger.debug(f"   Stack trace: {error_context.stack_trace}")
+            logger.debug("   Stack trace: %s", error_context.stack_trace)
 
     def get_error_summary(self) -> Dict[str, Any]:
         """Retorna resumo de erros para análise."""
@@ -456,7 +455,7 @@ class VerificationErrorHandler:
         os mesmos dados para verificação.
         """
         # Se circuit breaker desabilitado, nunca desabilitar solvers
-        if not _circuit_breaker_enabled:
+        if not _CIRCUIT_BREAKER_ENABLED:
             return False
 
         reliability = self.solver_reliability.get(solver_name, 1.0)

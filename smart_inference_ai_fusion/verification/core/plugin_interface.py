@@ -1,10 +1,9 @@
 """Interface base para plugins de verificadores formais."""
 
-import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from ...utils.logging import logger
 
@@ -87,17 +86,14 @@ class FormalVerifier(ABC):
     @abstractmethod
     def is_available(self) -> bool:
         """Verifica se o verificador está disponível (dependências instaladas)."""
-        pass
 
     @abstractmethod
     def supported_constraints(self) -> List[str]:
         """Lista de tipos de constraints suportados pelo verificador."""
-        pass
 
     @abstractmethod
     def verify(self, input_data: VerificationInput) -> VerificationResult:
         """Executa a verificação formal."""
-        pass
 
     def can_verify(self, constraints: Dict[str, Any]) -> bool:
         """Verifica se pode processar os constraints dados."""
@@ -110,13 +106,10 @@ class FormalVerifier(ABC):
 
         # DEBUG: Log para debugging
         if self.name == "Z3":
-            import logging
-
-            logger = logging.getLogger(__name__)
-            logger.info(f"Z3 can_verify DEBUG:")
-            logger.info(f"  - Constraints recebidas: {constraint_keys}")
-            logger.info(f"  - Constraints suportadas: {supported}")
-            logger.info(f"  - Pode verificar: {can_verify_result}")
+            logger.info("Z3 can_verify DEBUG:")
+            logger.info("  - Constraints recebidas: %s", constraint_keys)
+            logger.info("  - Constraints suportadas: %s", supported)
+            logger.info("  - Pode verificar: %s", can_verify_result)
 
         return can_verify_result
 

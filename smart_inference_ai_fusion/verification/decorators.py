@@ -38,7 +38,7 @@ def verify_transformation(
             # Executar função original
             start_time = time.time()
             result = func(*args, **kwargs)
-            execution_time = time.time() - start_time
+            _execution_time = time.time() - start_time
 
             # Aplicar verificação se habilitada
             if enabled and verification_manager.enabled:
@@ -61,12 +61,14 @@ def verify_transformation(
                 )
 
                 # Log do resultado
-                logger.info(f"Verification for {func.__name__}: {verification_result.status.value}")
+                logger.info(
+                    "Verification for %s: %s", func.__name__, verification_result.status.value
+                )
                 if verification_result.message:
-                    logger.debug(f"Verification message: {verification_result.message}")
+                    logger.debug("Verification message: %s", verification_result.message)
 
                 # Falhar se necessário
-                if fail_on_error and verification_result.status == VerificationStatus.FAILED:
+                if fail_on_error and verification_result.status == VerificationStatus.FAILURE:
                     raise RuntimeError(
                         f"Verification failed for {func.__name__}: {verification_result.message}"
                     )
@@ -135,12 +137,10 @@ def _infer_constraints(func_name: str, input_data: Any, output_data: Any) -> Dic
     # Adicionar constraints de integridade básicos
     if input_data is not None and output_data is not None:
         try:
-            import numpy as np
-
             if hasattr(input_data, "shape") and hasattr(output_data, "shape"):
                 constraints["input_shape"] = list(input_data.shape)
                 constraints["output_shape"] = list(output_data.shape)
-        except ImportError:
+        except (AttributeError, TypeError):
             pass
 
     return constraints
@@ -187,7 +187,9 @@ def verify_model_operation(
                 )
 
                 logger.info(
-                    f"Model verification for {func.__name__}: {verification_result.status.value}"
+                    "Model verification for %s: %s",
+                    func.__name__,
+                    verification_result.status.value,
                 )
 
             return result
@@ -229,7 +231,9 @@ def verify_pipeline_step(
                 )
 
                 logger.debug(
-                    f"Pipeline step verification for {step_name}: {verification_result.status.value}"
+                    "Pipeline step verification for %s: %s",
+                    step_name,
+                    verification_result.status.value,
                 )
 
             return result
