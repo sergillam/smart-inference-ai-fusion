@@ -14,8 +14,8 @@ from smart_inference_ai_fusion.models.agglomerative_clustering_model import (
     AgglomerativeClusteringModel,
 )
 from smart_inference_ai_fusion.models.fastica_model import FastICAModel
-from smart_inference_ai_fusion.models.gaussian_model import GaussianNBModel
 from smart_inference_ai_fusion.models.gaussian_mixture_model import GaussianMixtureModel
+from smart_inference_ai_fusion.models.gaussian_model import GaussianNBModel
 from smart_inference_ai_fusion.models.gradient_boosting_model import GradientBoostingModel
 from smart_inference_ai_fusion.models.knn_model import KNNModel
 from smart_inference_ai_fusion.models.logistic_regression_model import LogisticRegressionModel
@@ -49,6 +49,7 @@ from smart_inference_ai_fusion.utils.types import (
     SklearnDatasetName,
     VerificationConfig,
 )
+from smart_inference_ai_fusion.verification.utils import build_class_balance_metrics
 
 # Target columns for known CSV datasets
 CSV_DATASET_TARGET_COLUMNS = {
@@ -272,9 +273,11 @@ def create_dataset(
             # Try to convert string to CSVDatasetName enum
             try:
                 file_path = CSVDatasetName(dataset_name)
-            except ValueError:
+            except ValueError as exc:
                 # If not a known CSV dataset name, use as raw path
-                raise ValueError(f"Unknown CSV dataset: {dataset_name}. Use CSVDatasetName enum.")
+                raise ValueError(
+                    f"Unknown CSV dataset: {dataset_name}. Use CSVDatasetName enum."
+                ) from exc
 
         # Get target column from known mappings
         target_column = CSV_DATASET_TARGET_COLUMNS.get(file_path)
@@ -500,16 +503,16 @@ def _compute_data_statistics(X: np.ndarray, name: str) -> dict:
     Returns:
         Dictionary with data statistics (shape, mean, std, min, max, nan info)
     """
-    X_arr = np.asarray(X, dtype=float)
+    x_arr = np.asarray(X, dtype=float)
     return {
-        f"{name}_shape": list(X_arr.shape),
-        f"{name}_mean": float(np.nanmean(X_arr)),
-        f"{name}_std": float(np.nanstd(X_arr)),
-        f"{name}_min": float(np.nanmin(X_arr)),
-        f"{name}_max": float(np.nanmax(X_arr)),
-        f"{name}_nan_count": int(np.isnan(X_arr).sum()),
+        f"{name}_shape": list(x_arr.shape),
+        f"{name}_mean": float(np.nanmean(x_arr)),
+        f"{name}_std": float(np.nanstd(x_arr)),
+        f"{name}_min": float(np.nanmin(x_arr)),
+        f"{name}_max": float(np.nanmax(x_arr)),
+        f"{name}_nan_count": int(np.isnan(x_arr).sum()),
         f"{name}_nan_fraction": (
-            float(np.isnan(X_arr).sum() / X_arr.size) if X_arr.size > 0 else 0.0
+            float(np.isnan(x_arr).sum() / x_arr.size) if x_arr.size > 0 else 0.0
         ),
     }
 
@@ -523,40 +526,7 @@ def _compute_label_distribution(y: np.ndarray) -> dict:
     Returns:
         Dictionary with distribution statistics (class counts, fractions, balance)
     """
-    y_arr = np.asarray(y)
-    total_samples = len(y_arr)
-
-    # Handle empty label arrays to avoid division by zero
-    if total_samples == 0:
-        return {
-            "unique_classes": 0,
-            "total_samples": 0,
-            "class_counts": {},
-            "class_fractions": {},
-            "class_balance": {
-                "min_class_fraction": 0.0,
-                "max_class_fraction": 0.0,
-                "imbalance_ratio": 0.0,
-            },
-        }
-
-    unique, counts = np.unique(y_arr, return_counts=True)
-
-    return {
-        "unique_classes": len(unique),
-        "total_samples": int(total_samples),
-        "class_counts": {str(cls): int(cnt) for cls, cnt in zip(unique, counts)},
-        "class_fractions": {
-            str(cls): float(cnt / total_samples) for cls, cnt in zip(unique, counts)
-        },
-        "class_balance": {
-            "min_class_fraction": float(counts.min() / total_samples) if len(counts) > 0 else 0.0,
-            "max_class_fraction": float(counts.max() / total_samples) if len(counts) > 0 else 0.0,
-            "imbalance_ratio": (
-                float(counts.max() / counts.min()) if counts.min() > 0 else float("inf")
-            ),
-        },
-    }
+    return build_class_balance_metrics(y)
 
 
 def run_baseline_experiment(
@@ -564,6 +534,7 @@ def run_baseline_experiment(
     model_name: str,
     dataset_source: DatasetSourceType,
     dataset_name: Union[SklearnDatasetName, str, CSVDatasetName],
+    *,
     filtered_params: Optional[dict] = None,
     seed: Optional[int] = None,
 ):
@@ -854,7 +825,12 @@ def run_standard_experiment(
 
     # Run experiments
     baseline_metrics = run_baseline_experiment(
-        model_class, model_name, dataset_source, dataset_name, filtered_params, seed=seed
+        model_class,
+        model_name,
+        dataset_source,
+        dataset_name,
+        filtered_params=filtered_params,
+        seed=seed,
     )
     inference_metrics = run_inference_experiment(
         model_class,
@@ -1004,7 +980,7 @@ def run_standard_experiment_digits(
 
 def run_data_only_experiment(
     model_class: Type[BaseModel],
-    model_name: str,
+    _model_name: str,
     dataset_source: DatasetSourceType,
     dataset_name: Union[SklearnDatasetName, str, CSVDatasetName],
     *,
@@ -1015,7 +991,6 @@ def run_data_only_experiment(
 
     Args:
         model_class: Model class to instantiate.
-        model_name: Name for logging and reporting.
         dataset_source: Source type of the dataset.
         dataset_name: Name/identifier of the dataset.
         filtered_params: Optional filtered parameters for the model.
@@ -1150,7 +1125,7 @@ def run_label_only_experiment(
 
 def run_param_only_experiment(
     model_class: Type[BaseModel],
-    model_name: str,
+    _model_name: str,
     dataset_source: DatasetSourceType,
     dataset_name: Union[SklearnDatasetName, str, CSVDatasetName],
     *,
@@ -1161,7 +1136,6 @@ def run_param_only_experiment(
 
     Args:
         model_class: Model class to instantiate.
-        model_name: Name for logging and reporting.
         dataset_source: Source type of the dataset.
         dataset_name: Name/identifier of the dataset.
         filtered_params: Optional filtered parameters for the model.
@@ -1260,7 +1234,12 @@ def run_impact_analysis(
 
     # Run all experiments
     baseline = run_baseline_experiment(
-        model_class, model_name, dataset_source, dataset_name, filtered_params, seed=seed
+        model_class,
+        model_name,
+        dataset_source,
+        dataset_name,
+        filtered_params=filtered_params,
+        seed=seed,
     )
 
     data_only = run_data_only_experiment(

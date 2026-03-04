@@ -2,7 +2,7 @@
 
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional
 
 from smart_inference_ai_fusion.inference.engine.inference_engine import InferenceEngine
 from smart_inference_ai_fusion.inference.engine.label_runner import LabelInferenceEngine
@@ -12,12 +12,10 @@ from smart_inference_ai_fusion.utils.verification_config import get_verification
 from smart_inference_ai_fusion.utils.verification_report import report_verification_results
 from smart_inference_ai_fusion.verification.core.formal_verification import verification_manager
 from smart_inference_ai_fusion.verification.core.plugin_interface import registry
-from smart_inference_ai_fusion.verification.decorators import verify_pipeline_step
 
 logger = logging.getLogger(__name__)
 
 
-# pylint: disable=too-many-positional-arguments
 class InferencePipeline:
     """Unified pipeline for applying inference/perturbations.
 
@@ -71,7 +69,7 @@ class InferencePipeline:
                 "verification_config parameter is deprecated. Use environment variables instead."
             )
 
-        logger.info(f"🏗️ Pipeline initialized with configuration: {self.config}")
+        logger.info("🏗️ Pipeline initialized with configuration: %s", self.config)
 
         # Cache de verificadores para performance
         self._verifier_cache = {}
@@ -84,15 +82,15 @@ class InferencePipeline:
             return
 
         enabled_solvers = self.config.get_enabled_solvers()
-        logger.info(f"🔧 Carregando verificadores: {enabled_solvers}")
+        logger.info("🔧 Carregando verificadores: %s", enabled_solvers)
 
         for solver_name in enabled_solvers:
             verifier = registry.get_verifier(solver_name)
             if verifier and verifier.is_available():
                 self._verifier_cache[solver_name] = verifier
-                logger.info(f"✅ Verificador {solver_name} carregado")
+                logger.info("✅ Verificador %s carregado", solver_name)
             else:
-                logger.warning(f"⚠️ Verifier {solver_name} not available")
+                logger.warning("⚠️ Verifier %s not available", solver_name)
 
         if not self._verifier_cache:
             logger.warning("❌ No verifiers available - verification disabled")
@@ -266,7 +264,7 @@ class InferencePipeline:
         if not self._verifier_cache:
             return {}
 
-        constraints = self._build_parameter_constraints(params, original_params)
+        constraints = self._build_parameter_constraints(original_params)
         results = {}
 
         if self.config.parallel_solvers and len(self._verifier_cache) > 1:
@@ -281,7 +279,7 @@ class InferencePipeline:
                     )
                     results[solver_name] = result
                 except Exception as e:
-                    logger.error(f"❌ Verification error with {solver_name}: {e}")
+                    logger.error("❌ Verification error with %s: %s", solver_name, e)
                     results[solver_name] = {"error": str(e), "status": "ERROR"}
 
         # Análise comparativa se múltiplos solvers
@@ -295,7 +293,7 @@ class InferencePipeline:
         if not self._verifier_cache:
             return {}
 
-        constraints = self._build_model_constraints(model, params)
+        constraints = self._build_model_constraints()
         results = {}
 
         for solver_name, verifier in self._verifier_cache.items():
@@ -308,7 +306,7 @@ class InferencePipeline:
                 )
                 results[solver_name] = result
             except Exception as e:
-                logger.error(f"❌ Model verification error with {solver_name}: {e}")
+                logger.error("❌ Model verification error with %s: %s", solver_name, e)
                 results[solver_name] = {"error": str(e), "status": "ERROR"}
 
         return results
@@ -317,6 +315,7 @@ class InferencePipeline:
         self, name: str, constraints: Dict[str, Any], input_data: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Executa verificação em paralelo com múltiplos solvers incluindo error handling."""
+
         from smart_inference_ai_fusion.verification.core.error_handling import should_disable_solver
 
         results = {}
@@ -332,7 +331,9 @@ class InferencePipeline:
             logger.warning("❌ No active solvers available for parallel verification")
             return {"error": "No active solvers available"}
 
-        logger.info(f"🔄 Running parallel verification with {len(active_verifiers)} active solvers")
+        logger.info(
+            "🔄 Running parallel verification with %d active solvers", len(active_verifiers)
+        )
 
         with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
             # Submeter tarefas para cada verificador ativo
@@ -351,16 +352,16 @@ class InferencePipeline:
                         timeout=self.config.timeout_per_constraint + 10
                     )  # +10s buffer
                     results[solver_name] = result
-                    logger.info(f"✅ Verification {solver_name} completed for {name}")
+                    logger.info("✅ Verification %s completed for %s", solver_name, name)
                 except TimeoutError:
-                    logger.warning(f"⏰ Timeout on verification {solver_name} for {name}")
+                    logger.warning("⏰ Timeout on verification %s for %s", solver_name, name)
                     results[solver_name] = {
                         "error": "Verification timeout",
                         "status": "TIMEOUT",
                         "execution_time": self.config.timeout_per_constraint,
                     }
                 except Exception as e:
-                    logger.error(f"❌ Verification {solver_name} failed: {e}")
+                    logger.error("❌ Verification %s failed: %s", solver_name, e)
                     results[solver_name] = {
                         "error": str(e),
                         "status": "ERROR",
@@ -383,7 +384,7 @@ class InferencePipeline:
 
         # Verificar se solver deve ser pulado devido a erros anteriores
         if should_disable_solver(solver_name):
-            logger.warning(f"⚠️ Pulando {solver_name} - temporariamente desabilitado")
+            logger.warning("⚠️ Pulando %s - temporariamente desabilitado", solver_name)
             return {
                 "status": "SKIPPED",
                 "message": f"{solver_name} temporarily disabled due to reliability issues",
@@ -431,14 +432,14 @@ class InferencePipeline:
             if error_result.get("action") == "switch_solver":
                 new_solver_name = error_result.get("new_solver")
                 if new_solver_name and new_solver_name in self._verifier_cache:
-                    logger.info(f"🔄 Tentando fallback: {solver_name} → {new_solver_name}")
+                    logger.info("🔄 Tentando fallback: %s → %s", solver_name, new_solver_name)
                     fallback_verifier = self._verifier_cache[new_solver_name]
                     try:
                         return self._verify_with_solver(
                             fallback_verifier, name, constraints, input_data
                         )
                     except Exception as fallback_error:
-                        logger.error(f"❌ Fallback also failed: {fallback_error}")
+                        logger.error("❌ Fallback also failed: %s", fallback_error)
 
             return {
                 "status": "ERROR",
@@ -499,7 +500,7 @@ class InferencePipeline:
         return comparison
 
     def _build_parameter_constraints(
-        self, params: Dict[str, Any], original_params: Optional[Dict[str, Any]] = None
+        self, original_params: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """Constrói constraints estruturados para verificação de parâmetros."""
         constraints = {
@@ -527,7 +528,7 @@ class InferencePipeline:
 
         return constraints
 
-    def _build_model_constraints(self, model, params: Dict[str, Any]) -> Dict[str, Any]:
+    def _build_model_constraints(self) -> Dict[str, Any]:
         """Constrói constraints para verificação de integridade do modelo."""
         return {
             "model_instantiation": True,
@@ -615,9 +616,9 @@ class InferencePipeline:
                     verifier, name, constraints, {"input": input_data, "output": output_data}
                 )
                 results[solver_name] = result
-                logger.info(f"✅ {category} verification with {solver_name} completed")
+                logger.info("✅ %s verification with %s completed", category, solver_name)
             except Exception as e:
-                logger.error(f"❌ {category} verification error with {solver_name}: {e}")
+                logger.error("❌ %s verification error with %s: %s", category, solver_name, e)
                 results[solver_name] = {"error": str(e), "status": "ERROR"}
         return results
 

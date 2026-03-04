@@ -1,9 +1,7 @@
 """Extensão do sistema de report para incluir resultados de verificação formal."""
 
-import json
 from typing import Any, Dict, Optional
 
-from smart_inference_ai_fusion.utils.logging import logger
 from smart_inference_ai_fusion.utils.report import (
     ReportMode,
     generate_experiment_filename,
@@ -91,7 +89,8 @@ def _report_console_verification(details: Dict[str, Any]) -> None:
     # Constraints summary
     if constraints["total_checked"] > 0:
         report_data(
-            f"   📋 Constraints: {constraints['total_satisfied']}/{constraints['total_checked']} satisfied",
+            f"   📋 Constraints: {constraints['total_satisfied']}/"
+            f"{constraints['total_checked']} satisfied",
             mode=ReportMode.PRINT,
         )
 

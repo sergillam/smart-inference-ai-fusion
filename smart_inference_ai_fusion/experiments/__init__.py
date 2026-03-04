@@ -186,7 +186,7 @@ def _run_single_experiment(experiment_module: str) -> bool:
     except (ValueError, RuntimeError) as err:
         logger.error("❌ Expected failure in %s: %s", experiment_module, err)
         return False
-    except Exception as err:  # pylint: disable=broad-exception-caught
+    except Exception as err:
         logger.error("❌ Unexpected failure in %s: %s", experiment_module, err, exc_info=True)
         return False
 

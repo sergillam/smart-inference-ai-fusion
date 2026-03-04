@@ -17,9 +17,9 @@ def _load_plugins():
             module_name = filename[:-3]  # Remove .py
             try:
                 importlib.import_module(f".{module_name}", package=__name__)
-                logger.debug(f"Loaded plugin: {module_name}")
-            except Exception as e:
-                logger.warning(f"Failed to load plugin {module_name}: {e}")
+                logger.debug("Loaded plugin: %s", module_name)
+            except ImportError as e:
+                logger.warning("Failed to load plugin %s: %s", module_name, e)
 
 
 # Load plugins on import

@@ -49,8 +49,8 @@ class LogisticRegressionModel(BaseModel):
         """Evaluates the LogisticRegression on test data.
 
         Args:
-            X_test (array-like): Test features.
-            y_test (array-like): Test labels.
+            X_test: Test features.
+            y_test: Test labels.
             average: Averaging strategy for multi-class classification metrics.
 
         Returns:

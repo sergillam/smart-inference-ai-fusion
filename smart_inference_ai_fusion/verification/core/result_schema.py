@@ -4,7 +4,7 @@ import json
 import time
 from dataclasses import asdict, dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 
 class StandardStatus(Enum):
@@ -92,8 +92,6 @@ class PerformanceMetrics:
     constraints_skipped: int
     memory_usage_mb: Optional[float] = None
     peak_memory_mb: Optional[float] = None
-    restart_count: Optional[int] = None
-    decisions_count: Optional[int] = None
     propagations_count: Optional[int] = None
     conflicts_count: Optional[int] = None
 
@@ -248,24 +246,23 @@ class StandardVerificationResult:
 
         if "bounds" in constraint_name_lower or "range" in constraint_name_lower:
             return ConstraintType.BOUNDS.value
-        elif "linear" in constraint_name_lower:
+        if "linear" in constraint_name_lower:
             return ConstraintType.LINEAR.value
-        elif "nonlinear" in constraint_name_lower or "polynomial" in constraint_name_lower:
+        if "nonlinear" in constraint_name_lower or "polynomial" in constraint_name_lower:
             return ConstraintType.NONLINEAR.value
-        elif "probability" in constraint_name_lower or "distribution" in constraint_name_lower:
+        if "probability" in constraint_name_lower or "distribution" in constraint_name_lower:
             return ConstraintType.PROBABILISTIC.value
-        elif any(
+        if any(
             ml_term in constraint_name_lower for ml_term in ["neural", "tree", "model", "ml", "ai"]
         ):
             return ConstraintType.ML_SPECIFIC.value
-        elif (
+        if (
             "optimization" in constraint_name_lower
             or "minimize" in constraint_name_lower
             or "maximize" in constraint_name_lower
         ):
             return ConstraintType.OPTIMIZATION.value
-        else:
-            return ConstraintType.CUSTOM.value
+        return ConstraintType.CUSTOM.value
 
     def to_dict(self) -> Dict[str, Any]:
         """Converte para dicionário serializável."""
@@ -396,10 +393,9 @@ class StandardVerificationResult:
 
         if my_score > other_score:
             return self.solver_metadata.solver_name
-        elif other_score > my_score:
+        if other_score > my_score:
             return other.solver_metadata.solver_name
-        else:
-            return "tie"
+        return "tie"
 
 
 class ResultSchemaManager:
@@ -490,15 +486,17 @@ class ResultSchemaManager:
 
     @staticmethod
     def export_results(
-        results: List[StandardVerificationResult], format: str = "json", output_path: str = None
+        results: List[StandardVerificationResult],
+        output_format: str = "json",
+        output_path: str = None,
     ) -> str:
         """Exporta resultados em formato específico."""
 
-        if format.lower() == "json":
+        if output_format.lower() == "json":
             data = [result.to_dict() for result in results]
             content = json.dumps(data, indent=2, ensure_ascii=False)
 
-        elif format.lower() == "csv":
+        elif output_format.lower() == "csv":
             import csv
             import io
 
@@ -511,7 +509,7 @@ class ResultSchemaManager:
                     writer.writerow(result.get_summary())
             content = output.getvalue()
 
-        elif format.lower() == "markdown":
+        elif output_format.lower() == "markdown":
             content = "# Verification Results Report\n\n"
             for result in results:
                 summary = result.get_summary()
@@ -522,7 +520,7 @@ class ResultSchemaManager:
                 content += f"- **Constraints**: {summary['constraints_satisfied']}/{summary['constraints_total']} satisfied\n\n"
 
         else:
-            raise ValueError(f"Unsupported format: {format}")
+            raise ValueError(f"Unsupported format: {output_format}")
 
         if output_path:
             with open(output_path, "w", encoding="utf-8") as f:

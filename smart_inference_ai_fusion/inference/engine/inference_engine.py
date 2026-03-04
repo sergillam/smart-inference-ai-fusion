@@ -225,8 +225,9 @@ class InferenceEngine:
                 per-transformation statistics to limit memory overhead.
 
         Returns:
-            Tuple[np.ndarray, np.ndarray, dict]: A tuple `(X_train_perturbed, X_test_perturbed, statistics)`
-            after applying the pipeline. The statistics dict contains transformation details.
+            Tuple[np.ndarray, np.ndarray, dict]: A tuple `(X_train_perturbed, X_test_perturbed,
+                statistics)` after applying the pipeline. The statistics dict contains
+                transformation details.
 
         Raises:
             ValueError: If `X_train` and `X_test` have mismatched feature dimensions.

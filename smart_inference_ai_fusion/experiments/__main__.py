@@ -16,8 +16,8 @@ import sys
 
 from smart_inference_ai_fusion.utils.logging import setup_logger
 from smart_inference_ai_fusion.verification.core.error_handling import (
-    set_circuit_breaker,
     reset_error_handler,
+    set_circuit_breaker,
 )
 
 from . import run_all_experiments
