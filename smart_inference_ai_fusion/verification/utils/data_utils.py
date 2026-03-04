@@ -3,9 +3,12 @@
 This module contains common functions used by both CVC5 and Z3 plugins
 to avoid code duplication (R0801 lint errors).
 """
+# pylint: disable=missing-type-doc,too-many-positional-arguments,import-outside-toplevel,protected-access
+# pylint: disable=broad-exception-caught,too-many-nested-blocks,too-many-branches,no-name-in-module,unused-argument
+# pylint: disable=too-many-lines,too-complex
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -1388,8 +1391,8 @@ def build_verification_report_dict(
 
 def log_all_constraint_violations(
     violations: List[Tuple[str, Dict[str, Any]]],
-    log_func,
-    get_category_func,
+    log_func: Callable[[str, Any], None],
+    get_category_func: Callable[[str], str],
 ) -> None:
     """Log all constraint violations with counterexample details.
 
@@ -1397,8 +1400,8 @@ def log_all_constraint_violations(
 
     Args:
         violations: List of (constraint_name, details) tuples to log
-        log_func: Logger function (e.g., logger.info)
-        get_category_func: Function to get constraint category
+        log_func: Callable[[str, Any], None] - Logger function (e.g., logger.info)
+        get_category_func: Callable[[str], str] - Function to get constraint category
     """
     for constraint_name, details in violations:
         counterexample = details.get("counterexample", {})
@@ -1457,7 +1460,9 @@ def check_parameter_validity_for_invariant(
 
 
 def extract_data_for_verification(
-    input_data: Any, constraint_type: str = "generic", constraint_value: Any = None
+    input_data: Any,
+    constraint_type: str = "generic",
+    constraint_value: Any = None,  # pylint: disable=unused-argument
 ) -> Tuple[Optional[Any], bool]:
     """Extract input or output data for constraint verification.
 
@@ -1465,8 +1470,8 @@ def extract_data_for_verification(
 
     Args:
         input_data: VerificationInput object
-        constraint_type: Type of constraint to help determine which data to extract
-        constraint_value: Constraint configuration (unused, for API compatibility)
+        constraint_type: Type of constraint (reserved for future use, API compatibility)
+        constraint_value: Constraint configuration (reserved for future use, API compatibility)
 
     Returns:
         Tuple of (data or None, has_data: bool)
