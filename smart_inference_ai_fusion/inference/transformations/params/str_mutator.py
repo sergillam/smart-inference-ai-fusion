@@ -91,8 +91,7 @@ class StringMutator(ParameterTransformation):
         if model_config is None:
             return params
 
-        safe_options, model_name, use_cross_dep = model_config
-        return self._apply_solver_mutation(params, current, safe_options, model_name, use_cross_dep)
+        return self._apply_solver_mutation(params, current, model_config)
 
     def _detect_model_solver_config(self, params: dict) -> tuple | None:
         """Detect model type and return solver configuration.
@@ -115,10 +114,15 @@ class StringMutator(ParameterTransformation):
             return (["lbfgs", "liblinear", "sag", "saga"], "LogisticRegression", False)
         return None
 
-    def _apply_solver_mutation(
-        self, params: dict, current: str, safe_options: list, model_name: str, use_cross_dep: bool
-    ) -> dict:
-        """Apply solver mutation with protection."""
+    def _apply_solver_mutation(self, params: dict, current: str, model_config: tuple) -> dict:
+        """Apply solver mutation with protection.
+
+        Args:
+            params: Hyperparameters dictionary
+            current: Current solver value
+            model_config: Tuple of (safe_options, model_name, use_cross_dep)
+        """
+        safe_options, model_name, use_cross_dep = model_config
         if current not in safe_options:
             new_value = random.choice(safe_options)
             report_data(
