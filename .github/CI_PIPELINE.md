@@ -243,7 +243,7 @@ pylint --fail-under=9.5
 O pipeline coleta:
 - ✅ Pylint scores (9.5+/10)
 - ✅ Pytest results (31 testes)
-- ✅ Code coverage (%) 
+- ✅ Code coverage (%)
 - ✅ Case study results (JSON)
 - ✅ Build time (minutos)
 
@@ -271,5 +271,5 @@ Se o pipeline tiver problemas:
 
 ---
 
-**Última atualização:** 4 de março de 2026  
+**Última atualização:** 4 de março de 2026
 **Workflow file:** `.github/workflows/ci.yml`
