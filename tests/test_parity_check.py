@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
 """Teste de paridade entre Z3 e CVC5 - Recursos, Constraints e Resultados"""
-import sys
 import os
+import sys
 
 # Adicionar path do projeto
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import numpy as np
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
+
+import numpy as np
 
 
 @dataclass
 class MockVerificationInput:
     """Mock para simular VerificationInput"""
+
     input_data: Any = None
     output_data: Any = None
     parameters: Optional[Dict] = None
@@ -55,8 +57,8 @@ def test_resource_parity():
 def test_functional_parity():
     """Testa paridade de constraints funcionais entre Z3 e CVC5"""
 
-    from smart_inference_ai_fusion.verification.plugins.z3_plugin import Z3Verifier
     from smart_inference_ai_fusion.verification.plugins.cvc5_plugin import CVC5Verifier
+    from smart_inference_ai_fusion.verification.plugins.z3_plugin import Z3Verifier
 
     z3_v = Z3Verifier()
     cvc5_v = CVC5Verifier()
@@ -146,8 +148,8 @@ def test_functional_parity():
 def test_parity():
     """Testa paridade de resultados entre Z3 e CVC5 para todos os constraints"""
 
-    from smart_inference_ai_fusion.verification.plugins.z3_plugin import Z3Verifier
     from smart_inference_ai_fusion.verification.plugins.cvc5_plugin import CVC5Verifier
+    from smart_inference_ai_fusion.verification.plugins.z3_plugin import Z3Verifier
 
     z3_v = Z3Verifier()
     cvc5_v = CVC5Verifier()
@@ -197,23 +199,29 @@ def test_parity():
 
                 # CVC5
                 cvc5_dict = cvc5_v._verify_constraint(c_name, c_data, mock)
-                cvc5_r = cvc5_dict.get("satisfied", True) if isinstance(cvc5_dict, dict) else cvc5_dict
+                cvc5_r = (
+                    cvc5_dict.get("satisfied", True) if isinstance(cvc5_dict, dict) else cvc5_dict
+                )
 
                 if z3_r == cvc5_r:
                     results[c_name]["matches"] += 1
                 else:
                     results[c_name]["mismatches"] += 1
-                    results[c_name]["details"].append({
-                        "case": t_name,
-                        "z3": z3_r,
-                        "cvc5": cvc5_r,
-                    })
+                    results[c_name]["details"].append(
+                        {
+                            "case": t_name,
+                            "z3": z3_r,
+                            "cvc5": cvc5_r,
+                        }
+                    )
 
             except Exception as e:
-                results[c_name]["details"].append({
-                    "case": t_name,
-                    "error": str(e)[:100],
-                })
+                results[c_name]["details"].append(
+                    {
+                        "case": t_name,
+                        "error": str(e)[:100],
+                    }
+                )
 
     # Imprimir resultados
     print("\n📊 RESULTADOS DE PARIDADE:")
