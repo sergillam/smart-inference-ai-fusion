@@ -1,5 +1,21 @@
 # Architecture Changes - Phase 2-3 Implementation
 
+**Status:** ✅ Complete  
+**Review:** ✅ [PHASE_4_REVIEW.md](../PHASE_4_REVIEW.md#4-docsarchitecture_changesmd-system-design)
+
+## 📖 Table of Contents
+
+1. [Overview](#overview)
+2. [Test Structure Architecture](#1-test-structure-architecture)
+3. [Error Handling Architecture](#2-error-handling-architecture)
+4. [Verification Plugin Architecture](#3-verification-plugin-architecture)
+5. [Constraint Verification Flow](#4-constraint-verification-flow)
+6. [Data Utilities Architecture](#5-data-utilities-architecture)
+7. [Quality Assurance Architecture](#6-quality-assurance-architecture)
+8. [Module Organization](#8-module-organization)
+9. [Dependency Graph](#9-dependency-graph)
+10. [Evolution Path](#10-evolution-path)
+
 ## Overview
 
 This document details architectural changes introduced during the refactoring phases, focusing on structural improvements, pattern standardization, and design consolidation.
@@ -94,18 +110,18 @@ def verify(self, input_data):
                 "Invalid input structure",
                 context={"expected": self.input_schema}
             )
-        
+
         result = self._verify_constraint(...)
         return result
-        
+
     except SolverTimeoutException as e:
         logger.error("Solver timeout: %s seconds", e.timeout_seconds)
         return VerificationResult(status="timeout", error=e.message)
-        
+
     except ConstraintViolationException as e:
         logger.warning("Constraint violation: %s", e.message)
         return VerificationResult(status="violated", error=e.message)
-        
+
     except VerificationException as e:
         logger.error("Verification error: %s", e.message)
         return VerificationResult(status="error", error=e.message)
@@ -126,17 +142,17 @@ def verify(self, input_data):
 
 class VerifierInterface(ABC):
     """Base interface for SMT solver verifiers."""
-    
+
     @abstractmethod
     def verify(self, input_data) -> VerificationResult:
         """Verify constraints on input data."""
         pass
-    
+
     @abstractmethod
     def supported_constraints(self) -> List[str]:
         """Return list of supported constraint types."""
         pass
-    
+
     @abstractmethod
     def _get_constraint_handlers(self) -> Dict[str, Callable]:
         """Return constraint handler dispatcher."""
@@ -148,7 +164,7 @@ class VerifierInterface(ABC):
 ```python
 # z3_plugin.py
 class Z3Verifier(VerifierInterface):
-    
+
     def __init__(self):
         self._constraint_handlers = {
             "bounds": self._verify_bounds,
@@ -156,16 +172,16 @@ class Z3Verifier(VerifierInterface):
             "type_safety": self._verify_type_safety,
             # ... 7 more handlers
         }
-        
+
         self._counterexample_handlers = {
             "neural_network": self._extract_nn_counterexample,
             "neural_network_verification": self._extract_nn_counterexample,  # Alias
         }
-    
+
     def _get_constraint_handlers(self) -> Dict[str, Callable]:
         """Dispatcher returns all registered handlers."""
         return self._constraint_handlers
-    
+
     def _verify_constraint(self, constraint_type, constraint_spec, context):
         """Dispatch to appropriate handler."""
         handler = self._constraint_handlers.get(
