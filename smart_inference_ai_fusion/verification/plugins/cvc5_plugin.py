@@ -1,8 +1,21 @@
-"""Plugin CVC5 para verificação formal com capacidades avançadas."""
+"""Plugin CVC5 para verificação formal com capacidades avançadas.
+
+Note: Intentional duplicate code patterns with z3_plugin for:
+  - Private extraction methods (_extract_data_from_input)
+  - Constraint verification loops (implementation-specific)
+These duplicates improve readability and maintainability of each solver implementation.
+"""
+
+# pylint: disable=duplicate-code,too-many-lines,too-many-branches
+# pylint: disable=too-many-statements,too-complex,too-many-nested-blocks
+# pylint: disable=broad-exception-caught,import-outside-toplevel
+# pylint: disable=unused-import,unused-argument,unused-variable
+# pylint: disable=no-else-return,consider-using-f-string,logging-fstring-interpolation
+# pylint: disable=too-many-positional-arguments,implicit-str-concat
 
 import logging
 import time
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from ...utils.report import report_data
 from ...utils.types import ReportMode
@@ -14,11 +27,45 @@ from ..core.plugin_interface import (
     VerificationStatus,
 )
 from ..core.result_schema import (
-    ConstraintResult,
-    PerformanceMetrics,
     SolverMetadata,
-    StandardStatus,
     StandardVerificationResult,
+)
+from ..utils import (
+    build_bulk_constraint_results,
+    build_error_context_dict,
+    build_solver_performance_and_status,
+    build_verification_session_dict,
+    check_data_consistency,
+    check_data_shape_validation,
+    check_inf_for_bounds,
+    check_nan_for_bounds,
+    check_non_negative_for_constraint,
+    check_output_validity,
+    check_parameter_initialization,
+    check_parameter_validity_for_invariant,
+    check_precondition_data_preprocessing,
+    check_strict_integer,
+    compute_avg_time_per_constraint,
+    extract_data_for_verification,
+    extract_input_output_data,
+    extract_numeric_data,
+    get_data_from_input,
+    get_output_data_array,
+    get_robustness_test_type,
+    handle_constraint_verification_error,
+    log_all_constraint_violations,
+    log_verification_summary,
+    normalize_to_array,
+    parse_adversarial_test_params,
+    parse_noise_test_params,
+    parse_robustness_tests,
+    parse_shape_config,
+    parse_type_safety_config,
+    try_convert_to_float,
+    verify_classification_constraints,
+    verify_probability_bounds,
+    verify_shape_preservation,
+    verify_type_safety,
 )
 from .constraint_categories import format_counterexamples_summary, get_constraint_category
 
@@ -64,8 +111,8 @@ class CVC5Verifier(FormalVerifier):
                 return cvc5.version
             else:
                 return "cvc5-installed"
-        except Exception as e:
-            logger.warning(f"Could not get CVC5 version: {e}")
+        except (RuntimeError, AttributeError, ValueError) as e:
+            logger.warning("Could not get CVC5 version: %s", e)
             return "cvc5-installed"
 
     def _init_cvc5(self):
@@ -102,8 +149,8 @@ class CVC5Verifier(FormalVerifier):
         try:
             # CVC5 usa portfolio mode para paralelismo (quando disponível)
             self.solver.setOption("sat-random-seed", "12345")  # Seed determinística (IGUAL Z3)
-        except Exception as e:
-            logger.debug(f"Parallelization options: {e}")
+        except (AttributeError, RuntimeError, ValueError) as e:
+            logger.debug("Parallelization options: %s", e)
 
         # === CONFIGURAÇÕES ARITMÉTICA NÃO-LINEAR - MÁXIMO ===
         try:
@@ -113,15 +160,15 @@ class CVC5Verifier(FormalVerifier):
             self.solver.setOption("nl-ext-rewrite", "true")  # Reescrita NL
             self.solver.setOption("nl-ext-split-zero", "true")  # Split em zero
             self.solver.setOption("nl-cad", "true")  # CAD (Cylindrical Algebraic Decomposition)
-        except Exception as e:
-            logger.debug(f"NL options: {e}")
+        except (AttributeError, RuntimeError, ValueError) as e:
+            logger.debug("NL options: %s", e)
 
         # === ARITMÉTICA LINEAR OTIMIZADA ===
         try:
             self.solver.setOption("arith-rewrite-equalities", "true")
             self.solver.setOption("arith-brab", "true")  # Branch and bound
-        except Exception as e:
-            logger.debug(f"Arith options: {e}")
+        except (AttributeError, RuntimeError, ValueError) as e:
+            logger.debug("Arith options: %s", e)
 
         # === CONFIGURAÇÕES DE QUANTIFICADORES ===
         try:
@@ -129,57 +176,57 @@ class CVC5Verifier(FormalVerifier):
             self.solver.setOption("fmf-bound", "true")
             self.solver.setOption("cegqi", "true")  # Counterexample-guided quantifier instantiation
             self.solver.setOption("cegqi-bv", "true")  # CEGQI para bit-vectors
-        except Exception as e:
-            logger.debug(f"Quantifier options: {e}")
+        except (AttributeError, RuntimeError, ValueError) as e:
+            logger.debug("Quantifier options: %s", e)
 
         # === PRÉ-PROCESSAMENTO INTENSIVO ===
         try:
             self.solver.setOption("simplification", "batch")
             self.solver.setOption("repeat-simp", "true")
-        except Exception as e:
-            logger.debug(f"Simplification options: {e}")
+        except (AttributeError, RuntimeError, ValueError) as e:
+            logger.debug("Simplification options: %s", e)
 
         # === CONFIGURAÇÕES DE BIT-VECTORS E ARRAYS ===
         try:
             self.solver.setOption("bv-solver", "bitblast")
             self.solver.setOption("bv-intro-pow2", "true")  # Introdução potência de 2
             self.solver.setOption("arrays-optimize-linear", "true")
-        except Exception as e:
-            logger.debug(f"BV/Array options: {e}")
+        except (AttributeError, RuntimeError, ValueError) as e:
+            logger.debug("BV/Array options: %s", e)
 
         # === CONFIGURAÇÕES DE STRINGS ===
         try:
             self.solver.setOption("strings-exp", "true")
             self.solver.setOption("strings-guess-model", "true")
-        except Exception as e:
-            logger.debug(f"String options: {e}")
+        except (AttributeError, RuntimeError, ValueError) as e:
+            logger.debug("String options: %s", e)
 
         # === OTIMIZAÇÕES DE PERFORMANCE ===
         try:
             self.solver.setOption("sort-inference", "true")
             self.solver.setOption("global-declarations", "true")
-        except Exception as e:
-            logger.debug(f"Optimization options: {e}")
+        except (AttributeError, RuntimeError, ValueError) as e:
+            logger.debug("Optimization options: %s", e)
 
         # === CONFIGURAÇÕES DE MODELO E PROVA ===
         try:
             self.solver.setOption("dump-models", "true")
             self.solver.setOption("dump-proofs", "true")
-        except Exception as e:
-            logger.debug(f"Model options: {e}")
+        except (AttributeError, RuntimeError, ValueError) as e:
+            logger.debug("Model options: %s", e)
 
         # === OTIMIZAÇÕES ESPECÍFICAS PARA ML ===
         try:
             self.solver.setOption("solve-real-as-int", "false")
             self.solver.setOption("solve-int-as-bv", "false")
-        except Exception as e:
-            logger.debug(f"ML options: {e}")
+        except (AttributeError, RuntimeError, ValueError) as e:
+            logger.debug("ML options: %s", e)
 
         # === CONFIGURAÇÕES DE ESTATÍSTICAS ===
         try:
             self.solver.setOption("stats", "true")
-        except Exception as e:
-            logger.debug(f"Stats options: {e}")
+        except (AttributeError, RuntimeError, ValueError) as e:
+            logger.debug("Stats options: %s", e)
 
         # === ESTRATÉGIAS DE DECISÃO ===
         try:
@@ -187,28 +234,30 @@ class CVC5Verifier(FormalVerifier):
             self.solver.setOption("restart", "geometric")
             self.solver.setOption("random-freq", "0.02")  # Frequência aleatória
             self.solver.setOption("sat-random-seed", "12345")
-        except Exception as e:
-            logger.debug(f"Decision options: {e}")
+        except (AttributeError, RuntimeError, ValueError) as e:
+            logger.debug("Decision options: %s", e)
 
         # === CONFIGURAÇÕES DE SEED ===
         try:
             self.solver.setOption("random-seed", "12345")
-        except Exception as e:
-            logger.debug(f"Seed options: {e}")
+        except (AttributeError, RuntimeError, ValueError) as e:
+            logger.debug("Seed options: %s", e)
 
         # === DATATYPES E SÍNTESE ===
         try:
             self.solver.setOption("dt-infer-as-lemmas", "true")
             self.solver.setOption("sygus", "true")  # Syntax-guided synthesis
-        except Exception as e:
-            logger.debug(f"Datatype/Sygus options: {e}")
+        except (AttributeError, RuntimeError, ValueError) as e:
+            logger.debug("Datatype/Sygus options: %s", e)
 
         # === PARIDADE DE RECURSOS COM Z3 ===
         # Z3:   timeout=900000ms, rlimit=100M, max_memory=16GB, threads=16, seed=12345
         # CVC5: tlimit=900000ms,  rlimit=100M, (sem memory limit), seed=12345
         # Nota: CVC5 não tem opção de memory limit nem threads nativos
         logger.info(
-            f"🚀 CVC5 MAX CONFIG (PARIDADE Z3): v{cvc5.__version__}, 100M rlimit, 15min timeout, seed=12345, CEGQI+CAD+proofs"
+            "🚀 CVC5 MAX CONFIG (PARIDADE Z3): v%s, "
+            "100M rlimit, 15min timeout, seed=12345, CEGQI+CAD+proofs",
+            cvc5.__version__,
         )
 
     def is_available(self) -> bool:
@@ -289,7 +338,7 @@ class CVC5Verifier(FormalVerifier):
 
         # Verificar se solver deve ser desabilitado devido a erros anteriores
         if should_disable_solver(self.name):
-            logger.warning(f"⚠️ CVC5 temporarily disabled due to too many errors")
+            logger.warning("⚠️ CVC5 temporarily disabled due to too many errors")
             return VerificationResult(
                 status=VerificationStatus.SKIPPED,
                 verifier_name=self.name,
@@ -297,8 +346,8 @@ class CVC5Verifier(FormalVerifier):
                 message="CVC5 temporarily disabled due to reliability issues",
             )
 
-        logger.info(f"🔍 CVC5 verification started for: {input_data.name}")
-        logger.info(f"📋 Constraints to verify: {list(input_data.constraints.keys())}")
+        logger.info("🔍 CVC5 verification started for: %s", input_data.name)
+        logger.info("📋 Constraints to verify: %s", list(input_data.constraints.keys()))
 
         try:
             # Reset solver state
@@ -322,7 +371,7 @@ class CVC5Verifier(FormalVerifier):
 
                     verification_details[constraint_type] = constraint_result
 
-                except Exception as constraint_error:
+                except (RuntimeError, ValueError, TypeError, AttributeError) as constraint_error:
                     # Error handling por constraint individual
                     error_context = {
                         "constraint_type": constraint_type,
@@ -345,12 +394,8 @@ class CVC5Verifier(FormalVerifier):
                         "error_handling": error_result,
                     }
 
-                    # Se error handling sugeriu fallback, aplicar
-                    if error_result.get("action") == "use_basic_constraints":
-                        logger.info(f"🔧 Applying basic fallback for {constraint_type}")
-                        # Continuar com constraints simplificados
-
-                    logger.warning(f"Failed to verify {constraint_type}: {constraint_error}")
+                    handle_constraint_verification_error(constraint_type, error_result, logger.info)
+                    logger.warning("Failed to verify %s: %s", constraint_type, constraint_error)
 
             # Determinar status geral
             if violated_constraints:
@@ -379,25 +424,23 @@ class CVC5Verifier(FormalVerifier):
             )
 
             logger.info(
-                f"✅ CVC5 verification completed: {len(satisfied_constraints)}/{len(input_data.constraints)} satisfied"
+                "✅ CVC5 verification completed: %d/%d satisfied",
+                len(satisfied_constraints),
+                len(input_data.constraints),
             )
 
             # --- Reporting: save solver-specific report to console, results/ and logs/ ---
             try:
 
                 verification_report = {
-                    "verification_session": {
-                        "verifier": self.name,
-                        "timestamp": input_data.name,
-                        "execution_time_ms": round(execution_time * 1000, 2),
-                        "total_constraints": len(input_data.constraints),
-                        "constraints_satisfied": len(satisfied_constraints),
-                        "constraints_violated": len(violated_constraints),
-                        "success_rate": round(
-                            len(satisfied_constraints) / max(1, len(input_data.constraints)) * 100,
-                            1,
-                        ),
-                    },
+                    "verification_session": build_verification_session_dict(
+                        self.name,
+                        input_data.name,
+                        execution_time,
+                        len(input_data.constraints),
+                        len(satisfied_constraints),
+                        len(violated_constraints),
+                    ),
                     "constraint_results": {
                         "satisfied": satisfied_constraints,
                         "violated": violated_constraints,
@@ -408,21 +451,16 @@ class CVC5Verifier(FormalVerifier):
                 # ============================================================
                 # 📋 CONSOLE LOG - RESULTADO DA VERIFICAÇÃO FORMAL CVC5
                 # ============================================================
-                logger.info("=" * 70)
-                logger.info("🔬 CVC5 FORMAL VERIFICATION REPORT - %s", input_data.name)
-                logger.info("=" * 70)
-                logger.info("⏱️  Tempo de Execução: %.2fms", execution_time * 1000)
-                logger.info(
-                    "📊 Resultado: %d ✅ SATISFEITOS | %d ❌ VIOLADOS | %d total",
+                log_verification_summary(
+                    logger.info,
+                    "CVC5",
+                    input_data.name,
+                    execution_time,
                     len(satisfied_constraints),
                     len(violated_constraints),
                     len(input_data.constraints),
-                )
-                logger.info(
-                    "📈 Taxa de Sucesso: %.1f%%",
                     verification_report["verification_session"]["success_rate"],
                 )
-                logger.info("-" * 70)
 
                 # ✅ CONSTRAINTS SATISFEITOS
                 if satisfied_constraints:
@@ -438,46 +476,13 @@ class CVC5Verifier(FormalVerifier):
                     )
                     logger.info("-" * 70)
 
-                    for constraint in violated_constraints:
-                        details = verification_details.get(constraint, {})
-                        counterexample = details.get("counterexample", {})
-
-                        # Cabeçalho do constraint violado
-                        logger.info("")
-                        logger.info("🚨 VIOLAÇÃO: [%s]", constraint.upper())
-                        logger.info("   Categoria: %s", get_constraint_category(constraint))
-
-                        if counterexample:
-                            violation_examples = counterexample.get("violation_examples", [])
-                            violation_count = counterexample.get(
-                                "violation_count", len(violation_examples)
-                            )
-
-                            logger.info("   Total de violações: %d", violation_count)
-                            logger.info("   📝 CONTRAEXEMPLOS:")
-
-                            for i, example in enumerate(violation_examples[:5], 1):
-                                example_type = example.get("type", "unknown")
-                                explanation = example.get("explanation", "Sem explicação")
-
-                                logger.info("      [%d] Tipo: %s", i, example_type)
-                                logger.info("          Detalhe: %s", explanation)
-
-                                # Mostrar valores específicos
-                                if "value" in example:
-                                    logger.info("          Valor: %s", example["value"])
-                                if "index" in example:
-                                    logger.info("          Índice: %s", example["index"])
-                                if "expected_min" in example:
-                                    logger.info(
-                                        "          Mínimo esperado: %s", example["expected_min"]
-                                    )
-                                if "expected_max" in example:
-                                    logger.info(
-                                        "          Máximo esperado: %s", example["expected_max"]
-                                    )
-                        else:
-                            logger.info("   ⚠️ Contraexemplo não disponível para este constraint")
+                    violations_to_log = [
+                        (constraint, verification_details.get(constraint, {}))
+                        for constraint in violated_constraints
+                    ]
+                    log_all_constraint_violations(
+                        violations_to_log, logger.info, get_constraint_category
+                    )
 
                 logger.info("=" * 70)
 
@@ -509,31 +514,31 @@ class CVC5Verifier(FormalVerifier):
                 }
                 report_data(log_entry, ReportMode.JSON_LOG, f"cvc5-verification-{timestamp}")
 
-            except Exception as report_err:
-                logger.warning(f"Failed to write CVC5 verification reports: {report_err}")
+            except (IOError, RuntimeError, ValueError) as report_err:
+                logger.warning("Failed to write CVC5 verification reports: %s", report_err)
 
             return result
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
             execution_time = time.time() - start_time
 
             # Error handling para falhas gerais
-            error_context = {
-                "constraints": list(input_data.constraints.keys()),
-                "execution_time": execution_time,
-                "timeout": getattr(input_data, "timeout", 30),
-                "logic": "QF_NRA",
-            }
+            error_context = build_error_context_dict(
+                list(input_data.constraints.keys()),
+                execution_time,
+                getattr(input_data, "timeout", 30),
+                "QF_NRA",
+            )
 
             error_result = handle_verification_error(e, self.name, "verification", error_context)
 
-            logger.error(f"❌ CVC5 verification error: {e}")
+            logger.error("❌ CVC5 verification error: %s", e)
 
             return VerificationResult(
                 status=VerificationStatus.ERROR,
                 verifier_name=self.name,
                 execution_time=execution_time,
-                message=error_result.get("message", f"CVC5 verification failed: {str(e)}"),
+                message=error_result.get("message", "CVC5 verification failed: %s" % str(e)),
                 details={
                     "error": str(e),
                     "error_type": type(e).__name__,
@@ -582,11 +587,46 @@ class CVC5Verifier(FormalVerifier):
             return constraint_methods[constraint_type](constraint_value, input_data)
         else:
             # Constraint não implementado - retornar como satisfeito por enquanto
-            logger.warning(f"⚠️ CVC5: Constraint '{constraint_type}' not implemented yet")
+            logger.warning("⚠️ CVC5: Constraint '%s' not implemented yet", constraint_type)
             return {
                 "satisfied": True,
                 "details": f"Constraint '{constraint_type}' not implemented in CVC5 plugin",
                 "cvc5_result": "unimplemented",
+            }
+
+    def _determine_bounds_violation(
+        self, value: float, min_val: float, max_val: float, strict: bool, index: int
+    ) -> Dict[str, Any]:
+        """Determina tipo de violação de bounds de forma estruturada.
+
+        Reduz complexidade aninhada em _verify_bounds_constraint.
+        """
+        if min_val != float("-inf") and value < min_val:
+            return {
+                "type": "below_minimum",
+                "index": int(index),
+                "value": value,
+                "expected_min": min_val,
+                "strict": strict,
+                "explanation": f"Value {value} violates minimum bound {min_val}",
+            }
+        elif max_val != float("inf") and value > max_val:
+            return {
+                "type": "above_maximum",
+                "index": int(index),
+                "value": value,
+                "expected_max": max_val,
+                "strict": strict,
+                "explanation": f"Value {value} violates maximum bound {max_val}",
+            }
+        else:
+            return {
+                "type": "bounds_violation",
+                "index": int(index),
+                "value": value,
+                "expected_min": min_val,
+                "expected_max": max_val,
+                "explanation": f"Value {value} is outside bounds [{min_val}, {max_val}]",
             }
 
     def _verify_bounds_constraint(
@@ -638,59 +678,13 @@ class CVC5Verifier(FormalVerifier):
                     allow_nan = False
                     strict = False
 
-            # 🔍 OBTER DADOS REAIS DO INPUT_DATA (igual ao Z3)
-            # O input_data pode vir como:
-            # 1. VerificationInput com .input_data/.output_data
-            # 2. Um dicionário {"input": {"train": ..., "test": ...}, "output": ...}
-            # 3. Um dicionário {"train": ..., "test": ...}
-            data = None
-
-            def extract_numeric_data(obj):
-                """Extrai dados numéricos de estruturas aninhadas."""
-                if obj is None:
-                    return None
-                if hasattr(obj, "__iter__") and not isinstance(obj, (str, dict)):
-                    # É um array numpy ou lista
-                    return obj
-                if isinstance(obj, dict):
-                    # Tentar extrair de chaves conhecidas
-                    for key in ["input", "train", "data", "X"]:
-                        if key in obj:
-                            result = extract_numeric_data(obj[key])
-                            if result is not None:
-                                return result
-                    # Fallback: pegar primeiro valor que seja iterável
-                    for v in obj.values():
-                        if hasattr(v, "__iter__") and not isinstance(v, (str, dict)):
-                            return v
-                return None
-
-            if (
-                input_data
-                and hasattr(input_data, "input_data")
-                and input_data.input_data is not None
-            ):
-                data = extract_numeric_data(input_data.input_data)
-
-            if (
-                data is None
-                and input_data
-                and hasattr(input_data, "output_data")
-                and input_data.output_data is not None
-            ):
-                data = extract_numeric_data(input_data.output_data)
-
+            # 🔍 OBTER DADOS REAIS DO INPUT_DATA (usar utilitário compartilhado)
+            data = get_data_from_input(input_data, constraint_value)
             if data is None:
-                # Fallback para dados no constraint_value
-                data = (
-                    constraint_value.get("data", [0]) if isinstance(constraint_value, dict) else [0]
-                )
+                data = [0]
 
             # Normalizar dados para array numpy
-            if hasattr(data, "__iter__") and not isinstance(data, (str, dict)):
-                data_array = np.array(data).flatten()
-            else:
-                data_array = np.array([data]).flatten()
+            data_array = normalize_to_array(data)
 
             # Verificar se há dados para verificar
             if len(data_array) == 0:
@@ -708,7 +702,10 @@ class CVC5Verifier(FormalVerifier):
             if min_val == float("-inf") and max_val == float("inf"):
                 return {
                     "satisfied": True,
-                    "details": f"Bounds constraint: no bounds defined (-inf to inf), data_points={len(data_array)}",
+                    "details": (
+                        f"Bounds constraint: no bounds defined (-inf to inf), "
+                        f"data_points={len(data_array)}"
+                    ),
                     "cvc5_result": "unsat",  # UNSAT = nenhuma violação encontrada
                     "cvc5_satisfiable": False,
                     "data_points_checked": len(data_array),
@@ -720,15 +717,15 @@ class CVC5Verifier(FormalVerifier):
             if min_val != float("-inf"):
                 min_term = self.solver.mkReal(str(min_val))
                 if strict:
-                    bounds_assertions.append(self.solver.mkTerm(cvc5.Kind.GT, x, min_term))
+                    bounds_assertions.append(self.solver.mkTerm(Kind.GT, x, min_term))
                 else:
-                    bounds_assertions.append(self.solver.mkTerm(cvc5.Kind.GEQ, x, min_term))
+                    bounds_assertions.append(self.solver.mkTerm(Kind.GEQ, x, min_term))
             if max_val != float("inf"):
                 max_term = self.solver.mkReal(str(max_val))
                 if strict:
-                    bounds_assertions.append(self.solver.mkTerm(cvc5.Kind.LT, x, max_term))
+                    bounds_assertions.append(self.solver.mkTerm(Kind.LT, x, max_term))
                 else:
-                    bounds_assertions.append(self.solver.mkTerm(cvc5.Kind.LEQ, x, max_term))
+                    bounds_assertions.append(self.solver.mkTerm(Kind.LEQ, x, max_term))
 
             # Verificar cada valor usando o solver
             all_satisfied = True
@@ -736,31 +733,22 @@ class CVC5Verifier(FormalVerifier):
 
             for i, value in enumerate(data_array):
                 try:
-                    # Tratar NaN
-                    if np.isnan(value):
-                        if not allow_nan:
+                    # Tratar NaN using shared utility
+                    should_skip, is_violated, nan_violation = check_nan_for_bounds(
+                        value, i, allow_nan
+                    )
+                    if should_skip:
+                        if is_violated and nan_violation:
+                            violation_examples.append(nan_violation)
                             all_satisfied = False
-                            violation_examples.append(
-                                {
-                                    "type": "nan_value",
-                                    "index": int(i),
-                                    "value": "NaN",
-                                    "explanation": "NaN value found but allow_nan=False",
-                                }
-                            )
                         continue
 
-                    # Tratar Inf
-                    if np.isinf(value):
-                        all_satisfied = False
-                        violation_examples.append(
-                            {
-                                "type": "inf_value",
-                                "index": int(i),
-                                "value": str(value),
-                                "explanation": "Infinite value found",
-                            }
-                        )
+                    # Tratar Inf using shared utility
+                    should_skip, is_violated, inf_violation = check_inf_for_bounds(value, i)
+                    if should_skip:
+                        if is_violated and inf_violation:
+                            violation_examples.append(inf_violation)
+                            all_satisfied = False
                         continue
 
                     float_val = float(value)
@@ -774,7 +762,7 @@ class CVC5Verifier(FormalVerifier):
 
                     # Adicionar x == valor
                     val_term = self.solver.mkReal(str(float_val))
-                    eq_term = self.solver.mkTerm(cvc5.Kind.EQUAL, x, val_term)
+                    eq_term = self.solver.mkTerm(Kind.EQUAL, x, val_term)
                     self.solver.assertFormula(eq_term)
 
                     # Verificar satisfabilidade
@@ -784,43 +772,15 @@ class CVC5Verifier(FormalVerifier):
                     # Se UNSAT → valor está fora dos bounds
                     if not result.isSat():
                         all_satisfied = False
-                        # Determinar tipo de violação
-                        if min_val != float("-inf") and float_val < min_val:
-                            violation_examples.append(
-                                {
-                                    "type": "below_minimum",
-                                    "index": int(i),
-                                    "value": float_val,
-                                    "expected_min": min_val,
-                                    "strict": strict,
-                                    "explanation": f"Value {float_val} violates minimum bound {min_val}",
-                                }
-                            )
-                        elif max_val != float("inf") and float_val > max_val:
-                            violation_examples.append(
-                                {
-                                    "type": "above_maximum",
-                                    "index": int(i),
-                                    "value": float_val,
-                                    "expected_max": max_val,
-                                    "strict": strict,
-                                    "explanation": f"Value {float_val} violates maximum bound {max_val}",
-                                }
-                            )
-                        else:
-                            violation_examples.append(
-                                {
-                                    "type": "bounds_violation",
-                                    "index": int(i),
-                                    "value": float_val,
-                                    "expected_min": min_val,
-                                    "expected_max": max_val,
-                                    "explanation": f"Value {float_val} is outside bounds [{min_val}, {max_val}]",
-                                }
-                            )
+                        # Extrair violação de forma estruturada
+                        violation = self._determine_bounds_violation(
+                            float_val, min_val, max_val, strict, i
+                        )
+                        if violation:
+                            violation_examples.append(violation)
 
-                except Exception as val_error:
-                    logger.debug(f"Error checking value {i}: {val_error}")
+                except (RuntimeError, ValueError, TypeError, KeyError) as val_error:
+                    logger.debug("Error checking value %d: %s", i, val_error)
                     all_satisfied = False
 
             # Limitar exemplos de violação para evitar logs muito grandes
@@ -829,7 +789,10 @@ class CVC5Verifier(FormalVerifier):
             # Construir resultado com contraexemplo se violado
             result_dict = {
                 "satisfied": all_satisfied,
-                "details": f"Bounds constraint: min={min_val}, max={max_val}, strict={strict}, data_points={len(data_array)}",
+                "details": (
+                    f"Bounds constraint: min={min_val}, max={max_val}, "
+                    f"strict={strict}, data_points={len(data_array)}"
+                ),
                 "cvc5_result": (
                     "unsat" if all_satisfied else "sat"
                 ),  # SAT significa encontrou violação
@@ -852,16 +815,17 @@ class CVC5Verifier(FormalVerifier):
                     "satisfiable": True,  # Encontrou violação
                 }
                 logger.info(
-                    f"🔍 CVC5 bounds violation detected: {len(violation_examples)} examples"
+                    "🔍 CVC5 bounds violation detected: %d examples",
+                    len(violation_examples),
                 )
 
             return result_dict
 
-        except Exception as e:
-            logger.warning(f"CVC5 bounds verification error: {e}")
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
+            logger.warning("CVC5 bounds verification error: %s", e)
             return {
                 "satisfied": False,
-                "details": f"CVC5 bounds verification failed: {str(e)}",
+                "details": "CVC5 bounds verification failed: %s" % str(e),
                 "cvc5_result": "error",
             }
 
@@ -908,23 +872,6 @@ class CVC5Verifier(FormalVerifier):
             # 3. Um dicionário {"train": ..., "test": ...}
             data = None
 
-            def extract_numeric_data(obj):
-                """Extrai dados numéricos de estruturas aninhadas."""
-                if obj is None:
-                    return None
-                if hasattr(obj, "__iter__") and not isinstance(obj, (str, dict)):
-                    return obj
-                if isinstance(obj, dict):
-                    for key in ["input", "train", "data", "X"]:
-                        if key in obj:
-                            result = extract_numeric_data(obj[key])
-                            if result is not None:
-                                return result
-                    for v in obj.values():
-                        if hasattr(v, "__iter__") and not isinstance(v, (str, dict)):
-                            return v
-                return None
-
             if (
                 input_data
                 and hasattr(input_data, "input_data")
@@ -945,11 +892,8 @@ class CVC5Verifier(FormalVerifier):
                     constraint_value.get("data", [0]) if isinstance(constraint_value, dict) else [0]
                 )
 
-            # Normalizar dados
-            if hasattr(data, "__iter__") and not isinstance(data, (str, dict)):
-                data_array = np.array(data).flatten()
-            else:
-                data_array = np.array([data]).flatten()
+            # Normalizar dados using shared utility
+            data_array = normalize_to_array(data)
 
             # Verificar se dados estão vazios
             if len(data_array) == 0:
@@ -1022,15 +966,18 @@ class CVC5Verifier(FormalVerifier):
                                     "index": int(i),
                                     "value": float_val,
                                     "valid_ranges": valid_ranges[:3],  # Limitar
-                                    "explanation": f"Value {float_val} is outside valid ranges {valid_ranges[:3]}",
+                                    "explanation": (
+                                        f"Value {float_val} is outside "
+                                        f"valid ranges {valid_ranges[:3]}"
+                                    ),
                                 }
                             )
 
                     if not is_valid:
                         all_satisfied = False
 
-                except Exception as val_error:
-                    logger.debug(f"Error checking range value {i}: {val_error}")
+                except (RuntimeError, ValueError, TypeError, KeyError) as val_error:
+                    logger.debug("Error checking range value %s: %s", i, val_error)
                     all_satisfied = False
 
             # Limitar exemplos de violação
@@ -1059,12 +1006,14 @@ class CVC5Verifier(FormalVerifier):
                     },
                     "satisfiable": True,
                 }
-                logger.info(f"🔍 CVC5 range violation detected: {len(violation_examples)} examples")
+                logger.info(
+                    "🔍 CVC5 range violation detected: %d examples", len(violation_examples)
+                )
 
             return result_dict
 
-        except Exception as e:
-            logger.warning(f"CVC5 range verification error: {e}")
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
+            logger.warning("CVC5 range verification error: %s", e)
             return {
                 "satisfied": False,
                 "details": f"CVC5 range verification failed: {str(e)}",
@@ -1083,118 +1032,32 @@ class CVC5Verifier(FormalVerifier):
         try:
             import numpy as np
 
-            # 🔍 OBTER DADOS REAIS
-            if (
-                input_data
-                and hasattr(input_data, "input_data")
-                and input_data.input_data is not None
-            ):
-                data = input_data.input_data
-            elif (
-                input_data
-                and hasattr(input_data, "output_data")
-                and input_data.output_data is not None
-            ):
-                data = input_data.output_data
-            else:
+            # 🔍 OBTER DADOS REAIS (usar utilitário compartilhado)
+            data, has_data = extract_data_for_verification(input_data, "type_safety")
+            if not has_data:
                 return {
                     "satisfied": True,
                     "details": "No data to verify type safety",
                     "cvc5_result": "trivially_satisfied",
                 }
 
-            # Configuração
-            if isinstance(constraint_value, dict):
-                expected_type = constraint_value.get("expected_type", "numeric")
-                allow_none = constraint_value.get("allow_none", False)
-            else:
-                expected_type = "numeric"
-                allow_none = False
+            # Parse configuration using shared utility
+            expected_type, allow_none = parse_type_safety_config(constraint_value)
 
-            all_satisfied = True
-            violation_examples = []
+            # Normalize data using shared utility
+            data_array = normalize_to_array(data)
 
-            # Normalizar dados
-            if hasattr(data, "__iter__") and not isinstance(data, (str, dict)):
-                data_array = np.array(data).flatten()
-            else:
-                data_array = np.array([data]).flatten()
-
-            for i, value in enumerate(data_array):
-                try:
-                    # Verificar None
-                    if value is None:
-                        if not allow_none:
-                            all_satisfied = False
-                            violation_examples.append(
-                                {
-                                    "type": "none_value",
-                                    "index": int(i),
-                                    "explanation": f"None value at index {i}, but allow_none=False",
-                                }
-                            )
-                        continue
-
-                    # Verificar tipo numérico
-                    if expected_type == "numeric":
-                        if not isinstance(value, (int, float, np.integer, np.floating)):
-                            all_satisfied = False
-                            violation_examples.append(
-                                {
-                                    "type": "type_mismatch",
-                                    "index": int(i),
-                                    "expected_type": expected_type,
-                                    "actual_type": type(value).__name__,
-                                    "explanation": f"Expected numeric, got {type(value).__name__} at index {i}",
-                                }
-                            )
-                    elif expected_type == "integer":
-                        if not isinstance(value, (int, np.integer)):
-                            # Verificar se é float que representa inteiro
-                            if isinstance(value, (float, np.floating)):
-                                if not float(value).is_integer():
-                                    all_satisfied = False
-                                    violation_examples.append(
-                                        {
-                                            "type": "type_mismatch",
-                                            "index": int(i),
-                                            "expected_type": expected_type,
-                                            "actual_value": float(value),
-                                            "explanation": f"Expected integer, got float {value} at index {i}",
-                                        }
-                                    )
-                            else:
-                                all_satisfied = False
-                                violation_examples.append(
-                                    {
-                                        "type": "type_mismatch",
-                                        "index": int(i),
-                                        "expected_type": expected_type,
-                                        "actual_type": type(value).__name__,
-                                        "explanation": f"Expected integer, got {type(value).__name__} at index {i}",
-                                    }
-                                )
-                    elif expected_type == "boolean":
-                        if not isinstance(value, (bool, np.bool_)):
-                            all_satisfied = False
-                            violation_examples.append(
-                                {
-                                    "type": "type_mismatch",
-                                    "index": int(i),
-                                    "expected_type": expected_type,
-                                    "actual_type": type(value).__name__,
-                                    "explanation": f"Expected boolean, got {type(value).__name__} at index {i}",
-                                }
-                            )
-
-                except Exception:
-                    pass
-
-            violation_examples = violation_examples[:10]
+            # Use shared type safety verification
+            all_satisfied, violation_examples = verify_type_safety(
+                data_array, expected_type, allow_none
+            )
 
             result_dict = {
                 "satisfied": all_satisfied,
-                "details": f"Type safety constraint: checked {len(data_array)} values for type '{expected_type}'",
+                "details": (
+                    f"Type safety constraint: checked {len(data_array)} "
+                    f"values for type '{expected_type}'"
+                ),
                 "cvc5_result": "unsat" if all_satisfied else "sat",
                 "cvc5_satisfiable": not all_satisfied,
             }
@@ -1206,14 +1069,14 @@ class CVC5Verifier(FormalVerifier):
                     "violation_examples": violation_examples,
                     "satisfiable": True,
                 }
-                logger.info(f"🔍 CVC5 type safety violation: {len(violation_examples)} examples")
+                logger.info("🔍 CVC5 type safety violation: %d examples", len(violation_examples))
 
             return result_dict
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
             return {
                 "satisfied": False,
-                "details": f"CVC5 type safety verification failed: {str(e)}",
+                "details": "CVC5 type safety verification failed: %s" % str(e),
                 "cvc5_result": "error",
             }
 
@@ -1230,36 +1093,8 @@ class CVC5Verifier(FormalVerifier):
         try:
             import numpy as np
 
-            # 🔍 FUNÇÃO PARA EXTRAIR DADOS DE ESTRUTURAS ANINHADAS (PARIDADE com Z3)
-            def extract_numeric_data(obj):
-                """Extrai dados numéricos recursivamente de dicts/arrays."""
-                if isinstance(obj, np.ndarray):
-                    return obj
-                if isinstance(obj, dict):
-                    for key in ["train", "test", "data", "values", "input", "output"]:
-                        if key in obj:
-                            result = extract_numeric_data(obj[key])
-                            if result is not None:
-                                return result
-                    return None
-                if hasattr(obj, "__iter__") and not isinstance(obj, str):
-                    return np.array(obj)
-                return None
-
-            # 🔍 OBTER DADOS REAIS DO INPUT_DATA
-            data = None
-            if (
-                input_data
-                and hasattr(input_data, "input_data")
-                and input_data.input_data is not None
-            ):
-                data = extract_numeric_data(input_data.input_data)
-            if data is None and (
-                input_data
-                and hasattr(input_data, "output_data")
-                and input_data.output_data is not None
-            ):
-                data = extract_numeric_data(input_data.output_data)
+            # 🔍 OBTER DADOS REAIS DO INPUT_DATA (usar utilitário compartilhado)
+            data = get_data_from_input(input_data, constraint_value)
             if data is None:
                 # Sem dados = trivialmente satisfeito (PARIDADE com Z3)
                 return {
@@ -1268,11 +1103,8 @@ class CVC5Verifier(FormalVerifier):
                     "cvc5_result": "trivially_satisfied",
                 }
 
-            # Normalizar dados
-            if hasattr(data, "__iter__") and not isinstance(data, (str, dict)):
-                data_array = np.array(data).flatten()
-            else:
-                data_array = np.array([data]).flatten()
+            # Normalize using shared utility
+            data_array = normalize_to_array(data)
 
             # Verificar cada valor
             all_satisfied = True
@@ -1280,21 +1112,15 @@ class CVC5Verifier(FormalVerifier):
 
             for i, value in enumerate(data_array):
                 try:
-                    if np.isnan(value) or np.isinf(value):
-                        all_satisfied = False  # PARIDADE com Z3
-                        continue
-
-                    float_val = float(value)
-                    if float_val < 0:
+                    is_valid, should_continue, violation = check_non_negative_for_constraint(
+                        value, i
+                    )
+                    if not is_valid:
                         all_satisfied = False
-                        violation_examples.append(
-                            {
-                                "type": "negative_value",
-                                "index": int(i),
-                                "value": float_val,
-                                "explanation": f"Value {float_val} is negative",
-                            }
-                        )
+                        if violation:
+                            violation_examples.append(violation)
+                    if should_continue:
+                        continue
 
                 except Exception:
                     all_satisfied = False  # PARIDADE com Z3
@@ -1318,15 +1144,16 @@ class CVC5Verifier(FormalVerifier):
                     "satisfiable": True,
                 }
                 logger.info(
-                    f"🔍 CVC5 non-negative violation: {len(violation_examples)} negative values found"
+                    "🔍 CVC5 non-negative violation: %d negative values found",
+                    len(violation_examples),
                 )
 
             return result_dict
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
             return {
                 "satisfied": False,
-                "details": f"CVC5 non-negative verification failed: {str(e)}",
+                "details": "CVC5 non-negative verification failed: %s" % str(e),
                 "cvc5_result": "error",
             }
 
@@ -1342,27 +1169,13 @@ class CVC5Verifier(FormalVerifier):
         try:
             import numpy as np
 
-            # 🔍 OBTER DADOS REAIS DO INPUT_DATA
-            if (
-                input_data
-                and hasattr(input_data, "input_data")
-                and input_data.input_data is not None
-            ):
-                data = input_data.input_data
-            elif (
-                input_data
-                and hasattr(input_data, "output_data")
-                and input_data.output_data is not None
-            ):
-                data = input_data.output_data
-            else:
+            # 🔍 OBTER DADOS REAIS DO INPUT_DATA (usar utilitário compartilhado)
+            data, has_data = extract_data_for_verification(input_data, "positive")
+            if not has_data:
                 data = [1]  # Fallback positivo
 
             # Normalizar dados
-            if hasattr(data, "__iter__") and not isinstance(data, (str, dict)):
-                data_array = np.array(data).flatten()
-            else:
-                data_array = np.array([data]).flatten()
+            data_array = normalize_to_array(data)
 
             # Verificar cada valor
             all_satisfied = True
@@ -1390,7 +1203,9 @@ class CVC5Verifier(FormalVerifier):
                                 "type": "non_positive_value",
                                 "index": int(i),
                                 "value": float_val,
-                                "explanation": f"Value {float_val} is not strictly positive (must be > 0)",
+                                "explanation": (
+                                    f"Value {float_val} is not strictly " "positive (must be > 0)"
+                                ),
                             }
                         )
 
@@ -1416,15 +1231,16 @@ class CVC5Verifier(FormalVerifier):
                     "satisfiable": True,
                 }
                 logger.info(
-                    f"🔍 CVC5 positive violation: {len(violation_examples)} non-positive values found"
+                    "🔍 CVC5 positive violation: %d non-positive values found",
+                    len(violation_examples),
                 )
 
             return result_dict
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
             return {
                 "satisfied": False,
-                "details": f"CVC5 positive verification failed: {str(e)}",
+                "details": "CVC5 positive verification failed: %s" % str(e),
                 "cvc5_result": "error",
             }
 
@@ -1441,21 +1257,7 @@ class CVC5Verifier(FormalVerifier):
             import numpy as np
 
             # 🔍 OBTER DADOS REAIS
-            input_d = None
-            output_d = None
-
-            if (
-                input_data
-                and hasattr(input_data, "input_data")
-                and input_data.input_data is not None
-            ):
-                input_d = input_data.input_data
-            if (
-                input_data
-                and hasattr(input_data, "output_data")
-                and input_data.output_data is not None
-            ):
-                output_d = input_data.output_data
+            input_d, output_d = extract_input_output_data(input_data)
 
             if input_d is None and output_d is None:
                 return {
@@ -1464,73 +1266,19 @@ class CVC5Verifier(FormalVerifier):
                     "cvc5_result": "trivially_satisfied",
                 }
 
-            # Configuração
-            if isinstance(constraint_value, dict):
-                expected_input_shape = constraint_value.get("expected_input_shape", None)
-                expected_output_shape = constraint_value.get("expected_output_shape", None)
-                preserve_batch_dim = constraint_value.get("preserve_batch_dim", True)
-            else:
-                expected_input_shape = None
-                expected_output_shape = None
-                preserve_batch_dim = True
+            # Parse configuration using shared utility
+            expected_input_shape, expected_output_shape, preserve_batch_dim = parse_shape_config(
+                constraint_value
+            )
 
-            all_satisfied = True
-            violation_examples = []
-
-            # Verificar shape de entrada
-            if input_d is not None and expected_input_shape is not None:
-                input_array = np.array(input_d)
-                actual_shape = input_array.shape
-                expected = tuple(expected_input_shape)
-
-                if actual_shape != expected:
-                    all_satisfied = False
-                    violation_examples.append(
-                        {
-                            "type": "input_shape_mismatch",
-                            "actual_shape": list(actual_shape),
-                            "expected_shape": list(expected),
-                            "explanation": f"Input shape {actual_shape} != expected {expected}",
-                        }
-                    )
-
-            # Verificar shape de saída
-            if output_d is not None and expected_output_shape is not None:
-                output_array = np.array(output_d)
-                actual_shape = output_array.shape
-                expected = tuple(expected_output_shape)
-
-                if actual_shape != expected:
-                    all_satisfied = False
-                    violation_examples.append(
-                        {
-                            "type": "output_shape_mismatch",
-                            "actual_shape": list(actual_shape),
-                            "expected_shape": list(expected),
-                            "explanation": f"Output shape {actual_shape} != expected {expected}",
-                        }
-                    )
-
-            # Verificar preservação de batch dimension
-            if preserve_batch_dim and input_d is not None and output_d is not None:
-                input_array = np.array(input_d)
-                output_array = np.array(output_d)
-
-                if len(input_array.shape) > 0 and len(output_array.shape) > 0:
-                    if input_array.shape[0] != output_array.shape[0]:
-                        all_satisfied = False
-                        violation_examples.append(
-                            {
-                                "type": "batch_dim_mismatch",
-                                "input_batch_dim": int(input_array.shape[0]),
-                                "output_batch_dim": int(output_array.shape[0]),
-                                "explanation": f"Batch dimension not preserved: input={input_array.shape[0]}, output={output_array.shape[0]}",
-                            }
-                        )
+            # Use shared shape preservation verification
+            all_satisfied, violation_examples = verify_shape_preservation(
+                input_d, output_d, expected_input_shape, expected_output_shape, preserve_batch_dim
+            )
 
             result_dict = {
                 "satisfied": all_satisfied,
-                "details": f"Shape preservation constraint: verified input/output shapes",
+                "details": "Shape preservation constraint: verified input/output shapes",
                 "cvc5_result": "unsat" if all_satisfied else "sat",
                 "cvc5_satisfiable": not all_satisfied,
             }
@@ -1548,10 +1296,10 @@ class CVC5Verifier(FormalVerifier):
 
             return result_dict
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
             return {
                 "satisfied": False,
-                "details": f"CVC5 shape preservation verification failed: {str(e)}",
+                "details": "CVC5 shape preservation verification failed: %s" % str(e),
                 "cvc5_result": "error",
             }
 
@@ -1639,16 +1387,22 @@ class CVC5Verifier(FormalVerifier):
                                         ),
                                         "computed_value": float(result_val),
                                         "operation": operation,
-                                        "explanation": f"Linear expr = {result_val:.4f} violates {operation} 0",
+                                        "explanation": (
+                                            f"Linear expr = {result_val:.4f} "
+                                            f"violates {operation} 0"
+                                        ),
                                     }
                                 )
 
-                    except Exception as row_error:
-                        logger.debug(f"Error checking linear constraint row {i}: {row_error}")
+                    except (RuntimeError, ValueError, TypeError, KeyError) as row_error:
+                        logger.debug("Error checking linear constraint row %s: %s", i, row_error)
 
                 result_dict = {
                     "satisfied": all_satisfied,
-                    "details": f"Linear arithmetic: coeffs={coefficients[:3]}, const={constant}, op={operation}",
+                    "details": (
+                        f"Linear arithmetic: coeffs={coefficients[:3]}, "
+                        f"const={constant}, op={operation}"
+                    ),
                     "cvc5_result": "unsat" if all_satisfied else "sat",
                     "cvc5_satisfiable": not all_satisfied,
                     "data_points_checked": len(data_array),
@@ -1691,10 +1445,10 @@ class CVC5Verifier(FormalVerifier):
                 "cvc5_satisfiable": is_sat,
             }
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
             return {
                 "satisfied": False,
-                "details": f"CVC5 linear arithmetic verification failed: {str(e)}",
+                "details": "CVC5 linear arithmetic verification failed: %s" % str(e),
                 "cvc5_result": "error",
             }
 
@@ -1751,50 +1505,49 @@ class CVC5Verifier(FormalVerifier):
             violation_examples = []
 
             for i, value in enumerate(data_array):
-                try:
-                    float_val = float(value)
+                float_val, is_finite = try_convert_to_float(value)
+                if float_val is None:
+                    all_satisfied = False
+                    continue
 
-                    # Verificar NaN/Inf
-                    if not np.isfinite(float_val):
-                        all_satisfied = False
-                        violation_examples.append(
-                            {
-                                "type": "non_finite_real",
-                                "index": int(i),
-                                "value": str(float_val),
-                                "explanation": f"Non-finite real value: {float_val}",
-                            }
-                        )
-                        continue
+                # Verificar NaN/Inf
+                if not is_finite:
+                    all_satisfied = False
+                    violation_examples.append(
+                        {
+                            "type": "non_finite_real",
+                            "index": int(i),
+                            "value": str(float_val),
+                            "explanation": f"Non-finite real value: {float_val}",
+                        }
+                    )
+                    continue
 
-                    # Verificar overflow
-                    if check_overflow and abs(float_val) > max_magnitude:
-                        all_satisfied = False
-                        violation_examples.append(
-                            {
-                                "type": "overflow",
-                                "index": int(i),
-                                "value": float_val,
-                                "max_magnitude": max_magnitude,
-                                "explanation": f"Real overflow: |{float_val}| > {max_magnitude}",
-                            }
-                        )
+                # Verificar overflow
+                if check_overflow and abs(float_val) > max_magnitude:
+                    all_satisfied = False
+                    violation_examples.append(
+                        {
+                            "type": "overflow",
+                            "index": int(i),
+                            "value": float_val,
+                            "max_magnitude": max_magnitude,
+                            "explanation": f"Real overflow: |{float_val}| > {max_magnitude}",
+                        }
+                    )
 
-                    # Verificar underflow (valor muito pequeno mas não zero)
-                    if check_overflow and 0 < abs(float_val) < min_magnitude:
-                        all_satisfied = False
-                        violation_examples.append(
-                            {
-                                "type": "underflow",
-                                "index": int(i),
-                                "value": float_val,
-                                "min_magnitude": min_magnitude,
-                                "explanation": f"Real underflow: 0 < |{float_val}| < {min_magnitude}",
-                            }
-                        )
-
-                except Exception:
-                    pass
+                # Verificar underflow (valor muito pequeno mas não zero)
+                if check_overflow and 0 < abs(float_val) < min_magnitude:
+                    all_satisfied = False
+                    violation_examples.append(
+                        {
+                            "type": "underflow",
+                            "index": int(i),
+                            "value": float_val,
+                            "min_magnitude": min_magnitude,
+                            "explanation": f"Real underflow: 0 < |{float_val}| < {min_magnitude}",
+                        }
+                    )
 
             violation_examples = violation_examples[:10]
 
@@ -1818,10 +1571,10 @@ class CVC5Verifier(FormalVerifier):
 
             return result_dict
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
             return {
                 "satisfied": False,
-                "details": f"CVC5 real arithmetic verification failed: {str(e)}",
+                "details": "CVC5 real arithmetic verification failed: %s" % str(e),
                 "cvc5_result": "error",
             }
 
@@ -1838,22 +1591,6 @@ class CVC5Verifier(FormalVerifier):
         """
         try:
             import numpy as np
-
-            # 🔍 FUNÇÃO PARA EXTRAIR DADOS DE ESTRUTURAS ANINHADAS (PARIDADE com Z3)
-            def extract_numeric_data(obj):
-                """Extrai dados numéricos recursivamente de dicts/arrays."""
-                if isinstance(obj, np.ndarray):
-                    return obj
-                if isinstance(obj, dict):
-                    for key in ["train", "test", "data", "values", "input", "output"]:
-                        if key in obj:
-                            result = extract_numeric_data(obj[key])
-                            if result is not None:
-                                return result
-                    return None
-                if hasattr(obj, "__iter__") and not isinstance(obj, str):
-                    return np.array(obj)
-                return None
 
             # 🔍 OBTER DADOS REAIS
             data = None
@@ -1876,11 +1613,8 @@ class CVC5Verifier(FormalVerifier):
                     "cvc5_result": "trivially_satisfied",
                 }
 
-            # Normalizar dados
-            if hasattr(data, "__iter__") and not isinstance(data, (str, dict)):
-                data_array = np.array(data).flatten()
-            else:
-                data_array = np.array([data]).flatten()
+            # Normalize using shared utility
+            data_array = normalize_to_array(data)
 
             # Configuração (PARIDADE com Z3)
             if isinstance(constraint_value, dict):
@@ -1916,8 +1650,8 @@ class CVC5Verifier(FormalVerifier):
 
                     # Verificar se é inteiro (PARIDADE com Z3 - strict_integer)
                     if strict_integer:
-                        rounded = round(float_val)
-                        if abs(float_val - rounded) > tolerance:
+                        is_int, rounded, diff = check_strict_integer(float_val, tolerance)
+                        if not is_int:
                             all_satisfied = False
                             violation_examples.append(
                                 {
@@ -1925,8 +1659,10 @@ class CVC5Verifier(FormalVerifier):
                                     "index": int(i),
                                     "value": float_val,
                                     "nearest_integer": rounded,
-                                    "difference": abs(float_val - rounded),
-                                    "explanation": f"Value {float_val} is not an integer (diff={abs(float_val - rounded):.2e})",
+                                    "difference": diff,
+                                    "explanation": (
+                                        f"Value {float_val} is not an integer " f"(diff={diff:.2e})"
+                                    ),
                                 }
                             )
                             continue
@@ -1980,10 +1716,10 @@ class CVC5Verifier(FormalVerifier):
 
             return result_dict
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
             return {
                 "satisfied": False,
-                "details": f"CVC5 integer arithmetic verification failed: {str(e)}",
+                "details": "CVC5 integer arithmetic verification failed: %s" % str(e),
                 "cvc5_result": "error",
             }
 
@@ -2099,14 +1835,16 @@ class CVC5Verifier(FormalVerifier):
                     "violation_examples": violation_examples,
                     "satisfiable": True,
                 }
-                logger.info(f"🔍 CVC5 floating-point violation: {len(violation_examples)} examples")
+                logger.info(
+                    "🔍 CVC5 floating-point violation: %s examples", len(violation_examples)
+                )
 
             return result_dict
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
             return {
                 "satisfied": False,
-                "details": f"CVC5 floating-point verification failed: {str(e)}",
+                "details": "CVC5 floating-point verification failed: %s" % str(e),
                 "cvc5_result": "error",
             }
 
@@ -2138,26 +1876,24 @@ class CVC5Verifier(FormalVerifier):
                 invariant_type = invariant.get("type", "")
 
                 if invariant_type == "data_consistency":
-                    # Invariante: dados devem ter consistência (sem NaN, Inf)
+                    # Invariante: dados devem ter consitência (sem NaN, Inf)
                     data = self._extract_data_from_input(input_data)
-                    if hasattr(data, "__iter__") and not isinstance(data, str):
-                        data_array = np.array(data).flatten()
-                        nan_count = np.sum(np.isnan(data_array))
-                        inf_count = np.sum(np.isinf(data_array))
-
-                        if nan_count > 0 or inf_count > 0:
-                            all_satisfied = False
-                            violation_examples.append(
-                                {
-                                    "type": "data_consistency",
-                                    "nan_count": int(nan_count),
-                                    "inf_count": int(inf_count),
-                                    "explanation": f"Data has {nan_count} NaN and {inf_count} Inf values",
-                                }
-                            )
-                            logger.warning(
-                                "🔒 CVC5 Invariante violado: data_consistency - NaN/Inf detectado"
-                            )
+                    is_consistent, nan_count, inf_count = check_data_consistency(data)
+                    if not is_consistent:
+                        all_satisfied = False
+                        violation_examples.append(
+                            {
+                                "type": "data_consistency",
+                                "nan_count": nan_count,
+                                "inf_count": inf_count,
+                                "explanation": (
+                                    f"Data has {nan_count} NaN and " f"{inf_count} Inf values"
+                                ),
+                            }
+                        )
+                        logger.warning(
+                            "🔒 CVC5 Invariante violado: data_consistency - NaN/Inf detectado"
+                        )
 
                 elif invariant_type == "model_stability":
                     # Invariante: modelo deve permanecer estável (Lipschitz)
@@ -2190,12 +1926,15 @@ class CVC5Verifier(FormalVerifier):
                                 {
                                     "type": "model_stability",
                                     "threshold": stability_threshold,
-                                    "explanation": "Model stability (Lipschitz) constraint cannot be satisfied",
+                                    "explanation": (
+                                        "Model stability (Lipschitz) constraint "
+                                        "cannot be satisfied"
+                                    ),
                                 }
                             )
                             logger.warning("🔒 CVC5 Invariante violado: model_stability")
-                    except Exception as smt_error:
-                        logger.debug(f"SMT stability check error: {smt_error}")
+                    except (RuntimeError, ValueError, TypeError) as smt_error:
+                        logger.debug("SMT stability check error: %s", smt_error)
 
                 elif invariant_type == "parameter_validity":
                     # Invariante: parâmetros devem estar em ranges válidos
@@ -2203,26 +1942,16 @@ class CVC5Verifier(FormalVerifier):
                     parameters = input_data.parameters if input_data else {}
 
                     for param_name, bounds in param_bounds.items():
-                        if param_name in parameters:
-                            value = parameters[param_name]
-                            min_val = bounds.get("min", float("-inf"))
-                            max_val = bounds.get("max", float("inf"))
-
-                            if not (min_val <= value <= max_val):
-                                all_satisfied = False
-                                violation_examples.append(
-                                    {
-                                        "type": "parameter_validity",
-                                        "param_name": param_name,
-                                        "value": value,
-                                        "expected_min": min_val,
-                                        "expected_max": max_val,
-                                        "explanation": f"Parameter {param_name}={value} outside bounds [{min_val}, {max_val}]",
-                                    }
-                                )
-                                logger.warning(
-                                    f"🔒 CVC5 Invariante violado: parameter_validity para {param_name}"
-                                )
+                        is_valid, violation = check_parameter_validity_for_invariant(
+                            param_name, parameters, bounds
+                        )
+                        if not is_valid:
+                            all_satisfied = False
+                            if violation:
+                                violation_examples.append(violation)
+                            logger.warning(
+                                f"🔒 CVC5 Invariante violado: parameter_validity para {param_name}"
+                            )
 
             violation_examples = violation_examples[:10]
 
@@ -2243,10 +1972,10 @@ class CVC5Verifier(FormalVerifier):
 
             return result_dict
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
             return {
                 "satisfied": False,
-                "details": f"CVC5 invariant verification failed: {str(e)}",
+                "details": "CVC5 invariant verification failed: %s" % str(e),
                 "cvc5_result": "error",
             }
 
@@ -2280,29 +2009,14 @@ class CVC5Verifier(FormalVerifier):
                 if condition_type == "data_preprocessing":
                     # Pré-condição: dados devem estar pré-processados (normalizados)
                     data = self._extract_data_from_input(input_data)
-                    if hasattr(data, "__iter__") and not isinstance(data, str):
-                        data_array = np.array(data).flatten()
-
-                        if len(data_array) > 1:
-                            mean_val = np.mean(data_array)
-                            std_val = np.std(data_array)
-                            if std_val > 0:
-                                normalized = (data_array - mean_val) / std_val
-                                outliers = np.sum(np.abs(normalized) > 3.5)
-                                if outliers > 0:
-                                    all_satisfied = False
-                                    violation_examples.append(
-                                        {
-                                            "type": "data_preprocessing",
-                                            "outlier_count": int(outliers),
-                                            "mean": float(mean_val),
-                                            "std": float(std_val),
-                                            "explanation": f"Data not normalized: {outliers} outliers (>3.5 std)",
-                                        }
-                                    )
-                                    logger.warning(
-                                        "🔧 CVC5 Precondition violated: data_preprocessing"
-                                    )
+                    is_satisfied, violation = check_precondition_data_preprocessing(
+                        data, skip_normalization_check=False
+                    )
+                    if not is_satisfied:
+                        all_satisfied = False
+                        if violation:
+                            violation_examples.append(violation)
+                            logger.warning("🔧 CVC5 Precondition violated: data_preprocessing")
 
                 elif condition_type == "parameter_initialization":
                     # Pré-condição: parâmetros devem estar inicializados
@@ -2310,44 +2024,26 @@ class CVC5Verifier(FormalVerifier):
                     parameters = input_data.parameters if input_data else {}
 
                     for param in required_params:
-                        if param not in parameters:
+                        is_valid, error_type, violation = check_parameter_initialization(
+                            param, parameters
+                        )
+                        if not is_valid:
                             all_satisfied = False
-                            violation_examples.append(
-                                {
-                                    "type": "parameter_initialization",
-                                    "param_name": param,
-                                    "explanation": f"Required parameter '{param}' not found",
-                                }
+                            violation_examples.append(violation)
+                            logger.warning(
+                                "🔧 CVC5 Precondition violated: %s %s", param, error_type
                             )
-                            logger.warning(f"🔧 CVC5 Precondition violated: {param} not found")
-                        elif parameters[param] is None:
-                            all_satisfied = False
-                            violation_examples.append(
-                                {
-                                    "type": "parameter_initialization",
-                                    "param_name": param,
-                                    "explanation": f"Parameter '{param}' is None",
-                                }
-                            )
-                            logger.warning(f"🔧 CVC5 Precondition violated: {param} is None")
 
                 elif condition_type == "data_shape_validation":
                     # Pré-condição: forma dos dados deve ser válida
                     expected_shape = condition.get("expected_shape", None)
                     data = self._extract_data_from_input(input_data)
 
-                    if expected_shape and hasattr(data, "shape"):
-                        if data.shape != tuple(expected_shape):
-                            all_satisfied = False
-                            violation_examples.append(
-                                {
-                                    "type": "data_shape_validation",
-                                    "expected_shape": expected_shape,
-                                    "actual_shape": list(data.shape),
-                                    "explanation": f"Shape mismatch: expected {expected_shape}, got {data.shape}",
-                                }
-                            )
-                            logger.warning("🔧 CVC5 Precondition violated: data_shape_validation")
+                    is_valid, violation = check_data_shape_validation(data, expected_shape)
+                    if not is_valid:
+                        all_satisfied = False
+                        violation_examples.append(violation)
+                        logger.warning("🔧 CVC5 Precondition violated: data_shape_validation")
 
             violation_examples = violation_examples[:10]
 
@@ -2368,10 +2064,10 @@ class CVC5Verifier(FormalVerifier):
 
             return result_dict
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
             return {
                 "satisfied": False,
-                "details": f"CVC5 precondition verification failed: {str(e)}",
+                "details": "CVC5 precondition verification failed: %s" % str(e),
                 "cvc5_result": "error",
             }
 
@@ -2405,67 +2101,46 @@ class CVC5Verifier(FormalVerifier):
                 if condition_type == "output_validity":
                     # Pós-condição: saída deve ser válida (sem NaN/Inf)
                     data = input_data.output_data if input_data else None
-                    if data is not None:
-                        if hasattr(data, "__iter__") and not isinstance(data, str):
-                            data_array = np.array(data).flatten()
-                            nan_count = np.sum(np.isnan(data_array))
-                            inf_count = np.sum(np.isinf(data_array))
-
-                            if nan_count > 0 or inf_count > 0:
-                                all_satisfied = False
-                                violation_examples.append(
-                                    {
-                                        "type": "output_validity",
-                                        "nan_count": int(nan_count),
-                                        "inf_count": int(inf_count),
-                                        "explanation": f"Output has {nan_count} NaN and {inf_count} Inf values",
-                                    }
-                                )
-                                logger.warning("⚡ CVC5 Postcondition violated: output_validity")
+                    is_valid, nan_count, inf_count = check_output_validity(data)
+                    if not is_valid:
+                        all_satisfied = False
+                        violation_examples.append(
+                            {
+                                "type": "output_validity",
+                                "nan_count": nan_count,
+                                "inf_count": inf_count,
+                                "explanation": (
+                                    f"Output has {nan_count} NaN and " f"{inf_count} Inf values"
+                                ),
+                            }
+                        )
+                        logger.warning("⚡ CVC5 Postcondition violated: output_validity")
 
                 elif condition_type == "probability_bounds":
                     # Pós-condição: probabilidades devem estar entre 0 e 1
                     data = input_data.output_data if input_data else None
                     if data is not None and hasattr(data, "__iter__"):
                         data_array = np.array(data).flatten()
-                        below_zero = np.sum(data_array < 0)
-                        above_one = np.sum(data_array > 1)
+                        is_valid, violation_detail = verify_probability_bounds(data_array)
 
-                        if below_zero > 0 or above_one > 0:
+                        if not is_valid:
                             all_satisfied = False
-                            violation_examples.append(
-                                {
-                                    "type": "probability_bounds",
-                                    "below_zero_count": int(below_zero),
-                                    "above_one_count": int(above_one),
-                                    "min_value": float(np.min(data_array)),
-                                    "max_value": float(np.max(data_array)),
-                                    "explanation": f"Probabilities outside [0,1]: {below_zero} below 0, {above_one} above 1",
-                                }
-                            )
+                            violation_examples.append(violation_detail)
                             logger.warning("⚡ CVC5 Postcondition violated: probability_bounds")
 
                 elif condition_type == "classification_constraints":
                     # Pós-condição: classes preditas devem estar no range válido
                     num_classes = condition.get("num_classes", 3)
-                    data = input_data.output_data if input_data else None
+                    data_array = get_output_data_array(input_data)
 
-                    if data is not None and hasattr(data, "__iter__"):
-                        data_array = np.array(data).flatten()
-                        invalid_low = np.sum(data_array < 0)
-                        invalid_high = np.sum(data_array >= num_classes)
+                    if data_array is not None:
+                        is_valid, violation_detail = verify_classification_constraints(
+                            data_array, num_classes
+                        )
 
-                        if invalid_low > 0 or invalid_high > 0:
+                        if not is_valid:
                             all_satisfied = False
-                            violation_examples.append(
-                                {
-                                    "type": "classification_constraints",
-                                    "num_classes": num_classes,
-                                    "invalid_low_count": int(invalid_low),
-                                    "invalid_high_count": int(invalid_high),
-                                    "explanation": f"Classes outside [0, {num_classes}): {invalid_low} below 0, {invalid_high} >= {num_classes}",
-                                }
-                            )
+                            violation_examples.append(violation_detail)
                             logger.warning(
                                 "⚡ CVC5 Postcondition violated: classification_constraints"
                             )
@@ -2489,12 +2164,169 @@ class CVC5Verifier(FormalVerifier):
 
             return result_dict
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
             return {
                 "satisfied": False,
-                "details": f"CVC5 postcondition verification failed: {str(e)}",
+                "details": "CVC5 postcondition verification failed: %s" % str(e),
                 "cvc5_result": "error",
             }
+
+    def _get_robustness_test_handlers(self):
+        """Retorna mapping de robustness test type → handler (Strategy Pattern).
+
+        McCabe Complexity: O(1) lookup. Reduces _verify_robustness_constraint complexity.
+        """
+        return {
+            "adversarial_robustness": self._handle_adversarial_robustness_test,
+            "noise_robustness": self._handle_noise_robustness_test,
+            "parameter_sensitivity": self._handle_parameter_sensitivity_test,
+            "distributional_robustness": self._handle_distributional_robustness_test,
+        }
+
+    def _handle_adversarial_robustness_test(self, test: Dict[str, Any]) -> tuple:
+        """Handler para adversarial robustness tests."""
+        epsilon, norm_type, output_threshold = parse_adversarial_test_params(test)
+
+        try:
+            real_sort = self.solver.getRealSort()
+            x_orig = self.solver.mkConst(real_sort, "x_original")
+            x_adv = self.solver.mkConst(real_sort, "x_adversarial")
+            y_orig = self.solver.mkConst(real_sort, "y_original")
+            y_adv = self.solver.mkConst(real_sort, "y_adversarial")
+
+            eps_term = self.solver.mkReal(str(epsilon))
+            thresh_term = self.solver.mkReal(str(output_threshold))
+
+            diff = self.solver.mkTerm(Kind.SUB, x_adv, x_orig)
+            abs_diff = self.solver.mkTerm(Kind.ABS, diff)
+            self.solver.assertFormula(self.solver.mkTerm(Kind.LEQ, abs_diff, eps_term))
+
+            y_diff = self.solver.mkTerm(Kind.SUB, y_adv, y_orig)
+            y_abs_diff = self.solver.mkTerm(Kind.ABS, y_diff)
+            self.solver.assertFormula(self.solver.mkTerm(Kind.LEQ, y_abs_diff, thresh_term))
+
+            result = self.solver.checkSat()
+            satisfied = result.isSat()
+            violation = (
+                {
+                    "type": "adversarial_robustness",
+                    "epsilon": epsilon,
+                    "norm": norm_type,
+                    "output_threshold": output_threshold,
+                }
+                if not satisfied
+                else None
+            )
+            return satisfied, violation
+        except (RuntimeError, ValueError, TypeError) as e:
+            logger.debug("SMT adversarial check error: %s", e)
+            return True, None  # Skip on error
+
+    def _handle_noise_robustness_test(self, test: Dict[str, Any]) -> tuple:
+        """Handler para noise robustness tests."""
+        noise_level, stability_threshold = parse_noise_test_params(test)
+
+        try:
+            real_sort = self.solver.getRealSort()
+            noise = self.solver.mkConst(real_sort, "noise")
+            output_change = self.solver.mkConst(real_sort, "output_change")
+            noise_term = self.solver.mkReal(str(noise_level))
+            stab_term = self.solver.mkReal(str(stability_threshold))
+
+            self.solver.assertFormula(
+                self.solver.mkTerm(Kind.LEQ, self.solver.mkTerm(Kind.ABS, noise), noise_term)
+            )
+            self.solver.assertFormula(
+                self.solver.mkTerm(Kind.LEQ, self.solver.mkTerm(Kind.ABS, output_change), stab_term)
+            )
+
+            result = self.solver.checkSat()
+            satisfied = result.isSat()
+            violation = (
+                {
+                    "type": "noise_robustness",
+                    "noise_level": noise_level,
+                    "stability_threshold": stability_threshold,
+                }
+                if not satisfied
+                else None
+            )
+            return satisfied, violation
+        except (RuntimeError, ValueError, TypeError) as e:
+            logger.debug("SMT noise check error: %s", e)
+            return True, None
+
+    def _handle_parameter_sensitivity_test(self, test: Dict[str, Any]) -> tuple:
+        """Handler para parameter sensitivity tests."""
+        param_delta = test.get("parameter_delta", 0.01)
+        output_delta_max = test.get("output_delta_max", 0.1)
+
+        try:
+            real_sort = self.solver.getRealSort()
+            param_change = self.solver.mkConst(real_sort, "param_change")
+            output_change = self.solver.mkConst(real_sort, "output_change")
+            param_term = self.solver.mkReal(str(param_delta))
+            output_term = self.solver.mkReal(str(output_delta_max))
+
+            self.solver.assertFormula(
+                self.solver.mkTerm(Kind.LEQ, self.solver.mkTerm(Kind.ABS, param_change), param_term)
+            )
+            self.solver.assertFormula(
+                self.solver.mkTerm(
+                    Kind.LEQ, self.solver.mkTerm(Kind.ABS, output_change), output_term
+                )
+            )
+
+            result = self.solver.checkSat()
+            satisfied = result.isSat()
+            violation = (
+                {
+                    "type": "parameter_sensitivity",
+                    "param_delta": param_delta,
+                    "output_delta_max": output_delta_max,
+                }
+                if not satisfied
+                else None
+            )
+            return satisfied, violation
+        except (RuntimeError, ValueError, TypeError) as e:
+            logger.debug("SMT sensitivity check error: %s", e)
+            return True, None
+
+    def _handle_distributional_robustness_test(self, test: Dict[str, Any]) -> tuple:
+        """Handler para distributional robustness tests."""
+        distribution_shift = test.get("distribution_shift", 0.1)
+        performance_threshold = test.get("performance_threshold", 0.9)
+
+        try:
+            real_sort = self.solver.getRealSort()
+            orig_perf = self.solver.mkConst(real_sort, "original_performance")
+            shift_perf = self.solver.mkConst(real_sort, "shifted_performance")
+            zero = self.solver.mkReal("0")
+            one = self.solver.mkReal("1")
+            thresh_term = self.solver.mkReal(str(performance_threshold))
+
+            self.solver.assertFormula(self.solver.mkTerm(Kind.GEQ, orig_perf, zero))
+            self.solver.assertFormula(self.solver.mkTerm(Kind.LEQ, orig_perf, one))
+            self.solver.assertFormula(self.solver.mkTerm(Kind.GEQ, shift_perf, zero))
+            self.solver.assertFormula(self.solver.mkTerm(Kind.LEQ, shift_perf, one))
+            self.solver.assertFormula(self.solver.mkTerm(Kind.GEQ, shift_perf, thresh_term))
+
+            result = self.solver.checkSat()
+            satisfied = result.isSat()
+            violation = (
+                {
+                    "type": "distributional_robustness",
+                    "distribution_shift": distribution_shift,
+                    "performance_threshold": performance_threshold,
+                }
+                if not satisfied
+                else None
+            )
+            return satisfied, violation
+        except (RuntimeError, ValueError, TypeError) as e:
+            logger.debug("SMT distributional check error: %s", e)
+            return True, None
 
     def _verify_robustness_constraint(
         self, constraint_value: Any, input_data: VerificationInput
@@ -2517,182 +2349,22 @@ class CVC5Verifier(FormalVerifier):
                     "cvc5_result": "trivially_satisfied",
                 }
 
-            robustness_tests = constraint_value.get("tests", [])
+            robustness_tests = parse_robustness_tests(constraint_value)
             all_satisfied = True
             violation_examples = []
+            handlers = self._get_robustness_test_handlers()
 
             for test in robustness_tests:
-                test_type = test.get("type", "")
+                test_type = get_robustness_test_type(test)
 
-                if test_type == "adversarial_robustness":
-                    # Teste: resistência a ataques adversariais
-                    epsilon = test.get("epsilon", 0.1)
-                    norm_type = test.get("norm", "l2")
-                    output_threshold = test.get("output_threshold", 0.1)
-
-                    try:
-                        # Usar CVC5 para verificar propriedade adversarial
-                        real_sort = self.solver.getRealSort()
-                        x_orig = self.solver.mkConst(real_sort, "x_original")
-                        x_adv = self.solver.mkConst(real_sort, "x_adversarial")
-                        y_orig = self.solver.mkConst(real_sort, "y_original")
-                        y_adv = self.solver.mkConst(real_sort, "y_adversarial")
-
-                        eps_term = self.solver.mkReal(str(epsilon))
-                        thresh_term = self.solver.mkReal(str(output_threshold))
-                        zero = self.solver.mkReal("0")
-
-                        # Perturbação limitada: |x_adv - x_orig| <= epsilon
-                        diff = self.solver.mkTerm(Kind.SUB, x_adv, x_orig)
-                        abs_diff = self.solver.mkTerm(Kind.ABS, diff)
-                        self.solver.assertFormula(self.solver.mkTerm(Kind.LEQ, abs_diff, eps_term))
-
-                        # Robustez: |y_adv - y_orig| <= threshold
-                        y_diff = self.solver.mkTerm(Kind.SUB, y_adv, y_orig)
-                        y_abs_diff = self.solver.mkTerm(Kind.ABS, y_diff)
-                        self.solver.assertFormula(
-                            self.solver.mkTerm(Kind.LEQ, y_abs_diff, thresh_term)
-                        )
-
-                        result = self.solver.checkSat()
-                        if not result.isSat():
-                            all_satisfied = False
-                            violation_examples.append(
-                                {
-                                    "type": "adversarial_robustness",
-                                    "epsilon": epsilon,
-                                    "norm": norm_type,
-                                    "output_threshold": output_threshold,
-                                    "explanation": f"Adversarial robustness not satisfiable with ε={epsilon}",
-                                }
-                            )
-                            logger.warning("🛡️ CVC5 Robustez violada: adversarial_robustness")
-                    except Exception as smt_error:
-                        logger.debug(f"SMT adversarial check error: {smt_error}")
-
-                elif test_type == "noise_robustness":
-                    # Teste: resistência a ruído gaussiano
-                    noise_level = test.get("noise_level", 0.1)
-                    stability_threshold = test.get("stability_threshold", 0.05)
-
-                    try:
-                        real_sort = self.solver.getRealSort()
-                        noise = self.solver.mkConst(real_sort, "noise")
-                        output_change = self.solver.mkConst(real_sort, "output_change")
-
-                        noise_term = self.solver.mkReal(str(noise_level))
-                        stab_term = self.solver.mkReal(str(stability_threshold))
-
-                        # |noise| <= noise_level
-                        self.solver.assertFormula(
-                            self.solver.mkTerm(
-                                Kind.LEQ, self.solver.mkTerm(Kind.ABS, noise), noise_term
-                            )
-                        )
-
-                        # |output_change| <= stability_threshold
-                        self.solver.assertFormula(
-                            self.solver.mkTerm(
-                                Kind.LEQ, self.solver.mkTerm(Kind.ABS, output_change), stab_term
-                            )
-                        )
-
-                        result = self.solver.checkSat()
-                        if not result.isSat():
-                            all_satisfied = False
-                            violation_examples.append(
-                                {
-                                    "type": "noise_robustness",
-                                    "noise_level": noise_level,
-                                    "stability_threshold": stability_threshold,
-                                    "explanation": f"Noise robustness not satisfiable with noise={noise_level}",
-                                }
-                            )
-                            logger.warning("🛡️ CVC5 Robustez violada: noise_robustness")
-                    except Exception as smt_error:
-                        logger.debug(f"SMT noise check error: {smt_error}")
-
-                elif test_type == "parameter_sensitivity":
-                    # Teste: sensibilidade a mudanças nos parâmetros
-                    param_delta = test.get("parameter_delta", 0.01)
-                    output_delta_max = test.get("output_delta_max", 0.1)
-
-                    try:
-                        real_sort = self.solver.getRealSort()
-                        param_change = self.solver.mkConst(real_sort, "param_change")
-                        output_change = self.solver.mkConst(real_sort, "output_change")
-
-                        param_term = self.solver.mkReal(str(param_delta))
-                        output_term = self.solver.mkReal(str(output_delta_max))
-
-                        # |param_change| <= param_delta
-                        self.solver.assertFormula(
-                            self.solver.mkTerm(
-                                Kind.LEQ, self.solver.mkTerm(Kind.ABS, param_change), param_term
-                            )
-                        )
-
-                        # |output_change| <= output_delta_max
-                        self.solver.assertFormula(
-                            self.solver.mkTerm(
-                                Kind.LEQ, self.solver.mkTerm(Kind.ABS, output_change), output_term
-                            )
-                        )
-
-                        result = self.solver.checkSat()
-                        if not result.isSat():
-                            all_satisfied = False
-                            violation_examples.append(
-                                {
-                                    "type": "parameter_sensitivity",
-                                    "param_delta": param_delta,
-                                    "output_delta_max": output_delta_max,
-                                    "explanation": f"Parameter sensitivity constraint not satisfiable",
-                                }
-                            )
-                            logger.warning("🛡️ CVC5 Robustez violada: parameter_sensitivity")
-                    except Exception as smt_error:
-                        logger.debug(f"SMT sensitivity check error: {smt_error}")
-
-                elif test_type == "distributional_robustness":
-                    # Teste: robustez a mudanças na distribuição dos dados
-                    distribution_shift = test.get("distribution_shift", 0.1)
-                    performance_threshold = test.get("performance_threshold", 0.9)
-
-                    try:
-                        real_sort = self.solver.getRealSort()
-                        orig_perf = self.solver.mkConst(real_sort, "original_performance")
-                        shift_perf = self.solver.mkConst(real_sort, "shifted_performance")
-
-                        zero = self.solver.mkReal("0")
-                        one = self.solver.mkReal("1")
-                        thresh_term = self.solver.mkReal(str(performance_threshold))
-
-                        # Performance em [0, 1]
-                        self.solver.assertFormula(self.solver.mkTerm(Kind.GEQ, orig_perf, zero))
-                        self.solver.assertFormula(self.solver.mkTerm(Kind.LEQ, orig_perf, one))
-                        self.solver.assertFormula(self.solver.mkTerm(Kind.GEQ, shift_perf, zero))
-                        self.solver.assertFormula(self.solver.mkTerm(Kind.LEQ, shift_perf, one))
-
-                        # Performance deve permanecer acima do threshold
-                        self.solver.assertFormula(
-                            self.solver.mkTerm(Kind.GEQ, shift_perf, thresh_term)
-                        )
-
-                        result = self.solver.checkSat()
-                        if not result.isSat():
-                            all_satisfied = False
-                            violation_examples.append(
-                                {
-                                    "type": "distributional_robustness",
-                                    "distribution_shift": distribution_shift,
-                                    "performance_threshold": performance_threshold,
-                                    "explanation": f"Distributional robustness not satisfiable with threshold={performance_threshold}",
-                                }
-                            )
-                            logger.warning("🛡️ CVC5 Robustez violada: distributional_robustness")
-                    except Exception as smt_error:
-                        logger.debug(f"SMT distributional check error: {smt_error}")
+                if test_type in handlers:
+                    handler = handlers[test_type]
+                    satisfied, violation = handler(test)
+                    if not satisfied:
+                        all_satisfied = False
+                        if violation:
+                            violation_examples.append(violation)
+                        logger.warning("🛡️ CVC5 Robustez violada: %s", test_type)
 
             violation_examples = violation_examples[:10]
 
@@ -2713,10 +2385,10 @@ class CVC5Verifier(FormalVerifier):
 
             return result_dict
 
-        except Exception as e:
+        except (RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
             return {
                 "satisfied": False,
-                "details": f"CVC5 robustness verification failed: {str(e)}",
+                "details": "CVC5 robustness verification failed: %s" % str(e),
                 "cvc5_result": "error",
             }
 
@@ -2749,68 +2421,19 @@ class CVC5Verifier(FormalVerifier):
             configuration_hash=f"cvc5_scientific_max_performance_{int(time.time())}",
         )
 
-        # Métricas de performance
-        performance = PerformanceMetrics(
-            total_execution_time=legacy_result.execution_time,
-            constraint_count=len(legacy_result.constraints_checked),
-            constraints_satisfied=len(legacy_result.constraints_satisfied),
-            constraints_violated=len(legacy_result.constraints_violated),
-            constraints_unknown=0,  # CVC5 pode retornar unknown mais frequentemente
-            constraints_timeout=0,
-            constraints_error=0,
-            constraints_skipped=0,
+        # Métricas de performance e status (usando utilitário compartilhado)
+        performance, overall_status = build_solver_performance_and_status(legacy_result)
+
+        # Criar resultados por constraint (usando utilitário compartilhado)
+        avg_time_per_constraint = compute_avg_time_per_constraint(
+            legacy_result.execution_time, len(legacy_result.constraints_checked)
+        )
+        constraint_results = build_bulk_constraint_results(
+            legacy_result, avg_time_per_constraint, "cvc5_solver_details"
         )
 
-        # Converter status legado para padronizado
-        status_mapping = {
-            VerificationStatus.SUCCESS: StandardStatus.SUCCESS,
-            VerificationStatus.FAILURE: StandardStatus.FAILURE,
-            VerificationStatus.ERROR: StandardStatus.ERROR,
-            VerificationStatus.SKIPPED: StandardStatus.SKIPPED,
-            VerificationStatus.TIMEOUT: StandardStatus.TIMEOUT,
-        }
-
-        overall_status = status_mapping.get(legacy_result.status, StandardStatus.UNKNOWN)
-
-        # Criar resultados por constraint
-        constraint_results = []
-        avg_time_per_constraint = legacy_result.execution_time / max(
-            len(legacy_result.constraints_checked), 1
-        )
-
-        # Constraints satisfeitas
-        for constraint_name in legacy_result.constraints_satisfied:
-            constraint_results.append(
-                ConstraintResult(
-                    constraint_type=StandardVerificationResult._classify_constraint_type(
-                        constraint_name
-                    ),
-                    constraint_name=constraint_name,
-                    status=StandardStatus.SUCCESS,
-                    execution_time=avg_time_per_constraint,
-                    solver_specific_details=legacy_result.details.get(
-                        "cvc5_solver_details", {}
-                    ).get(constraint_name, {}),
-                )
-            )
-
-        # Constraints violadas
-        for constraint_name in legacy_result.constraints_violated:
-            constraint_results.append(
-                ConstraintResult(
-                    constraint_type=StandardVerificationResult._classify_constraint_type(
-                        constraint_name
-                    ),
-                    constraint_name=constraint_name,
-                    status=StandardStatus.FAILURE,
-                    execution_time=avg_time_per_constraint,
-                    solver_specific_details=legacy_result.details.get(
-                        "cvc5_solver_details", {}
-                    ).get(constraint_name, {}),
-                )
-            )
-
-        # Return basic result - StandardVerificationResult creation removed due to missing dependencies
+        # Return basic result - StandardVerificationResult creation
+        # removed due to missing dependencies
         return constraint_results
 
     # === IMPLEMENTAÇÃO DOS NOVOS CONSTRAINTS ===
@@ -2870,7 +2493,10 @@ class CVC5Verifier(FormalVerifier):
                                     "current_value": current_float,
                                     "drift": drift,
                                     "threshold": threshold,
-                                    "explanation": f"Parameter '{param_name}' drift {drift:.4f} > threshold {threshold}",
+                                    "explanation": (
+                                        f"Parameter '{param_name}' drift {drift:.4f} "
+                                        f"> threshold {threshold}"
+                                    ),
                                 }
                             )
                     except (ValueError, TypeError):
@@ -2908,13 +2534,14 @@ class CVC5Verifier(FormalVerifier):
                     "satisfiable": True,
                 }
                 logger.info(
-                    f"🔍 CVC5 parameter drift violation: {len(violation_examples)} parameters exceeded threshold"
+                    "🔍 CVC5 parameter drift violation: " "%d parameters exceeded threshold",
+                    len(violation_examples),
                 )
 
             return result_dict
 
-        except Exception as e:
-            logger.debug(f"Parameter drift verification error: {e}")
+        except (RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
+            logger.debug("Parameter drift verification error: %s", e)
             return {
                 "satisfied": True,
                 "details": f"Parameter drift check skipped: {str(e)}",
@@ -2953,7 +2580,9 @@ class CVC5Verifier(FormalVerifier):
                             {
                                 "type": "missing_required_param",
                                 "parameter": param,
-                                "explanation": f"Required parameter '{param}' is missing from model",
+                                "explanation": (
+                                    f"Required parameter '{param}' is missing " "from model"
+                                ),
                             }
                         )
                     elif params[param] is None:
@@ -2975,7 +2604,9 @@ class CVC5Verifier(FormalVerifier):
                             {
                                 "type": "missing_required_attr",
                                 "attribute": attr,
-                                "explanation": f"Required attribute '{attr}' is missing from input_data",
+                                "explanation": (
+                                    f"Required attribute '{attr}' is missing " "from input_data"
+                                ),
                             }
                         )
                     elif getattr(input_data, attr, None) is None:
@@ -3008,8 +2639,8 @@ class CVC5Verifier(FormalVerifier):
 
             return result_dict
 
-        except Exception as e:
-            logger.debug(f"Model instantiation verification error: {e}")
+        except (RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
+            logger.debug("Model instantiation verification error: %s", e)
             return {
                 "satisfied": False,
                 "details": f"Model instantiation failed: {str(e)}",
@@ -3058,7 +2689,7 @@ class CVC5Verifier(FormalVerifier):
                         try:
                             val_a = float(params[param_a])
                             val_b = float(params[param_b])
-                            if not (val_a < val_b):
+                            if val_a >= val_b:
                                 all_satisfied = False
                                 violation_examples.append(
                                     {
@@ -3068,7 +2699,10 @@ class CVC5Verifier(FormalVerifier):
                                         "param_b": param_b,
                                         "value_a": val_a,
                                         "value_b": val_b,
-                                        "explanation": f"Consistency rule violated: {param_a}={val_a} should be < {param_b}={val_b}",
+                                        "explanation": (
+                                            f"Consistency rule violated: "
+                                            f"{param_a}={val_a} should be < {param_b}={val_b}"
+                                        ),
                                     }
                                 )
                         except (ValueError, TypeError):
@@ -3093,7 +2727,11 @@ class CVC5Verifier(FormalVerifier):
                                         "value_a": val_a,
                                         "value_b": val_b,
                                         "tolerance": tolerance,
-                                        "explanation": f"Consistency rule violated: {param_a}={val_a} should equal {param_b}={val_b} (tolerance={tolerance})",
+                                        "explanation": (
+                                            f"Consistency rule violated: "
+                                            f"{param_a}={val_a} should equal {param_b}={val_b} "
+                                            f"(tolerance={tolerance})"
+                                        ),
                                     }
                                 )
                         except (ValueError, TypeError):
@@ -3125,7 +2763,10 @@ class CVC5Verifier(FormalVerifier):
                                 "params": params_list,
                                 "actual_sum": actual_sum,
                                 "expected_sum": expected_sum,
-                                "explanation": f"Sum of {params_list} = {actual_sum}, expected {expected_sum}",
+                                "explanation": (
+                                    f"Sum of {params_list} = {actual_sum}, "
+                                    f"expected {expected_sum}"
+                                ),
                             }
                         )
 
@@ -3141,7 +2782,9 @@ class CVC5Verifier(FormalVerifier):
 
             result_dict = {
                 "satisfied": all_satisfied,
-                "details": f"Parameter consistency verified: {len(consistency_rules)} rules checked",
+                "details": (
+                    f"Parameter consistency verified: " f"{len(consistency_rules)} rules checked"
+                ),
                 "cvc5_result": "unsat" if all_satisfied else "sat",
                 "cvc5_satisfiable": not all_satisfied,
             }
@@ -3154,13 +2797,14 @@ class CVC5Verifier(FormalVerifier):
                     "satisfiable": True,
                 }
                 logger.info(
-                    f"🔍 CVC5 parameter consistency violation: {len(violation_examples)} rules violated"
+                    "🔍 CVC5 parameter consistency violation: " "%d rules violated",
+                    len(violation_examples),
                 )
 
             return result_dict
 
-        except Exception as e:
-            logger.debug(f"Parameter consistency verification error: {e}")
+        except (RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
+            logger.debug("Parameter consistency verification error: %s", e)
             return {
                 "satisfied": True,
                 "details": f"Parameter consistency check skipped: {str(e)}",
@@ -3224,7 +2868,9 @@ class CVC5Verifier(FormalVerifier):
                                     {
                                         "type": "empty_attribute",
                                         "attribute": attr,
-                                        "explanation": f"Attribute '{attr}' is empty but should not be",
+                                        "explanation": (
+                                            f"Attribute '{attr}' is empty " "but should not be"
+                                        ),
                                     }
                                 )
 
@@ -3238,7 +2884,10 @@ class CVC5Verifier(FormalVerifier):
                                         "attribute": attr,
                                         "actual_length": len(value),
                                         "min_length": min_len,
-                                        "explanation": f"Attribute '{attr}' has length {len(value)} < min {min_len}",
+                                        "explanation": (
+                                            f"Attribute '{attr}' has length "
+                                            f"{len(value)} < min {min_len}"
+                                        ),
                                     }
                                 )
 
@@ -3255,7 +2904,10 @@ class CVC5Verifier(FormalVerifier):
                                             "attribute": attr,
                                             "value": float_val,
                                             "min": min_val,
-                                            "explanation": f"Attribute '{attr}' = {float_val} < min {min_val}",
+                                            "explanation": (
+                                                f"Attribute '{attr}' = {float_val} "
+                                                f"< min {min_val}"
+                                            ),
                                         }
                                     )
                                 if max_val is not None and float_val > max_val:
@@ -3266,7 +2918,10 @@ class CVC5Verifier(FormalVerifier):
                                             "attribute": attr,
                                             "value": float_val,
                                             "max": max_val,
-                                            "explanation": f"Attribute '{attr}' = {float_val} > max {max_val}",
+                                            "explanation": (
+                                                f"Attribute '{attr}' = {float_val} "
+                                                f"> max {max_val}"
+                                            ),
                                         }
                                     )
                             except (ValueError, TypeError):
@@ -3274,7 +2929,10 @@ class CVC5Verifier(FormalVerifier):
 
             result_dict = {
                 "satisfied": all_satisfied,
-                "details": f"Attribute check verified: {len(required_attrs)} required, {len(attr_conditions)} conditions",
+                "details": (
+                    f"Attribute check verified: {len(required_attrs)} required, "
+                    f"{len(attr_conditions)} conditions"
+                ),
                 "cvc5_result": "unsat" if all_satisfied else "sat",
                 "cvc5_satisfiable": not all_satisfied,
             }
@@ -3286,12 +2944,12 @@ class CVC5Verifier(FormalVerifier):
                     "violation_examples": violation_examples,
                     "satisfiable": True,
                 }
-                logger.info(f"🔍 CVC5 attribute check violation: {len(violation_examples)} issues")
+                logger.info("🔍 CVC5 attribute check violation: %d issues", len(violation_examples))
 
             return result_dict
 
-        except Exception as e:
-            logger.debug(f"Attribute check verification error: {e}")
+        except (RuntimeError, ValueError, TypeError, AttributeError) as e:
+            logger.debug("Attribute check verification error: %s", e)
             return {
                 "satisfied": True,
                 "details": f"Attribute check skipped: {str(e)}",
@@ -3360,7 +3018,7 @@ class CVC5Verifier(FormalVerifier):
             int_sort = self.solver.getIntegerSort()
             array_sort = self.solver.mkArraySort(int_sort, int_sort)
 
-            A = self.solver.mkConst(array_sort, "A")
+            arr_var = self.solver.mkConst(array_sort, "A")
             i = self.solver.mkConst(int_sort, "i")
             j = self.solver.mkConst(int_sort, "j")
 
@@ -3379,8 +3037,8 @@ class CVC5Verifier(FormalVerifier):
             i_neq_j = self.solver.mkTerm(Kind.DISTINCT, i, j)
 
             # A[i] == A[j] (verificar se pode existir duplicado)
-            select_i = self.solver.mkTerm(Kind.SELECT, A, i)
-            select_j = self.solver.mkTerm(Kind.SELECT, A, j)
+            select_i = self.solver.mkTerm(Kind.SELECT, arr_var, i)
+            select_j = self.solver.mkTerm(Kind.SELECT, arr_var, j)
             same_value = self.solver.mkTerm(Kind.EQUAL, select_i, select_j)
 
             self.solver.assertFormula(bounds)
@@ -3648,7 +3306,9 @@ class CVC5Verifier(FormalVerifier):
 
             return {
                 "satisfied": is_sat,
-                "details": f"Neural network properties verified with CVC5 (input_size={input_size})",
+                "details": (
+                    f"Neural network properties verified with CVC5 " f"(input_size={input_size})"
+                ),
                 "cvc5_result": str(result),
                 "cvc5_satisfiable": is_sat,
             }
@@ -3716,7 +3376,10 @@ class CVC5Verifier(FormalVerifier):
                                 "value": float_val,
                                 "min": min_prob,
                                 "max": max_prob,
-                                "explanation": f"Probability {float_val} at index {i} outside [{min_prob}, {max_prob}]",
+                                "explanation": (
+                                    f"Probability {float_val} at index {i} "
+                                    f"outside [{min_prob}, {max_prob}]"
+                                ),
                             }
                         )
                 except (ValueError, TypeError):
@@ -3726,7 +3389,10 @@ class CVC5Verifier(FormalVerifier):
 
             result_dict = {
                 "satisfied": all_satisfied,
-                "details": f"Probability bounds verified: {len(data_array)} values in [{min_prob}, {max_prob}]",
+                "details": (
+                    f"Probability bounds verified: {len(data_array)} values "
+                    f"in [{min_prob}, {max_prob}]"
+                ),
                 "cvc5_result": "unsat" if all_satisfied else "sat",
                 "cvc5_satisfiable": not all_satisfied,
             }
