@@ -1,9 +1,9 @@
 """Verificações específicas para dados, labels e parâmetros."""
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
-from ..core.plugin_interface import VerificationInput, VerificationResult, VerificationStatus
+from .core.plugin_interface import VerificationInput, VerificationResult, VerificationStatus
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ class DataIntegrityVerifier:
                 message="Shape preserved successfully",
             )
 
-        except Exception as e:
+        except (AttributeError, TypeError) as e:
             return VerificationResult(
                 status=VerificationStatus.ERROR,
                 verifier_name="DataIntegrityVerifier",
@@ -53,8 +53,6 @@ class DataIntegrityVerifier:
     ) -> VerificationResult:
         """Verifica se os bounds dos dados foram preservados."""
         try:
-            import numpy as np
-
             if not (hasattr(input_data, "min") and hasattr(input_data, "max")):
                 return VerificationResult(
                     status=VerificationStatus.SKIPPED,
@@ -75,7 +73,10 @@ class DataIntegrityVerifier:
                     status=VerificationStatus.FAILED,
                     verifier_name="DataIntegrityVerifier",
                     execution_time=0.0,
-                    message=f"Bounds changed beyond tolerance: min_diff={min_diff:.4f}, max_diff={max_diff:.4f}",
+                    message=(
+                        f"Bounds changed beyond tolerance: "
+                        f"min_diff={min_diff:.4f}, max_diff={max_diff:.4f}"
+                    ),
                 )
 
             return VerificationResult(
@@ -92,7 +93,7 @@ class DataIntegrityVerifier:
                 execution_time=0.0,
                 message="NumPy not available for bounds verification",
             )
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError) as e:
             return VerificationResult(
                 status=VerificationStatus.ERROR,
                 verifier_name="DataIntegrityVerifier",
@@ -163,7 +164,7 @@ class LabelIntegrityVerifier:
                 execution_time=0.0,
                 message="NumPy not available for distribution verification",
             )
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError) as e:
             return VerificationResult(
                 status=VerificationStatus.ERROR,
                 verifier_name="LabelIntegrityVerifier",
@@ -208,7 +209,7 @@ class ParameterIntegrityVerifier:
                 message="Parameter types preserved",
             )
 
-        except Exception as e:
+        except (AttributeError, TypeError, KeyError) as e:
             return VerificationResult(
                 status=VerificationStatus.ERROR,
                 verifier_name="ParameterIntegrityVerifier",
@@ -246,7 +247,8 @@ class ParameterIntegrityVerifier:
                         and param_value not in param_bounds["valid_values"]
                     ):
                         bound_violations.append(
-                            f"{param_name} not in {param_bounds['valid_values']} (value: {param_value})"
+                            f"{param_name} not in {param_bounds['valid_values']} "
+                            f"(value: {param_value})"
                         )
 
             if bound_violations:
@@ -264,7 +266,7 @@ class ParameterIntegrityVerifier:
                 message="All parameters within bounds",
             )
 
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError, KeyError) as e:
             return VerificationResult(
                 status=VerificationStatus.ERROR,
                 verifier_name="ParameterIntegrityVerifier",
@@ -305,7 +307,10 @@ class TransformationVerifier:
                         status=VerificationStatus.FAILED,
                         verifier_name="TransformationVerifier",
                         execution_time=0.0,
-                        message=f"Outlier ratio {outlier_ratio:.4f} exceeds maximum {max_outlier_ratio}",
+                        message=(
+                            f"Outlier ratio {outlier_ratio:.4f} "
+                            f"exceeds maximum {max_outlier_ratio}"
+                        ),
                     )
 
             return VerificationResult(
@@ -322,7 +327,7 @@ class TransformationVerifier:
                 execution_time=0.0,
                 message="NumPy not available for outlier verification",
             )
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError) as e:
             return VerificationResult(
                 status=VerificationStatus.ERROR,
                 verifier_name="TransformationVerifier",
@@ -362,7 +367,7 @@ def run_specific_verification(
                 return verifier_class.verify_shape_preservation(
                     verification_input.input_data, verification_input.output_data
                 )
-            elif constraints.get("preserve_bounds"):
+            if constraints.get("preserve_bounds"):
                 tolerance = constraints.get("bounds_tolerance", 0.1)
                 return verifier_class.verify_bounds_preservation(
                     verification_input.input_data, verification_input.output_data, tolerance
@@ -380,7 +385,7 @@ def run_specific_verification(
                 return verifier_class.verify_parameter_types(
                     verification_input.input_data, verification_input.output_data
                 )
-            elif constraints.get("parameter_bounds_check"):
+            if constraints.get("parameter_bounds_check"):
                 bounds = constraints.get("parameter_bounds", {})
                 return verifier_class.verify_parameter_bounds(
                     verification_input.output_data, bounds
@@ -400,7 +405,7 @@ def run_specific_verification(
             message=f"No specific verification method for constraints: {constraints}",
         )
 
-    except Exception as e:
+    except (AttributeError, TypeError, ValueError, KeyError) as e:
         return VerificationResult(
             status=VerificationStatus.ERROR,
             verifier_name="SpecificVerifier",
