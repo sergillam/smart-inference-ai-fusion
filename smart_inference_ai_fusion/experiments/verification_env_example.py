@@ -13,6 +13,7 @@ from smart_inference_ai_fusion.utils.types import (
     SklearnDatasetName,
     VerificationConfig,
 )
+from smart_inference_ai_fusion.verification.utils import get_default_verification_constraints
 
 logger = logging.getLogger(__name__)
 
@@ -32,13 +33,7 @@ def run():
             enabled=True,
             timeout=30.0,
             fail_on_error=verification_strict,
-            constraints={
-                "shape_preservation": True,  # Z3-compatible constraint
-                "bounds": True,  # Z3-compatible constraint
-                "range_check": True,  # Z3-compatible constraint
-                "type_safety": True,  # Z3-compatible constraint
-                "bounds_tolerance": 0.1 if not verification_strict else 0.05,
-            },
+            constraints=get_default_verification_constraints(verification_strict),
         )
 
         verification_mode = "STRICT" if verification_strict else "FLEXIBLE"

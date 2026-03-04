@@ -4,8 +4,6 @@ This module provides a centralized registry of experiment configurations
 to eliminate code duplication across experiment scripts.
 """
 
-# pylint: disable=too-many-lines
-
 import logging
 import os
 from typing import Any, Dict, Optional, Type
@@ -35,6 +33,7 @@ from smart_inference_ai_fusion.utils.types import (
     SklearnDatasetName,
     VerificationConfig,
 )
+from smart_inference_ai_fusion.verification.utils import get_default_verification_constraints
 
 logger = logging.getLogger(__name__)
 
@@ -907,13 +906,7 @@ def _create_verification_config(verification_strict: bool) -> VerificationConfig
         enabled=True,
         timeout=60.0 if verification_strict else 30.0,
         fail_on_error=verification_strict,
-        constraints={
-            "shape_preservation": True,
-            "bounds": True,
-            "range_check": True,
-            "type_safety": True,
-            "bounds_tolerance": 0.05 if verification_strict else 0.1,
-        },
+        constraints=get_default_verification_constraints(verification_strict),
     )
 
 
