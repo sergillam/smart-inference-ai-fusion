@@ -4,7 +4,7 @@ import json
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -14,7 +14,6 @@ from .logging import logger
 # Imports do novo sistema de resultados padronizados
 try:
     from ..verification.core.result_schema import (
-        ConstraintResult,
         ResultSchemaManager,
         StandardStatus,
         StandardVerificationResult,
@@ -37,12 +36,18 @@ class SolverMetrics:
     error_verifications: int = 0
     timeout_verifications: int = 0
     total_execution_time: float = 0.0
-    average_execution_time: float = 0.0
     min_execution_time: float = float("inf")
     max_execution_time: float = 0.0
     constraints_checked: int = 0
     constraints_satisfied: int = 0
     constraints_violated: int = 0
+
+    @property
+    def average_execution_time(self) -> float:
+        """Tempo médio de execução (calculado sob demanda)."""
+        if self.total_verifications == 0:
+            return 0.0
+        return self.total_execution_time / self.total_verifications
 
     def update_from_result(self, result: Dict[str, Any]):
         """Atualiza métricas com resultado de uma verificação."""
@@ -63,7 +68,6 @@ class SolverMetrics:
 
         # Métricas de tempo
         self.total_execution_time += execution_time
-        self.average_execution_time = self.total_execution_time / self.total_verifications
         self.min_execution_time = min(self.min_execution_time, execution_time)
         self.max_execution_time = max(self.max_execution_time, execution_time)
 
@@ -128,7 +132,7 @@ class SolverComparison:
         # Histórico de comparações
         self.comparison_history: List[Dict[str, Any]] = []
 
-        logger.info(f"📊 Comparison framework initialized: {self.output_dir}")
+        logger.info("📊 Comparison framework initialized: %s", self.output_dir)
 
     def add_verification_results(self, experiment_name: str, verification_results: Dict[str, Any]):
         """Adiciona resultados de verificação para análise.
@@ -169,7 +173,11 @@ class SolverComparison:
 
         self.comparison_history.append(comparison_entry)
 
-        logger.info(f"📊 Added comparison: {experiment_name} ({len(solver_results)} solvers)")
+        logger.info(
+            "📊 Added comparison: %s (%d solvers)",
+            experiment_name,
+            len(solver_results),
+        )
 
     def _analyze_agreement(self, solver_results: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
         """Analisa concordância entre solvers."""
@@ -322,7 +330,7 @@ class SolverComparison:
         # Salvar relatório de texto
         self._save_text_report(result, base_filename)
 
-        logger.info(f"📊 Report saved: {base_filename} (JSON, CSV, TXT)")
+        logger.info("📊 Report saved: %s (JSON, CSV, TXT)", base_filename)
 
     def _save_metrics_csv(self, result: ComparisonResult, base_filename: str):
         """Salva métricas em formato CSV."""
@@ -355,7 +363,7 @@ class SolverComparison:
 
         with open(txt_file, "w", encoding="utf-8") as f:
             f.write("=" * 80 + "\n")
-            f.write(f"RELATÓRIO DE COMPARAÇÃO MULTI-SOLVER\n")
+            f.write("RELATÓRIO DE COMPARAÇÃO MULTI-SOLVER\n")
             f.write(f"Experimento: {result.experiment_name}\n")
             f.write(f"Data/Hora: {result.timestamp}\n")
             f.write("=" * 80 + "\n\n")
@@ -377,7 +385,9 @@ class SolverComparison:
                 f.write(f"  Taxa de timeout: {metrics.timeout_rate:.2%}\n")
                 f.write(f"  Tempo médio: {metrics.average_execution_time:.4f}s\n")
                 f.write(
-                    f"  Tempo mín/máx: {metrics.min_execution_time:.4f}s / {metrics.max_execution_time:.4f}s\n"
+                    f"  Tempo mín/máx: "
+                    f"{metrics.min_execution_time:.4f}s / "
+                    f"{metrics.max_execution_time:.4f}s\n"
                 )
 
             # Rankings
@@ -386,17 +396,20 @@ class SolverComparison:
 
             if "success_rate" in result.summary.get("solver_rankings", {}):
                 f.write(
-                    f"Taxa de Sucesso: {' > '.join(result.summary['solver_rankings']['success_rate'])}\n"
+                    f"Taxa de Sucesso: "
+                    f"{' > '.join(result.summary['solver_rankings']['success_rate'])}\n"
                 )
 
             if "average_speed" in result.summary.get("solver_rankings", {}):
                 f.write(
-                    f"Velocidade Média: {' > '.join(result.summary['solver_rankings']['average_speed'])}\n"
+                    f"Velocidade Média: "
+                    f"{' > '.join(result.summary['solver_rankings']['average_speed'])}\n"
                 )
 
             if "reliability" in result.summary.get("solver_rankings", {}):
                 f.write(
-                    f"Confiabilidade: {' > '.join(result.summary['solver_rankings']['reliability'])}\n"
+                    f"Confiabilidade: "
+                    f"{' > '.join(result.summary['solver_rankings']['reliability'])}\n"
                 )
 
     def print_summary(self):
@@ -409,18 +422,21 @@ class SolverComparison:
         logger.info("📊 MULTI-SOLVER COMPARISON SUMMARY")
         logger.info("=" * 60)
 
-        logger.info(f"Total solvers: {len(self.solver_metrics)}")
-        logger.info(f"Total experiments: {len(self.comparison_history)}")
+        logger.info("Total solvers: %d", len(self.solver_metrics))
+        logger.info("Total experiments: %d", len(self.comparison_history))
 
         logger.info("METRICS PER SOLVER:")
         logger.info("-" * 40)
         for solver_name, metrics in self.solver_metrics.items():
-            logger.info(f"\n{solver_name}:")
+            logger.info("\n%s:", solver_name)
             logger.info(
-                f"  ✅ Successes: {metrics.successful_verifications}/{metrics.total_verifications} ({metrics.success_rate:.1%})"
+                "  ✅ Successes: %d/%d (%.1f%%)",
+                metrics.successful_verifications,
+                metrics.total_verifications,
+                metrics.success_rate * 100,
             )
-            logger.info(f"  ⏱️ Average time: {metrics.average_execution_time:.4f}s")
-            logger.info(f"  ❌ Error rate: {metrics.error_rate:.1%}")
+            logger.info("  ⏱️ Average time: %.4fs", metrics.average_execution_time)
+            logger.info("  ❌ Error rate: %.1f%%", metrics.error_rate * 100)
 
 
 class StandardizedSolverComparison:
@@ -437,7 +453,7 @@ class StandardizedSolverComparison:
             return
 
         self.standard_results.append(result)
-        logger.info(f"📊 Added standard result from {result.solver_metadata.solver_name}")
+        logger.info("📊 Added standard result from %s", result.solver_metadata.solver_name)
 
     def add_legacy_result(self, legacy_result, solver_name: str, solver_version: str = "unknown"):
         """Converte e adiciona resultado legado."""
@@ -565,7 +581,7 @@ class StandardizedSolverComparison:
         for solver_name, data in benchmarks.items():
             for metric, values in data.items():
                 if values and isinstance(values[0], (int, float)):
-                    benchmarks[solver_name][f"{metric}_stats"] = {
+                    data[f"{metric}_stats"] = {
                         "mean": np.mean(values) if values else 0,
                         "std": np.std(values) if len(values) > 1 else 0,
                         "min": min(values) if values else 0,
@@ -658,11 +674,11 @@ class StandardizedSolverComparison:
             )
             exported_files["comparison"] = str(comparison_file)
 
-            logger.info(f"📊 Standard results exported to {output_dir}")
+            logger.info("Standard results exported to %s", output_dir)
             return exported_files
 
-        except Exception as e:
-            logger.error(f"❌ Failed to export standard results: {e}")
+        except OSError as e:
+            logger.error("Failed to export standard results: %s", e)
             return {"error": str(e)}
 
 

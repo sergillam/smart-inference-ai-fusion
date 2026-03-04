@@ -3,7 +3,7 @@
 import os
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, Optional, Union
+from typing import List, Optional
 
 from .logging import logger
 
@@ -61,7 +61,7 @@ class VerificationConfig:
         try:
             mode = VerificationMode(mode_str)
         except ValueError:
-            logger.warning(f"Invalid mode '{mode_str}', using 'basic'")
+            logger.warning("Invalid mode '%s', using 'basic'", mode_str)
             mode = VerificationMode.BASIC
 
         # Escolha de solver
@@ -69,7 +69,7 @@ class VerificationConfig:
         try:
             solver = SolverChoice(solver_str)
         except ValueError:
-            logger.warning(f"Invalid solver '{solver_str}', using 'auto'")
+            logger.warning("Invalid solver '%s', using 'auto'", solver_str)
             solver = SolverChoice.AUTO
 
         # Configurações de timeout
@@ -122,12 +122,12 @@ class VerificationConfig:
         """
         if self.solver == SolverChoice.Z3:
             return ["Z3"]
-        elif self.solver == SolverChoice.CVC5:
+        if self.solver == SolverChoice.CVC5:
             return ["CVC5"]
-        elif self.solver == SolverChoice.BOTH:
+        if self.solver == SolverChoice.BOTH:
             return ["Z3", "CVC5"]
-        else:  # AUTO - usa AMBOS para comparação justa
-            return ["Z3", "CVC5"]
+        # AUTO - usa AMBOS para comparação justa
+        return ["Z3", "CVC5"]
 
     def __str__(self) -> str:
         """Representação string da configuração."""
@@ -147,7 +147,7 @@ def get_verification_config() -> VerificationConfig:
     global _global_config
     if _global_config is None:
         _global_config = VerificationConfig.from_env()
-        logger.info(f"🎛️ Configuration loaded: {_global_config}")
+        logger.info("Configuration loaded: %s", _global_config)
     return _global_config
 
 
@@ -155,7 +155,7 @@ def set_verification_config(config: VerificationConfig):
     """Define a configuração global de verificação."""
     global _global_config
     _global_config = config
-    logger.info(f"🎛️ Configuration updated: {config}")
+    logger.info("Configuration updated: %s", config)
 
 
 def reload_verification_config():
