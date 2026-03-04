@@ -1321,7 +1321,8 @@ def build_solver_performance_and_status(legacy_result: Any) -> Tuple[Any, Any]:
     Returns:
         Tuple of (PerformanceMetrics, overall_status)
     """
-    from ..core.result_schema import PerformanceMetrics, StandardStatus, VerificationStatus
+    from ..core.plugin_interface import VerificationStatus
+    from ..core.result_schema import PerformanceMetrics, StandardStatus
 
     # Métricas de performance
     perf_dict = build_performance_metrics_dict(

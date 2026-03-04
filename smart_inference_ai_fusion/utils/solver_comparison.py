@@ -579,7 +579,8 @@ class StandardizedSolverComparison:
 
         # Calcular estatísticas
         for solver_name, data in benchmarks.items():
-            for metric, values in data.items():
+            # Iterar sobre um snapshot para evitar modificar o dicionário durante a iteração
+            for metric, values in list(data.items()):
                 if values and isinstance(values[0], (int, float)):
                     data[f"{metric}_stats"] = {
                         "mean": np.mean(values) if values else 0,
@@ -677,7 +678,7 @@ class StandardizedSolverComparison:
             logger.info("Standard results exported to %s", output_dir)
             return exported_files
 
-        except OSError as e:
+        except Exception as e:
             logger.error("Failed to export standard results: %s", e)
             return {"error": str(e)}
 
