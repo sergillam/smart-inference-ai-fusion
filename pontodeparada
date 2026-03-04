@@ -4,3 +4,15 @@ Melhorias
 remover os warnings
 :# pylint: disable=duplicate-code (models e experiments)
 :# pylint: disable=too-many-positional-arguments(inferencia)
+
+
+Add tests unitarios para o projeto;
+atualizar o makefile
+
+
+esquematizar a quantização (Arquitetura)
+pensar na estrutura da quantização;
+escolher os algoritmos e datasets;
+implementar a quantização;
+add teste para quantização;
+
