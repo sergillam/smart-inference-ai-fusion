@@ -46,7 +46,7 @@ def test_config_rejects_non_positive_calibration_samples() -> None:
 
 def test_config_warns_when_float16_ignores_method() -> None:
     """float16 profile should warn when method is not uniform."""
-    with pytest.warns(UserWarning, match="'method'"):
+    with pytest.warns(UserWarning, match="direct float16 cast"):
         QuantizationConfig(dtype_profile="float16", method="kmeans")
 
 

@@ -1,13 +1,14 @@
 """Configuration schema for SIP-Q quantization experiments."""
 
 from dataclasses import dataclass
+from typing import get_args
 from warnings import warn
 
 from smart_inference_ai_fusion.quantization.core.types import BitWidth, DTypeProfile, QuantMethod
 
-_VALID_BITS = {8, 16, 32}
-_VALID_METHODS = {"uniform", "minmax", "kmeans", "percentile"}
-_VALID_DTYPE_PROFILES = {"integer", "float16"}
+_VALID_BITS: set[BitWidth] = set(get_args(BitWidth))
+_VALID_METHODS: set[QuantMethod] = set(get_args(QuantMethod))
+_VALID_DTYPE_PROFILES: set[DTypeProfile] = set(get_args(DTypeProfile))
 
 
 @dataclass(frozen=True)
@@ -43,7 +44,8 @@ class QuantizationConfig:
 
         if self.dtype_profile == "float16" and self.method != "uniform":
             warn(
-                "float16 usa cast direto - o campo 'method' e ignorado neste perfil.",
+                "For dtype_profile='float16', values are obtained via direct float16 cast; "
+                "the 'method' parameter is ignored for this profile.",
                 UserWarning,
                 stacklevel=2,
             )
