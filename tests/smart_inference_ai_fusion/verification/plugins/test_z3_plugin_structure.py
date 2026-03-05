@@ -38,7 +38,9 @@ def test_z3_constraint_dispatch_uses_fallback_for_unknown():
     verifier = Z3Verifier()
 
     verifier._verify_generic_constraint = lambda *_: True  # pylint: disable=protected-access
-    assert verifier._verify_constraint("unknown_key", {}, None) is True  # pylint: disable=protected-access
+    assert (
+        verifier._verify_constraint("unknown_key", {}, None) is True
+    )  # pylint: disable=protected-access
 
 
 def test_z3_supported_constraints_success_returns_list():
