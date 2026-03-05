@@ -3,6 +3,7 @@
 This module contains common functions used by both CVC5 and Z3 plugins
 to avoid code duplication (R0801 lint errors).
 """
+
 # pylint: disable=missing-type-doc,too-many-positional-arguments,import-outside-toplevel,protected-access
 # pylint: disable=broad-exception-caught,too-many-nested-blocks,too-many-branches,no-name-in-module,unused-argument
 # pylint: disable=too-many-lines,too-complex
