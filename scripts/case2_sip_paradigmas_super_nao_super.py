@@ -36,22 +36,26 @@ from typing import Dict, List, Optional, Tuple, Type, Union
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from smart_inference_ai_fusion.core.base_model import BaseModel
-from smart_inference_ai_fusion.experiments.common import run_impact_analysis, run_standard_experiment
+from smart_inference_ai_fusion.experiments.common import (
+    run_impact_analysis,
+    run_standard_experiment,
+)
+
+# Unsupervised models
+from smart_inference_ai_fusion.models.agglomerative_clustering_model import (
+    AgglomerativeClusteringModel,
+)
+from smart_inference_ai_fusion.models.fastica_model import FastICAModel
+from smart_inference_ai_fusion.models.gaussian_mixture_model import GaussianMixtureModel
 
 # Supervised models
 from smart_inference_ai_fusion.models.gaussian_model import GaussianNBModel
 from smart_inference_ai_fusion.models.knn_model import KNNModel
+from smart_inference_ai_fusion.models.minibatch_kmeans_model import MiniBatchKMeansModel
 from smart_inference_ai_fusion.models.mlp_model import MLPModel
+from smart_inference_ai_fusion.models.spectral_clustering_model import SpectralClusteringModel
 from smart_inference_ai_fusion.models.svm_model import SVMModel
 from smart_inference_ai_fusion.models.tree_model import DecisionTreeModel
-
-# Unsupervised models
-from smart_inference_ai_fusion.models.agglomerative_clustering_model import AgglomerativeClusteringModel
-from smart_inference_ai_fusion.models.fastica_model import FastICAModel
-from smart_inference_ai_fusion.models.gaussian_mixture_model import GaussianMixtureModel
-from smart_inference_ai_fusion.models.minibatch_kmeans_model import MiniBatchKMeansModel
-from smart_inference_ai_fusion.models.spectral_clustering_model import SpectralClusteringModel
-
 from smart_inference_ai_fusion.utils.types import (
     DatasetSourceType,
     SklearnDatasetName,
@@ -100,14 +104,17 @@ UNSUPERVISED_ALGORITHMS: Dict[str, Tuple[Type[BaseModel], dict]] = {
     "GMM": (GaussianMixtureModel, {"n_components": None, "random_state": None, "max_iter": 100}),
     "AC": (AgglomerativeClusteringModel, {"n_clusters": None, "linkage": "ward"}),
     "ICA": (FastICAModel, {"n_components": None, "random_state": None, "max_iter": 200}),
-    "SC": (SpectralClusteringModel, {"n_clusters": None, "random_state": None, "affinity": "nearest_neighbors"}),
+    "SC": (
+        SpectralClusteringModel,
+        {"n_clusters": None, "random_state": None, "affinity": "nearest_neighbors"},
+    ),
 }
 
 # Default number of clusters per dataset
 DATASET_N_CLUSTERS = {
     "20 Newsgroups": 20,  # 20 newsgroups categories
-    "Make Moons": 2,       # 2 moons
-    "LFW People": 10,      # Use 10 clusters for face recognition
+    "Make Moons": 2,  # 2 moons
+    "LFW People": 10,  # Use 10 clusters for face recognition
 }
 
 
@@ -258,15 +265,17 @@ def run_case_study_2(
 
         for algo_name, (model_class, model_params) in algo_configs.items():
             for dataset_source, dataset_name, dataset_label in dataset_configs:
-                experiments_to_run.append({
-                    "algorithm": algo_name,
-                    "model_class": model_class,
-                    "model_params": model_params,
-                    "dataset_source": dataset_source,
-                    "dataset_name": dataset_name,
-                    "dataset_label": dataset_label,
-                    "paradigm": "supervised",
-                })
+                experiments_to_run.append(
+                    {
+                        "algorithm": algo_name,
+                        "model_class": model_class,
+                        "model_params": model_params,
+                        "dataset_source": dataset_source,
+                        "dataset_name": dataset_name,
+                        "dataset_label": dataset_label,
+                        "paradigm": "supervised",
+                    }
+                )
 
     if "unsupervised" in paradigm_list:
         algo_list = algorithms or list(UNSUPERVISED_ALGORITHMS.keys())
@@ -277,15 +286,17 @@ def run_case_study_2(
 
         for algo_name, (model_class, model_params) in algo_configs.items():
             for dataset_source, dataset_name, dataset_label in dataset_configs:
-                experiments_to_run.append({
-                    "algorithm": algo_name,
-                    "model_class": model_class,
-                    "model_params": model_params,
-                    "dataset_source": dataset_source,
-                    "dataset_name": dataset_name,
-                    "dataset_label": dataset_label,
-                    "paradigm": "unsupervised",
-                })
+                experiments_to_run.append(
+                    {
+                        "algorithm": algo_name,
+                        "model_class": model_class,
+                        "model_params": model_params,
+                        "dataset_source": dataset_source,
+                        "dataset_name": dataset_name,
+                        "dataset_label": dataset_label,
+                        "paradigm": "unsupervised",
+                    }
+                )
 
     # Filter seeds
     seed_list = seeds or SEEDS
@@ -303,8 +314,12 @@ def run_case_study_2(
         logger.info("MODE: IMPACT ANALYSIS (P2) - Isolated perturbation effects")
     logger.info("=" * 70)
     logger.info(f"Paradigms: {paradigm_list}")
-    logger.info(f"Supervised experiments: {supervised_count} configs × {len(seed_list)} seeds = {supervised_count * len(seed_list)}")
-    logger.info(f"Unsupervised experiments: {unsupervised_count} configs × {len(seed_list)} seeds = {unsupervised_count * len(seed_list)}")
+    logger.info(
+        f"Supervised experiments: {supervised_count} configs × {len(seed_list)} seeds = {supervised_count * len(seed_list)}"
+    )
+    logger.info(
+        f"Unsupervised experiments: {unsupervised_count} configs × {len(seed_list)} seeds = {unsupervised_count * len(seed_list)}"
+    )
     logger.info(f"Seeds: {seed_list}")
     logger.info(f"Total experiment pairs: {total_experiments}")
     logger.info(f"Total scenario runs: {total_experiments * 2} (baseline + SIP each)")
@@ -314,7 +329,9 @@ def run_case_study_2(
         logger.info("DRY RUN - No experiments will be executed")
         logger.info("\nExperiments that would be run:")
         for exp in experiments_to_run:
-            logger.info(f"  [{exp['paradigm'].upper()}] {exp['algorithm']} on {exp['dataset_label']}")
+            logger.info(
+                f"  [{exp['paradigm'].upper()}] {exp['algorithm']} on {exp['dataset_label']}"
+            )
         return {"dry_run": True, "total_experiments": total_experiments}
 
     # Create output directory
@@ -327,10 +344,22 @@ def run_case_study_2(
         "timestamp": get_timestamp(),
         "configuration": {
             "paradigms": paradigm_list,
-            "supervised_algorithms": [e["algorithm"] for e in experiments_to_run if e["paradigm"] == "supervised"],
-            "unsupervised_algorithms": [e["algorithm"] for e in experiments_to_run if e["paradigm"] == "unsupervised"],
-            "supervised_datasets": list(set(e["dataset_label"] for e in experiments_to_run if e["paradigm"] == "supervised")),
-            "unsupervised_datasets": list(set(e["dataset_label"] for e in experiments_to_run if e["paradigm"] == "unsupervised")),
+            "supervised_algorithms": [
+                e["algorithm"] for e in experiments_to_run if e["paradigm"] == "supervised"
+            ],
+            "unsupervised_algorithms": [
+                e["algorithm"] for e in experiments_to_run if e["paradigm"] == "unsupervised"
+            ],
+            "supervised_datasets": list(
+                set(e["dataset_label"] for e in experiments_to_run if e["paradigm"] == "supervised")
+            ),
+            "unsupervised_datasets": list(
+                set(
+                    e["dataset_label"]
+                    for e in experiments_to_run
+                    if e["paradigm"] == "unsupervised"
+                )
+            ),
             "seeds": seed_list,
             "total_experiments": total_experiments,
         },
@@ -402,8 +431,12 @@ def run_case_study_2(
     logger.info("=" * 70)
     logger.info(f"Successful: {summary['overall_stats']['successful']}")
     logger.info(f"Failed: {summary['overall_stats']['failed']}")
-    logger.info(f"  - Supervised: {len([r for r in all_results if r.get('paradigm') == 'supervised' and r['status'] == 'success'])} success")
-    logger.info(f"  - Unsupervised: {len([r for r in all_results if r.get('paradigm') == 'unsupervised' and r['status'] == 'success'])} success")
+    logger.info(
+        f"  - Supervised: {len([r for r in all_results if r.get('paradigm') == 'supervised' and r['status'] == 'success'])} success"
+    )
+    logger.info(
+        f"  - Unsupervised: {len([r for r in all_results if r.get('paradigm') == 'unsupervised' and r['status'] == 'success'])} success"
+    )
     logger.info(f"Total time: {summary['overall_stats']['total_time_seconds']:.2f} seconds")
     logger.info("=" * 70)
 
@@ -421,25 +454,25 @@ def main():
         epilog="""
 Examples:
   # Run all experiments
-  python case2.py
+  python case2_sip_paradigmas_super_nao_super.py
 
   # Run only supervised paradigm
-  python case2.py --paradigms supervised
+  python case2_sip_paradigmas_super_nao_super.py --paradigms supervised
 
   # Run only unsupervised paradigm
-  python case2.py --paradigms unsupervised
+  python case2_sip_paradigmas_super_nao_super.py --paradigms unsupervised
 
   # Run specific algorithms
-  python case2.py --algorithms KNN SVM MBK GMM
+  python case2_sip_paradigmas_super_nao_super.py --algorithms KNN SVM MBK GMM
 
   # Run with specific datasets
-  python case2.py --datasets Wine Digits "Make Moons"
+  python case2_sip_paradigmas_super_nao_super.py --datasets Wine Digits "Make Moons"
 
   # Dry run to see what would be executed
-  python case2.py --dry-run
+  python case2_sip_paradigmas_super_nao_super.py --dry-run
 
   # Run single experiment for quick test
-  python case2.py --algorithms KNN --datasets Wine --seeds 42 --paradigms supervised
+  python case2_sip_paradigmas_super_nao_super.py --algorithms KNN --datasets Wine --seeds 42 --paradigms supervised
         """,
     )
 

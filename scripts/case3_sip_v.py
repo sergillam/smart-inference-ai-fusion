@@ -37,24 +37,23 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from smart_inference_ai_fusion.core.base_model import BaseModel
 from smart_inference_ai_fusion.experiments.common import (
-    run_inference_experiment,
     run_baseline_experiment,
+    run_inference_experiment,
 )
 
 # Models
 from smart_inference_ai_fusion.models.logistic_regression_model import LogisticRegressionModel
+from smart_inference_ai_fusion.models.minibatch_kmeans_model import MiniBatchKMeansModel
 from smart_inference_ai_fusion.models.mlp_model import MLPModel
 from smart_inference_ai_fusion.models.tree_model import DecisionTreeModel
-from smart_inference_ai_fusion.models.minibatch_kmeans_model import MiniBatchKMeansModel
-
 from smart_inference_ai_fusion.utils.types import (
     DatasetSourceType,
     SklearnDatasetName,
 )
 from smart_inference_ai_fusion.utils.verification_config import (
+    SolverChoice,
     VerificationConfig,
     VerificationMode,
-    SolverChoice,
     set_verification_config,
 )
 
@@ -83,8 +82,16 @@ DATASETS = [
 MODELS: Dict[str, Tuple[Type[BaseModel], dict, str]] = {
     "DT": (DecisionTreeModel, {"max_depth": 10, "random_state": None}, "supervised"),
     "LR": (LogisticRegressionModel, {"max_iter": 1000, "random_state": None}, "supervised"),
-    "MLP": (MLPModel, {"hidden_layer_sizes": (100,), "max_iter": 500, "random_state": None}, "supervised"),
-    "MBK": (MiniBatchKMeansModel, {"n_clusters": None, "random_state": None, "batch_size": 256}, "unsupervised"),
+    "MLP": (
+        MLPModel,
+        {"hidden_layer_sizes": (100,), "max_iter": 500, "random_state": None},
+        "supervised",
+    ),
+    "MBK": (
+        MiniBatchKMeansModel,
+        {"n_clusters": None, "random_state": None, "batch_size": 256},
+        "unsupervised",
+    ),
 }
 
 # Verification modes configuration
@@ -140,9 +147,7 @@ def run_single_verification_experiment(
         params["n_clusters"] = n_clusters
 
     mode_label = verification_mode.upper() if verification_mode != "none" else "NO-VERIF"
-    logger.info(
-        f"Running: {model_name} on {dataset_label} | Mode: {mode_label} | seed={seed}"
-    )
+    logger.info(f"Running: {model_name} on {dataset_label} | Mode: {mode_label} | seed={seed}")
 
     # Set the global verification config BEFORE running the experiment
     set_verification_config(verification_config)
@@ -256,9 +261,7 @@ def compute_verification_statistics(results: List[dict]) -> dict:
         }
 
     summary = {
-        "solver_comparison": {
-            mode: summarize(times) for mode, times in stats["by_solver"].items()
-        },
+        "solver_comparison": {mode: summarize(times) for mode, times in stats["by_solver"].items()},
         "overhead": {},
         "by_model": {},
         "by_dataset": {},
@@ -281,9 +284,7 @@ def compute_verification_statistics(results: List[dict]) -> dict:
 
     # Per-model statistics
     for model, mode_times in stats["by_model"].items():
-        summary["by_model"][model] = {
-            mode: summarize(times) for mode, times in mode_times.items()
-        }
+        summary["by_model"][model] = {mode: summarize(times) for mode, times in mode_times.items()}
 
     # Per-dataset statistics
     for dataset, mode_times in stats["by_dataset"].items():
@@ -333,7 +334,7 @@ def extract_verification_efficacy(results: List[dict]) -> dict:
             satisfied = len(solver_data.get("constraints_satisfied", []))
             violated = len(solver_data.get("constraints_violated", []))
             efficacy[mode]["unsat"] += satisfied  # UNSAT = constraint holds
-            efficacy[mode]["sat"] += violated      # SAT = constraint violated
+            efficacy[mode]["sat"] += violated  # SAT = constraint violated
             efficacy[mode]["total_constraints"] += satisfied + violated
 
     return efficacy
@@ -352,7 +353,8 @@ def generate_latex_tables(summary: dict, efficacy: dict) -> str:
     latex = []
 
     # Table 1: Solver Comparison (Execution Time)
-    latex.append(r"""
+    latex.append(
+        r"""
 % Table 1: Computational Cost Comparison
 \begin{table}[htbp]
 \centering
@@ -361,7 +363,8 @@ def generate_latex_tables(summary: dict, efficacy: dict) -> str:
 \begin{tabular}{lrrrr}
 \toprule
 \textbf{Modo} & \textbf{Média} & \textbf{Desvio} & \textbf{P95} & \textbf{Overhead} \\
-\midrule""")
+\midrule"""
+    )
 
     for mode in ["none", "z3", "cvc5"]:
         s = summary["solver_comparison"].get(mode, {})
@@ -372,13 +375,16 @@ def generate_latex_tables(summary: dict, efficacy: dict) -> str:
             f"{s.get('p95', 0):.2f} & {overhead_str} \\\\"
         )
 
-    latex.append(r"""\bottomrule
+    latex.append(
+        r"""\bottomrule
 \end{tabular}
 \end{table}
-""")
+"""
+    )
 
     # Table 2: Verification Efficacy
-    latex.append(r"""
+    latex.append(
+        r"""
 % Table 2: Verification Efficacy
 \begin{table}[htbp]
 \centering
@@ -387,7 +393,8 @@ def generate_latex_tables(summary: dict, efficacy: dict) -> str:
 \begin{tabular}{lrrr}
 \toprule
 \textbf{Solver} & \textbf{Válidos (UNSAT)} & \textbf{Violados (SAT)} & \textbf{Total} \\
-\midrule""")
+\midrule"""
+    )
 
     for solver in ["z3", "cvc5"]:
         e = efficacy.get(solver, {})
@@ -396,13 +403,16 @@ def generate_latex_tables(summary: dict, efficacy: dict) -> str:
             f"{e.get('total_constraints', 0):4d} \\\\"
         )
 
-    latex.append(r"""\bottomrule
+    latex.append(
+        r"""\bottomrule
 \end{tabular}
 \end{table}
-""")
+"""
+    )
 
     # Table 3: Per-Model Breakdown
-    latex.append(r"""
+    latex.append(
+        r"""
 % Table 3: Per-Model Execution Time
 \begin{table}[htbp]
 \centering
@@ -411,7 +421,8 @@ def generate_latex_tables(summary: dict, efficacy: dict) -> str:
 \begin{tabular}{lrrr}
 \toprule
 \textbf{Modelo} & \textbf{Baseline} & \textbf{Z3} & \textbf{CVC5} \\
-\midrule""")
+\midrule"""
+    )
 
     for model in ["DT", "LR", "MLP", "MBK"]:
         model_stats = summary["by_model"].get(model, {})
@@ -420,10 +431,12 @@ def generate_latex_tables(summary: dict, efficacy: dict) -> str:
         cvc5_mean = model_stats.get("cvc5", {}).get("mean", 0)
         latex.append(f"{model:8} & {none_mean:.2f} & {z3_mean:.2f} & {cvc5_mean:.2f} \\\\")
 
-    latex.append(r"""\bottomrule
+    latex.append(
+        r"""\bottomrule
 \end{tabular}
 \end{table}
-""")
+"""
+    )
 
     return "\n".join(latex)
 
@@ -611,25 +624,25 @@ def main():
         epilog="""
 Examples:
   # Run all experiments
-  python case3.py
+  python case3_sip_v.py
 
   # Run only Z3 verification
-  python case3.py --modes z3
+  python case3_sip_v.py --modes z3
 
   # Compare Z3 vs CVC5 only (skip baseline)
-  python case3.py --modes z3 cvc5
+  python case3_sip_v.py --modes z3 cvc5
 
   # Run specific models
-  python case3.py --models DT LR
+  python case3_sip_v.py --models DT LR
 
   # Run with specific datasets
-  python case3.py --datasets Wine "Make Moons"
+  python case3_sip_v.py --datasets Wine "Make Moons"
 
   # Dry run to see what would be executed
-  python case3.py --dry-run
+  python case3_sip_v.py --dry-run
 
   # Quick test
-  python case3.py --models DT --datasets Wine --seeds 42 --modes none z3
+  python case3_sip_v.py --models DT --datasets Wine --seeds 42 --modes none z3
         """,
     )
 
