@@ -71,13 +71,13 @@ class FeatureQuantizer:
     def inverse_transform(self, x_quantized: np.ndarray) -> np.ndarray:
         """Reconstruct approximate float64 representation."""
         x_q = self._ensure_2d(x_quantized)
+
+        if not self._fitted:
+            raise RuntimeError("Call fit() before inverse_transform().")
         self._validate_feature_count(x_q)
 
         if self.dtype_profile == "float16":
             return x_q.astype(np.float64)
-
-        if not self._fitted:
-            raise RuntimeError("Call fit() before inverse_transform().")
 
         reconstructed = np.zeros(x_q.shape, dtype=np.float64)
         for idx, params in enumerate(self._params):

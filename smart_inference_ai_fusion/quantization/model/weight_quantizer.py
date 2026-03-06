@@ -38,8 +38,9 @@ class WeightQuantizer:
         self._apply_quantization(estimator_copy)
 
         if hasattr(model, "model"):
-            model_copy = copy.deepcopy(model)
-            model_copy.model = estimator_copy
+            # Reuse the already-copied estimator to avoid duplicating large state.
+            memo = {id(estimator): estimator_copy}
+            model_copy = copy.deepcopy(model, memo)
             return model_copy
         return estimator_copy
 

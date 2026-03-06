@@ -10,6 +10,8 @@ from sklearn.cluster import MiniBatchKMeans
 QuantizeOutput = tuple[np.ndarray, dict[str, Any]]
 _DTYPE_MAP = {8: np.uint8, 16: np.uint16, 32: np.uint32}
 _VALID_BITS = set(_DTYPE_MAP)
+_MAX_PERCENTILE_BINS = 4096
+_MAX_KMEANS_CLUSTERS = 1024
 
 
 def _validate_num_bits(num_bits: int) -> None:
@@ -90,7 +92,7 @@ def kmeans_quantize(data: np.ndarray, num_bits: int = 8) -> QuantizeOutput:
     dtype = _target_dtype(num_bits)
 
     unique_vals = np.unique(flat)
-    n_clusters = min(2**num_bits, len(unique_vals))
+    n_clusters = min(2**num_bits, len(unique_vals), _MAX_KMEANS_CLUSTERS)
     if n_clusters <= 1:
         return np.zeros(arr.shape, dtype=dtype), {
             "method": "kmeans",
@@ -117,7 +119,7 @@ def percentile_quantize(data: np.ndarray, num_bits: int = 8) -> QuantizeOutput:
     dtype = _target_dtype(num_bits)
 
     unique_vals = np.unique(flat)
-    num_bins = min(2**num_bits, len(unique_vals))
+    num_bins = min(2**num_bits, len(unique_vals), _MAX_PERCENTILE_BINS)
     if num_bins <= 1:
         val = float(unique_vals[0])
         bins = np.array([val, val], dtype=np.float64)
