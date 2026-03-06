@@ -73,6 +73,7 @@ class QuantizationExperiment:
                 dataset_name=dataset_name,
                 model_class=model_class,
                 model_params=model_params,
+                baseline_model=baseline_model,
                 x_train=x_train,
                 x_test=x_test,
                 y_train=y_train,
@@ -120,6 +121,7 @@ class QuantizationExperiment:
                 dataset_name=dataset_name,
                 model_class=model_class,
                 model_params=model_params,
+                baseline_model=baseline_model,
                 x_train=x_train,
                 x_test=x_test,
                 y_train=y_train,
@@ -142,6 +144,7 @@ class QuantizationExperiment:
         dataset_name: SklearnDatasetName | CSVDatasetName,
         model_class: type[BaseModel],
         model_params: dict[str, Any],
+        baseline_model: BaseModel,
         x_train: np.ndarray,
         x_test: np.ndarray,
         y_train: np.ndarray,
@@ -177,8 +180,11 @@ class QuantizationExperiment:
             x_train_use = x_train
             x_test_use = x_test
 
-        model_run = self._build_model(model_class, model_params)
-        self._fit_model(model_run, x_train_use, y_train)
+        if mode == "model_only":
+            model_run = baseline_model
+        else:
+            model_run = self._build_model(model_class, model_params)
+            self._fit_model(model_run, x_train_use, y_train)
 
         if mode in {"model_only", "hybrid"}:
             wq = WeightQuantizer(
@@ -245,6 +251,7 @@ class QuantizationExperiment:
         dataset_name: SklearnDatasetName | CSVDatasetName,
         model_class: type[BaseModel],
         model_params: dict[str, Any],
+        baseline_model: BaseModel,
         x_train: np.ndarray,
         x_test: np.ndarray,
         y_train: np.ndarray,
@@ -280,8 +287,11 @@ class QuantizationExperiment:
             x_train_use = x_train
             x_test_use = x_test
 
-        model_run = self._build_model(model_class, model_params)
-        self._fit_model(model_run, x_train_use, y_train)
+        if mode == "model_only":
+            model_run = baseline_model
+        else:
+            model_run = self._build_model(model_class, model_params)
+            self._fit_model(model_run, x_train_use, y_train)
 
         if mode in {"model_only", "hybrid"}:
             wq = WeightQuantizer(

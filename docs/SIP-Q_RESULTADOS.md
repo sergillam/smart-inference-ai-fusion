@@ -21,35 +21,10 @@ python scripts/case4.py \
   --algorithms KNN DT MLP MBK GMM AC \
   --bits 8 16 32 \
   --seeds 42 123 456 789 1024 \
-  --output results/case4 \
+  --output-dir results/case4 \
+  --log-dir logs/case4 \
   --resume
 ```
-
-## Analysis Workflow
-1. Generate/collect case4 JSON outputs in `results/case4`.
-2. Run:
-
-```bash
-python scripts/analyze_case4_results.py \
-  --results-dir results/case4 \
-  --output-dir results/case4/analysis
-```
-
-3. Inspect generated artifacts:
-- `summary.csv`
-- `significance.csv`
-- `accuracy_vs_bitwidth.png`
-- `pareto_frontier.png`
-- `heatmap_degradation.png`
-- `bars_by_paradigm.png`
-
-## Statistical Method
-- Paired deltas computed per seed (`quantized - baseline`)
-- 95% bootstrap confidence interval for mean delta
-- Paired significance test per group:
-  - Wilcoxon when sample is large enough and non-constant
-  - one-sample t-test fallback
-- Holm-Bonferroni p-value correction across comparisons
 
 ## Interpretation Guide
 - `delta_abs_mean < 0`: degradation vs baseline
@@ -57,3 +32,9 @@ python scripts/analyze_case4_results.py \
 - Lower `quantization_mse_mean` indicates better numeric fidelity
 - Higher `compression_ratio_mean` indicates stronger compression
 - `p_value_holm < 0.05` indicates statistically significant change
+
+## Memory Accounting Note
+- `baseline_memory_bytes` and `quantized_memory_bytes` are theoretical footprint estimates based on
+  tensor shape and target bit-width for the quantized representation.
+- For model quantization, estimators are dequantized back to floating-point for inference stability,
+  so these fields should be interpreted as compressed-storage estimates, not live Python object RSS.

@@ -45,12 +45,6 @@ verification = [
   "cvc5>=1.0.5",
 ]
 
-viz = [
-  "matplotlib>=3.8",
-  "seaborn>=0.13",
-]
-
-# === Conjunto completo para desenvolvimento com verificação ===
 dev-full = [
   "smart_inference_ai_fusion[dev,verification]",
 ]

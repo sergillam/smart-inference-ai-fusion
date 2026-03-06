@@ -1,13 +1,21 @@
 #!/usr/bin/env python
 """Case Study 4: SIP-Q quantization experiment runner."""
+# pylint: disable=wrong-import-position
 
 from __future__ import annotations
 
 import argparse
 import json
+import logging
+import os
+import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+if __package__ is None or __package__ == "":
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from scripts.results_io import load_json_records
 from smart_inference_ai_fusion.core.base_model import BaseModel
@@ -22,6 +30,13 @@ from smart_inference_ai_fusion.models.mlp_model import MLPModel
 from smart_inference_ai_fusion.models.tree_model import DecisionTreeModel
 from smart_inference_ai_fusion.quantization.core import QuantizationConfig, QuantizationResult
 from smart_inference_ai_fusion.utils.types import DatasetSourceType, SklearnDatasetName
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 SEEDS = [42, 123, 456, 789, 1024]
 
@@ -48,8 +63,12 @@ UNSUPERVISED_ALGOS: dict[str, tuple[type[BaseModel], dict[str, Any]]] = {
 }
 
 
+def _timestamp() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
+
+
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="SIP-Q Case Study 4")
+    parser = argparse.ArgumentParser(description="Case Study 4: SIP-Q Quantization")
     parser.add_argument(
         "--datasets", nargs="+", default=["Wine", "Digits", "MakeBlobs", "MakeMoons"]
     )
@@ -58,7 +77,17 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--seeds", nargs="+", type=int, default=SEEDS)
     parser.add_argument("--method", default="uniform")
     parser.add_argument("--dtype-profile", default="integer", choices=["integer", "float16"])
-    parser.add_argument("--output", default="results/case4")
+    parser.add_argument(
+        "--output-dir",
+        default="results/case4",
+        help="Output directory for results (default: results/case4)",
+    )
+    parser.add_argument(
+        "--log-dir",
+        default="logs/case4",
+        help="Directory for case4 execution logs (default: logs/case4)",
+    )
+    parser.add_argument("--dry-run", action="store_true", help="Print run plan without executing")
     parser.add_argument(
         "--resume",
         action="store_true",
@@ -69,12 +98,13 @@ def _parse_args() -> argparse.Namespace:
 
 def _load_existing_execution_ids(output_dir: Path) -> set[str]:
     execution_ids: set[str] = set()
-    for record in load_json_records(output_dir, "case4_results_*.json"):
-        metadata = record.get("metadata", {})
-        if isinstance(metadata, dict):
-            exec_id = metadata.get("execution_id")
-            if isinstance(exec_id, str):
-                execution_ids.add(exec_id)
+    for pattern in ("case4_all_results_*.json", "case4_results_*.json"):
+        for record in load_json_records(output_dir, pattern):
+            metadata = record.get("metadata", {})
+            if isinstance(metadata, dict):
+                exec_id = metadata.get("execution_id")
+                if isinstance(exec_id, str):
+                    execution_ids.add(exec_id)
     return execution_ids
 
 
@@ -180,24 +210,99 @@ def _run_dataset_group(
     return results
 
 
-def main() -> None:
-    """Run Case 4 experiments and save consolidated JSON results."""
-    args = _parse_args()
-    _ensure_float16_constraints(args.dtype_profile, args.bits)
+def _configure_file_logger(log_dir: str, stamp: str) -> Path:
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = Path(log_dir) / f"case4_{stamp}.log"
+    file_handler = logging.FileHandler(log_file, encoding="utf-8")
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+    logger.addHandler(file_handler)
+    return log_file
 
-    output_dir = Path(args.output)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    skip_execution_ids = _load_existing_execution_ids(output_dir) if args.resume else set()
-    selected_datasets = set(args.datasets)
-    selected_algorithms = set(args.algorithms)
+
+def run_case_study_4(
+    output_dir: str = "results/case4",
+    *,
+    datasets: list[str] | None = None,
+    algorithms: list[str] | None = None,
+    bits: list[int] | None = None,
+    seeds: list[int] | None = None,
+    method: str = "uniform",
+    dtype_profile: str = "integer",
+    resume: bool = True,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Run Case Study 4 and persist full results + summary."""
+    selected_datasets = set(datasets or ["Wine", "Digits", "MakeBlobs", "MakeMoons"])
+    selected_algorithms = set(algorithms or ["KNN", "DT", "MLP", "MBK", "GMM", "AC"])
+    selected_bits = bits or [8, 16, 32]
+    seed_list = seeds or SEEDS
+
+    _ensure_float16_constraints(dtype_profile, selected_bits)
+
+    supervised_total = sum(1 for d in selected_datasets if d in SUPERVISED_DATASETS) * sum(
+        1 for a in selected_algorithms if a in SUPERVISED_ALGOS
+    )
+    unsupervised_total = sum(1 for d in selected_datasets if d in UNSUPERVISED_DATASETS) * sum(
+        1 for a in selected_algorithms if a in UNSUPERVISED_ALGOS
+    )
+    total_configurations = supervised_total + unsupervised_total
+    total_runs = total_configurations * len(seed_list)
+
+    logger.info("=" * 70)
+    logger.info("CASE STUDY 4: SIP-Q QUANTIZATION EVALUATION")
+    logger.info("=" * 70)
+    logger.info("Datasets: %s", sorted(selected_datasets))
+    logger.info("Algorithms: %s", sorted(selected_algorithms))
+    logger.info("Bits: %s | dtype_profile=%s | method=%s", selected_bits, dtype_profile, method)
+    logger.info("Seeds: %s", seed_list)
+    logger.info("Total configurations: %s", total_configurations)
+    logger.info("Total runs: %s", total_runs)
+    logger.info("=" * 70)
+
+    if dry_run:
+        logger.info("DRY RUN - No experiments will be executed")
+        return {
+            "dry_run": True,
+            "total_configurations": total_configurations,
+            "total_runs": total_runs,
+        }
+
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = Path(output_dir)
+    skip_execution_ids = _load_existing_execution_ids(output_path) if resume else set()
+
     all_results: list[QuantizationResult] = []
+    summary: dict[str, Any] = {
+        "study": "Case Study 4 - SIP-Q Quantization Evaluation",
+        "timestamp": _timestamp(),
+        "configuration": {
+            "datasets": sorted(selected_datasets),
+            "algorithms": sorted(selected_algorithms),
+            "bits": selected_bits,
+            "seeds": seed_list,
+            "method": method,
+            "dtype_profile": dtype_profile,
+            "resume": resume,
+            "total_configurations": total_configurations,
+            "total_runs": total_runs,
+        },
+        "results_by_dataset": {},
+        "results_by_algorithm": {},
+        "overall_stats": {
+            "records_generated": 0,
+            "total_time_seconds": 0.0,
+        },
+    }
 
-    for seed in args.seeds:
+    start_time = time.time()
+
+    for seed in seed_list:
         config = QuantizationConfig(
-            data_bits=tuple(args.bits),
-            model_bits=tuple(args.bits),
-            dtype_profile=args.dtype_profile,
-            method=args.method,
+            data_bits=tuple(selected_bits),
+            model_bits=tuple(selected_bits),
+            dtype_profile=dtype_profile,
+            method=method,
             enable_hybrid=True,
             random_seed=seed,
         )
@@ -227,12 +332,51 @@ def main() -> None:
             )
         )
 
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    output_file = output_dir / f"case4_results_{timestamp}.json"
-    with open(output_file, "w", encoding="utf-8") as handle:
-        json.dump([result.model_dump() for result in all_results], handle, indent=2)
+    for result in all_results:
+        dataset = result.metadata.get("dataset", result.dataset_name)
+        algorithm = result.metadata.get("algorithm", result.algorithm_name)
+        summary["results_by_dataset"].setdefault(dataset, 0)
+        summary["results_by_dataset"][dataset] += 1
+        summary["results_by_algorithm"].setdefault(algorithm, 0)
+        summary["results_by_algorithm"][algorithm] += 1
 
-    print(f"Saved {len(all_results)} records to {output_file}")
+    summary["overall_stats"]["records_generated"] = len(all_results)
+    summary["overall_stats"]["total_time_seconds"] = float(time.time() - start_time)
+
+    stamp = _timestamp()
+    results_file = output_path / f"case4_all_results_{stamp}.json"
+    summary_file = output_path / f"case4_summary_{stamp}.json"
+
+    with open(results_file, "w", encoding="utf-8") as handle:
+        json.dump([result.model_dump() for result in all_results], handle, indent=2)
+    with open(summary_file, "w", encoding="utf-8") as handle:
+        json.dump(summary, handle, indent=2)
+
+    logger.info("All results saved to: %s", results_file)
+    logger.info("Summary saved to: %s", summary_file)
+    logger.info("Total records generated: %s", len(all_results))
+    logger.info("Total time: %.2f seconds", summary["overall_stats"]["total_time_seconds"])
+    logger.info("=" * 70)
+    return summary
+
+
+def main() -> None:
+    """Run Case 4 experiments from CLI."""
+    args = _parse_args()
+    stamp = _timestamp()
+    log_file = _configure_file_logger(args.log_dir, stamp)
+    logger.info("Case4 log file: %s", log_file)
+    run_case_study_4(
+        output_dir=args.output_dir,
+        datasets=args.datasets,
+        algorithms=args.algorithms,
+        bits=args.bits,
+        seeds=args.seeds,
+        method=args.method,
+        dtype_profile=args.dtype_profile,
+        resume=args.resume,
+        dry_run=args.dry_run,
+    )
 
 
 if __name__ == "__main__":
