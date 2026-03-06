@@ -104,6 +104,8 @@ def compute_quantization_mse(original: np.ndarray, reconstructed: np.ndarray) ->
     """Compute mean squared error between original and reconstructed tensors."""
     original_arr = np.asarray(original, dtype=np.float64)
     reconstructed_arr = np.asarray(reconstructed, dtype=np.float64)
+    if original_arr.size == 0:
+        raise ValueError("original must be non-empty.")
     _validate_same_shape(original_arr, reconstructed_arr, "original", "reconstructed")
     return float(np.mean((original_arr - reconstructed_arr) ** 2))
 
@@ -138,4 +140,5 @@ def _safe_subtract(left: float | None, right: float | None) -> float | None:
 def _validate_average(average: str) -> None:
     valid = {"macro", "micro", "weighted"}
     if average not in valid:
-        raise ValueError(f"average must be one of {valid}.")
+        allowed = ", ".join(sorted(valid))
+        raise ValueError(f"average must be one of {allowed}.")
