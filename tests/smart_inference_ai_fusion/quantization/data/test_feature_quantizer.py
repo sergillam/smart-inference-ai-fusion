@@ -14,6 +14,13 @@ def test_transform_requires_fit() -> None:
         quantizer.transform(np.array([[1.0, 2.0]], dtype=np.float64))
 
 
+def test_inverse_transform_requires_fit() -> None:
+    """Inverse transform should fail with a clear fit() requirement message."""
+    quantizer = FeatureQuantizer(method="uniform", num_bits=8)
+    with pytest.raises(RuntimeError, match="Call fit"):
+        quantizer.inverse_transform(np.array([[1, 2]], dtype=np.uint8))
+
+
 def test_fit_transform_inverse_roundtrip_iris() -> None:
     """Roundtrip on Iris should keep low MSE for 16-bit uniform mode."""
     x, _ = load_iris(return_X_y=True)

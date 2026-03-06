@@ -88,3 +88,20 @@ def test_methods_reject_empty_arrays() -> None:
         uniform_quantize(x, num_bits=8)
     with pytest.raises(ValueError, match="non-empty"):
         minmax_quantize(x, num_bits=8)
+
+
+def test_percentile_quantize_caps_bin_count_for_large_bitwidth() -> None:
+    """Percentile quantizer should cap bins to avoid huge allocations."""
+    x = np.linspace(0.0, 1.0, 5000, dtype=np.float64)
+    _, params = percentile_quantize(x, num_bits=32)
+    bins = params["bins"]
+    # 4096 bins means at most 4097 bin edges before unique compaction.
+    assert len(bins) <= 4097
+
+
+def test_kmeans_quantize_caps_cluster_count_for_large_bitwidth() -> None:
+    """K-means quantizer should cap cluster count for high bit-width settings."""
+    x = np.linspace(0.0, 1.0, 2000, dtype=np.float64)
+    _, params = kmeans_quantize(x, num_bits=32)
+    centroids = params["centroids"]
+    assert len(centroids) <= 1024
