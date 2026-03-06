@@ -108,3 +108,9 @@ def test_compute_quantization_mse() -> None:
     reconstructed = np.array([0.0, 2.0, 2.0])
     mse = compute_quantization_mse(original, reconstructed)
     assert mse == pytest.approx(1.0 / 3.0)
+
+
+def test_compute_quantization_mse_rejects_empty_input() -> None:
+    """MSE helper should fail fast on empty inputs."""
+    with pytest.raises(ValueError, match="original must be non-empty"):
+        compute_quantization_mse(np.array([]), np.array([]))
