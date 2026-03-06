@@ -60,3 +60,34 @@ def test_run_unsupervised_returns_silhouette_metrics() -> None:
     )
     assert len(results) == 3
     assert all(result.baseline_silhouette is not None for result in results)
+
+
+def test_model_only_reuses_baseline_without_retraining(monkeypatch) -> None:
+    """Model-only mode should quantize baseline model instead of fitting a second copy."""
+    config = QuantizationConfig(
+        data_bits=(16,),
+        model_bits=(16,),
+        enable_hybrid=False,
+        method="uniform",
+        random_seed=42,
+    )
+    experiment = QuantizationExperiment(config)
+    fit_calls = {"count": 0}
+    original_fit = QuantizationExperiment._fit_model
+
+    def _counting_fit(model, x_train, y_train) -> None:
+        fit_calls["count"] += 1
+        original_fit(model, x_train, y_train)
+
+    monkeypatch.setattr(QuantizationExperiment, "_fit_model", staticmethod(_counting_fit))
+    results = experiment.run_supervised(
+        DatasetSourceType.SKLEARN,
+        SklearnDatasetName.WINE,
+        KNNModel,
+        {"n_neighbors": 3},
+        seed=42,
+    )
+
+    modes = {result.metadata["mode"] for result in results}
+    assert modes == {"data_only", "model_only"}
+    assert fit_calls["count"] == 2
