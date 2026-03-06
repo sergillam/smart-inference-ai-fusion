@@ -28,7 +28,10 @@ from typing import Dict, List, Optional, Tuple, Type
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from smart_inference_ai_fusion.core.base_model import BaseModel
-from smart_inference_ai_fusion.experiments.common import run_impact_analysis, run_standard_experiment
+from smart_inference_ai_fusion.experiments.common import (
+    run_impact_analysis,
+    run_standard_experiment,
+)
 from smart_inference_ai_fusion.models.gaussian_model import GaussianNBModel
 from smart_inference_ai_fusion.models.knn_model import KNNModel
 from smart_inference_ai_fusion.models.mlp_model import MLPModel
@@ -66,10 +69,16 @@ DATASETS = [
 # Algorithms configuration with default parameters
 ALGORITHMS: Dict[str, Tuple[Type[BaseModel], dict]] = {
     "KNN": (KNNModel, {"n_neighbors": 5}),
-    "SVM": (SVMModel, {"kernel": "rbf", "C": 1.0, "random_state": None}),  # random_state set per seed
+    "SVM": (
+        SVMModel,
+        {"kernel": "rbf", "C": 1.0, "random_state": None},
+    ),  # random_state set per seed
     "DT": (DecisionTreeModel, {"max_depth": 10, "random_state": None}),  # random_state set per seed
     "GNB": (GaussianNBModel, {}),
-    "MLP": (MLPModel, {"hidden_layer_sizes": (100,), "max_iter": 500, "random_state": None}),  # random_state set per seed
+    "MLP": (
+        MLPModel,
+        {"hidden_layer_sizes": (100,), "max_iter": 500, "random_state": None},
+    ),  # random_state set per seed
 }
 
 
@@ -309,19 +318,19 @@ def main():
         epilog="""
 Examples:
   # Run all experiments
-  python case1.py
+  python case1_sip_classic.py
 
   # Run only KNN and SVM on Iris dataset
-  python case1.py --algorithms KNN SVM --datasets Iris
+  python case1_sip_classic.py --algorithms KNN SVM --datasets Iris
 
   # Run with specific seeds
-  python case1.py --seeds 42 123
+  python case1_sip_classic.py --seeds 42 123
 
   # Dry run to see what would be executed
-  python case1.py --dry-run
+  python case1_sip_classic.py --dry-run
 
   # Run single experiment for quick test
-  python case1.py --algorithms KNN --datasets Iris --seeds 42
+  python case1_sip_classic.py --algorithms KNN --datasets Iris --seeds 42
         """,
     )
 
