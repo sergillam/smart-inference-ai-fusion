@@ -11,7 +11,9 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, TypeVar
+
+T = TypeVar("T")
 
 if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -48,6 +50,11 @@ def configure_logger(
     logger.propagate = False
 
     if logger.handlers:
+        for handler in logger.handlers:
+            try:
+                handler.close()
+            except (OSError, ValueError):  # pragma: no cover - defensive cleanup path
+                pass
         logger.handlers.clear()
 
     formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
@@ -274,7 +281,7 @@ def default_case4_algorithms() -> list[str]:
     return ["KNN", "DT", "MLP", "MBK", "GMM", "AC"]
 
 
-def timed_run(fn, *args, **kwargs):
+def timed_run(fn: Callable[..., T], *args: Any, **kwargs: Any) -> tuple[T, float]:
     """Execute a callable and return (result, elapsed_seconds)."""
     start = time.time()
     result = fn(*args, **kwargs)
