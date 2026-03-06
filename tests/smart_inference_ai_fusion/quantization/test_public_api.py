@@ -8,7 +8,15 @@ from smart_inference_ai_fusion.quantization import (
     QuantizationResult,
     QuantMethod,
     WeightQuantizer,
+    benchmark_inference,
+    compute_clustering_metrics,
+    compute_compression_ratio,
+    compute_memory_reduction,
+    compute_overhead_pct,
+    compute_quantization_mse,
+    compute_supervised_metrics,
     dequantize,
+    estimate_memory_bytes,
     kmeans_quantize,
     minmax_quantize,
     percentile_quantize,
@@ -30,3 +38,11 @@ def test_public_api_imports() -> None:
     assert kmeans_quantize is not None
     assert percentile_quantize is not None
     assert dequantize is not None
+    assert compute_supervised_metrics is not None
+    assert compute_clustering_metrics is not None
+    assert compute_quantization_mse is not None
+    assert benchmark_inference is not None
+    assert compute_memory_reduction is not None
+    assert compute_compression_ratio is not None
+    assert estimate_memory_bytes is not None
+    assert compute_overhead_pct is not None
