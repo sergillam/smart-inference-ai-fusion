@@ -52,10 +52,10 @@ class QuantizationExperiment:
         skip_execution_ids: set[str] | None = None,
     ) -> list[QuantizationResult]:
         """Run baseline + quantization modes for supervised tasks."""
-        x_train, x_test, y_train, y_test = self._load_dataset(dataset_source, dataset_name, seed)
         mode_plan = self._build_mode_plan(skip_execution_ids, dataset_name, model_class, seed)
         if not mode_plan:
             return []
+        x_train, x_test, y_train, y_test = self._load_dataset(dataset_source, dataset_name, seed)
 
         baseline_model = self._build_model(model_class, model_params)
         self._fit_model(baseline_model, x_train, y_train)
@@ -98,10 +98,10 @@ class QuantizationExperiment:
         skip_execution_ids: set[str] | None = None,
     ) -> list[QuantizationResult]:
         """Run baseline + quantization modes for unsupervised tasks."""
-        x_train, x_test, y_train, y_test = self._load_dataset(dataset_source, dataset_name, seed)
         mode_plan = self._build_mode_plan(skip_execution_ids, dataset_name, model_class, seed)
         if not mode_plan:
             return []
+        x_train, x_test, y_train, y_test = self._load_dataset(dataset_source, dataset_name, seed)
 
         baseline_model = self._build_model(model_class, model_params)
         self._fit_model(baseline_model, x_train, y_train)
@@ -155,65 +155,31 @@ class QuantizationExperiment:
         baseline_model_bytes: int,
         seed: int,
     ) -> QuantizationResult:
-        x_test_input = x_test
-        model_bytes_base = baseline_model_bytes
-        model_bytes_quant = baseline_model_bytes
-        data_bytes_base = estimate_memory_bytes(x_test)
-        data_bytes_quant = estimate_memory_bytes(x_test)
-        data_mse = 0.0
-        model_mse = 0.0
+        common = self._prepare_quantization_mode(
+            mode=mode,
+            bit_width=bit_width,
+            model_class=model_class,
+            model_params=model_params,
+            baseline_model=baseline_model,
+            baseline_model_bytes=baseline_model_bytes,
+            x_train=x_train,
+            x_test=x_test,
+            y_train=y_train,
+        )
 
-        if mode in {"data_only", "hybrid"}:
-            fq = FeatureQuantizer(
-                method=self.config.method,
-                num_bits=bit_width,
-                dtype_profile=self.config.dtype_profile,
-            )
-            x_train_q = fq.fit_transform(x_train)
-            x_test_q = fq.transform(x_test)
-            x_train_use = fq.inverse_transform(x_train_q)
-            x_test_use = fq.inverse_transform(x_test_q)
-            data_bytes_quant = estimate_memory_bytes(x_test_q)
-            data_mse = compute_quantization_mse(x_test, x_test_use)
-            x_test_input = x_test_use
-        else:
-            x_train_use = x_train
-            x_test_use = x_test
-
-        if mode == "model_only":
-            model_run = baseline_model
-        else:
-            model_run = self._build_model(model_class, model_params)
-            self._fit_model(model_run, x_train_use, y_train)
-
-        if mode in {"model_only", "hybrid"}:
-            wq = WeightQuantizer(
-                num_bits=bit_width,
-                method=self.config.method,
-                dtype_profile=self.config.dtype_profile,
-            )
-            quantized_model = wq.quantize_model(model_run)
-            model_bytes_quant = self._estimate_quantized_model_memory_bytes(model_run, bit_width)
-            model_mse = self._compute_model_quantization_mse(model_run, quantized_model)
-        else:
-            quantized_model = model_run
-
-        y_pred_quantized = np.asarray(quantized_model.predict(x_test_input))
+        y_pred_quantized = np.asarray(common["quantized_model"].predict(common["x_test_input"]))
         metrics = compute_supervised_metrics(y_test, y_pred_baseline, y_pred_quantized)
-        quantized_time_ms = benchmark_inference(quantized_model.predict, x_test_input)
+        quantized_time_ms = benchmark_inference(
+            common["quantized_model"].predict, common["x_test_input"]
+        )
         overhead_pct = compute_overhead_pct(baseline_time_ms, quantized_time_ms)
 
-        baseline_memory_bytes = (
-            data_bytes_base if mode == "data_only" else data_bytes_base + model_bytes_base
-        )
-        quantized_memory_bytes = (
-            data_bytes_quant
-            if mode == "data_only"
-            else (
-                data_bytes_base + model_bytes_quant
-                if mode == "model_only"
-                else data_bytes_quant + model_bytes_quant
-            )
+        baseline_memory_bytes, quantized_memory_bytes = self._compute_mode_memory_bytes(
+            mode=mode,
+            data_bytes_base=common["data_bytes_base"],
+            data_bytes_quant=common["data_bytes_quant"],
+            model_bytes_base=common["model_bytes_base"],
+            model_bytes_quant=common["model_bytes_quant"],
         )
         compression_ratio = (
             baseline_memory_bytes / quantized_memory_bytes
@@ -237,7 +203,9 @@ class QuantizationExperiment:
             baseline_time_ms=float(baseline_time_ms),
             quantized_time_ms=float(quantized_time_ms),
             overhead_pct=float(overhead_pct),
-            quantization_mse=float((data_mse + model_mse) / (2 if mode == "hybrid" else 1)),
+            quantization_mse=float(
+                (common["data_mse"] + common["model_mse"]) / (2 if mode == "hybrid" else 1)
+            ),
             seed=seed,
             metadata=self._build_metadata(mode, execution_id, bit_width),
         )
@@ -262,67 +230,33 @@ class QuantizationExperiment:
         baseline_model_bytes: int,
         seed: int,
     ) -> QuantizationResult:
-        x_test_input = x_test
-        model_bytes_base = baseline_model_bytes
-        model_bytes_quant = baseline_model_bytes
-        data_bytes_base = estimate_memory_bytes(x_test)
-        data_bytes_quant = estimate_memory_bytes(x_test)
-        data_mse = 0.0
-        model_mse = 0.0
+        common = self._prepare_quantization_mode(
+            mode=mode,
+            bit_width=bit_width,
+            model_class=model_class,
+            model_params=model_params,
+            baseline_model=baseline_model,
+            baseline_model_bytes=baseline_model_bytes,
+            x_train=x_train,
+            x_test=x_test,
+            y_train=y_train,
+        )
 
-        if mode in {"data_only", "hybrid"}:
-            fq = FeatureQuantizer(
-                method=self.config.method,
-                num_bits=bit_width,
-                dtype_profile=self.config.dtype_profile,
-            )
-            x_train_q = fq.fit_transform(x_train)
-            x_test_q = fq.transform(x_test)
-            x_train_use = fq.inverse_transform(x_train_q)
-            x_test_use = fq.inverse_transform(x_test_q)
-            data_bytes_quant = estimate_memory_bytes(x_test_q)
-            data_mse = compute_quantization_mse(x_test, x_test_use)
-            x_test_input = x_test_use
-        else:
-            x_train_use = x_train
-            x_test_use = x_test
-
-        if mode == "model_only":
-            model_run = baseline_model
-        else:
-            model_run = self._build_model(model_class, model_params)
-            self._fit_model(model_run, x_train_use, y_train)
-
-        if mode in {"model_only", "hybrid"}:
-            wq = WeightQuantizer(
-                num_bits=bit_width,
-                method=self.config.method,
-                dtype_profile=self.config.dtype_profile,
-            )
-            quantized_model = wq.quantize_model(model_run)
-            model_bytes_quant = self._estimate_quantized_model_memory_bytes(model_run, bit_width)
-            model_mse = self._compute_model_quantization_mse(model_run, quantized_model)
-        else:
-            quantized_model = model_run
-
-        labels_quantized = np.asarray(quantized_model.predict(x_test_input))
+        labels_quantized = np.asarray(common["quantized_model"].predict(common["x_test_input"]))
         cluster_metrics = compute_clustering_metrics(
             x_test, labels_baseline, labels_quantized, y_test
         )
-        quantized_time_ms = benchmark_inference(quantized_model.predict, x_test_input)
+        quantized_time_ms = benchmark_inference(
+            common["quantized_model"].predict, common["x_test_input"]
+        )
         overhead_pct = compute_overhead_pct(baseline_time_ms, quantized_time_ms)
 
-        baseline_memory_bytes = (
-            data_bytes_base if mode == "data_only" else data_bytes_base + model_bytes_base
-        )
-        quantized_memory_bytes = (
-            data_bytes_quant
-            if mode == "data_only"
-            else (
-                data_bytes_base + model_bytes_quant
-                if mode == "model_only"
-                else data_bytes_quant + model_bytes_quant
-            )
+        baseline_memory_bytes, quantized_memory_bytes = self._compute_mode_memory_bytes(
+            mode=mode,
+            data_bytes_base=common["data_bytes_base"],
+            data_bytes_quant=common["data_bytes_quant"],
+            model_bytes_base=common["model_bytes_base"],
+            model_bytes_quant=common["model_bytes_quant"],
         )
         compression_ratio = (
             baseline_memory_bytes / quantized_memory_bytes
@@ -350,10 +284,101 @@ class QuantizationExperiment:
             baseline_time_ms=float(baseline_time_ms),
             quantized_time_ms=float(quantized_time_ms),
             overhead_pct=float(overhead_pct),
-            quantization_mse=float((data_mse + model_mse) / (2 if mode == "hybrid" else 1)),
+            quantization_mse=float(
+                (common["data_mse"] + common["model_mse"]) / (2 if mode == "hybrid" else 1)
+            ),
             seed=seed,
             metadata=self._build_metadata(mode, execution_id, bit_width),
         )
+
+    def _prepare_quantization_mode(
+        self,
+        *,
+        mode: str,
+        bit_width: int,
+        model_class: type[BaseModel],
+        model_params: dict[str, Any],
+        baseline_model: BaseModel,
+        baseline_model_bytes: int,
+        x_train: np.ndarray,
+        x_test: np.ndarray,
+        y_train: np.ndarray,
+    ) -> dict[str, Any]:
+        x_test_input = x_test
+        model_bytes_base = baseline_model_bytes
+        model_bytes_quant = baseline_model_bytes
+        data_bytes_base = estimate_memory_bytes(x_test)
+        data_bytes_quant = estimate_memory_bytes(x_test)
+        data_mse = 0.0
+        model_mse = 0.0
+
+        if mode in {"data_only", "hybrid"}:
+            fq = FeatureQuantizer(
+                method=self.config.method,
+                num_bits=bit_width,
+                dtype_profile=self.config.dtype_profile,
+            )
+            x_train_q = fq.fit_transform(x_train)
+            x_test_q = fq.transform(x_test)
+            x_train_use = fq.inverse_transform(x_train_q)
+            x_test_use = fq.inverse_transform(x_test_q)
+            data_bytes_quant = estimate_memory_bytes(x_test_q)
+            data_mse = compute_quantization_mse(x_test, x_test_use)
+            x_test_input = x_test_use
+        else:
+            x_train_use = x_train
+
+        if mode == "model_only":
+            model_run = baseline_model
+        else:
+            model_run = self._build_model(model_class, model_params)
+            self._fit_model(model_run, x_train_use, y_train)
+
+        if mode in {"model_only", "hybrid"}:
+            wq = WeightQuantizer(
+                num_bits=bit_width,
+                method=self.config.method,
+                dtype_profile=self.config.dtype_profile,
+            )
+            quantized_model = wq.quantize_model(model_run)
+            model_bytes_quant = self._estimate_quantized_model_memory_bytes(model_run, bit_width)
+            model_mse = self._compute_model_quantization_mse(model_run, quantized_model)
+        else:
+            quantized_model = model_run
+
+        return {
+            "quantized_model": quantized_model,
+            "x_test_input": x_test_input,
+            "model_bytes_base": model_bytes_base,
+            "model_bytes_quant": model_bytes_quant,
+            "data_bytes_base": data_bytes_base,
+            "data_bytes_quant": data_bytes_quant,
+            "data_mse": data_mse,
+            "model_mse": model_mse,
+        }
+
+    @staticmethod
+    def _compute_mode_memory_bytes(
+        *,
+        mode: str,
+        data_bytes_base: int,
+        data_bytes_quant: int,
+        model_bytes_base: int,
+        model_bytes_quant: int,
+    ) -> tuple[int, int]:
+        baseline_memory_bytes = (
+            data_bytes_base if mode == "data_only" else data_bytes_base + model_bytes_base
+        )
+        quantized_memory_bytes = (
+            data_bytes_quant
+            if mode == "data_only"
+            else (
+                data_bytes_base + model_bytes_quant
+                if mode == "model_only"
+                else data_bytes_quant + model_bytes_quant
+            )
+        )
+        return int(baseline_memory_bytes), int(quantized_memory_bytes)
 
     def _build_mode_plan(
         self,

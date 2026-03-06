@@ -211,6 +211,11 @@ def _run_dataset_group(
 
 
 def _configure_file_logger(log_dir: str, stamp: str) -> Path:
+    # Keep a single active file handler even when main() runs multiple times in-process.
+    for handler in list(logger.handlers):
+        if isinstance(handler, logging.FileHandler):
+            handler.close()
+            logger.removeHandler(handler)
     os.makedirs(log_dir, exist_ok=True)
     log_file = Path(log_dir) / f"case4_{stamp}.log"
     file_handler = logging.FileHandler(log_file, encoding="utf-8")
@@ -247,7 +252,13 @@ def run_case_study_4(
         1 for a in selected_algorithms if a in UNSUPERVISED_ALGOS
     )
     total_configurations = supervised_total + unsupervised_total
-    total_runs = total_configurations * len(seed_list)
+    valid_bits = (
+        sorted({bit for bit in selected_bits if bit == 16})
+        if dtype_profile == "float16"
+        else sorted(set(selected_bits))
+    )
+    modes_per_bit = 3  # data_only, model_only, hybrid
+    total_runs = total_configurations * len(seed_list) * len(valid_bits) * modes_per_bit
 
     logger.info("=" * 70)
     logger.info("CASE STUDY 4: SIP-Q QUANTIZATION EVALUATION")
