@@ -450,6 +450,7 @@ def run_case_study_3(
     seeds: Optional[List[int]] = None,
     verification_modes: Optional[List[str]] = None,
     dry_run: bool = False,
+    artifact_snapshot: Optional[dict[str, set[Path]]] = None,
 ) -> dict:
     """Run Case Study 3: SIP-V Formal Verification Evaluation.
 
@@ -502,7 +503,8 @@ def run_case_study_3(
 
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
-    artifact_snapshot = snapshot_default_artifacts()
+    if artifact_snapshot is None:
+        artifact_snapshot = snapshot_default_artifacts()
 
     # Track results
     all_results = []
@@ -707,16 +709,8 @@ Examples:
         seeds=args.seeds,
         verification_modes=args.modes,
         dry_run=args.dry_run,
+        artifact_snapshot=pre_run_snapshot,
     )
-    moved_after_main = relocate_new_default_artifacts(
-        snapshot=pre_run_snapshot, output_dir=args.output_dir
-    )
-    if moved_after_main:
-        logger.info(
-            "Main relocation moved %d additional artifacts to %s",
-            len(moved_after_main),
-            args.output_dir,
-        )
 
 
 if __name__ == "__main__":
