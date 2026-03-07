@@ -35,6 +35,7 @@ from typing import Dict, List, Optional, Tuple, Type, Union
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from scripts.artifact_relocation import relocate_new_default_artifacts, snapshot_default_artifacts
 from smart_inference_ai_fusion.core.base_model import BaseModel
 from smart_inference_ai_fusion.experiments.common import (
     run_impact_analysis,
@@ -336,6 +337,7 @@ def run_case_study_2(
 
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
+    artifact_snapshot = snapshot_default_artifacts()
 
     # Track results
     all_results = []
@@ -424,6 +426,12 @@ def run_case_study_2(
     with open(summary_file, "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2, default=str)
     logger.info(f"Summary saved to: {summary_file}")
+
+    moved_artifacts = relocate_new_default_artifacts(
+        snapshot=artifact_snapshot, output_dir=output_dir
+    )
+    if moved_artifacts:
+        logger.info("Relocated %d auxiliary artifacts to %s", len(moved_artifacts), output_dir)
 
     # Print final summary
     logger.info("\n" + "=" * 70)

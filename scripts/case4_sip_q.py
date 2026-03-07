@@ -17,6 +17,7 @@ from typing import Any
 if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from scripts.artifact_relocation import relocate_new_default_artifacts, snapshot_default_artifacts
 from scripts.results_io import load_json_records
 from smart_inference_ai_fusion.core.base_model import BaseModel
 from smart_inference_ai_fusion.experiments.quantization_experiment import QuantizationExperiment
@@ -374,6 +375,7 @@ def run_case_study_4(
 def main() -> None:
     """Run Case 4 experiments from CLI."""
     args = _parse_args()
+    artifact_snapshot = snapshot_default_artifacts()
     stamp = _timestamp()
     log_file = _configure_file_logger(args.log_dir, stamp)
     logger.info("Case4 log file: %s", log_file)
@@ -388,6 +390,11 @@ def main() -> None:
         resume=args.resume,
         dry_run=args.dry_run,
     )
+    moved_artifacts = relocate_new_default_artifacts(
+        snapshot=artifact_snapshot, output_dir=args.output_dir
+    )
+    if moved_artifacts:
+        logger.info("Relocated %d auxiliary artifacts to %s", len(moved_artifacts), args.output_dir)
 
 
 if __name__ == "__main__":
