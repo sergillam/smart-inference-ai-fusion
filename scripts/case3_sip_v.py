@@ -35,6 +35,8 @@ import numpy as np
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from scripts.artifact_relocation import relocate_new_default_artifacts, snapshot_default_artifacts
+from scripts.file_logger import configure_case_file_logger
 from smart_inference_ai_fusion.core.base_model import BaseModel
 from smart_inference_ai_fusion.experiments.common import (
     run_baseline_experiment,
@@ -448,6 +450,7 @@ def run_case_study_3(
     seeds: Optional[List[int]] = None,
     verification_modes: Optional[List[str]] = None,
     dry_run: bool = False,
+    artifact_snapshot: Optional[dict[str, set[Path]]] = None,
 ) -> dict:
     """Run Case Study 3: SIP-V Formal Verification Evaluation.
 
@@ -500,6 +503,8 @@ def run_case_study_3(
 
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
+    if artifact_snapshot is None:
+        artifact_snapshot = snapshot_default_artifacts()
 
     # Track results
     all_results = []
@@ -597,6 +602,12 @@ def run_case_study_3(
         f.write(latex_tables)
     logger.info(f"LaTeX tables saved to: {latex_file}")
 
+    moved_artifacts = relocate_new_default_artifacts(
+        snapshot=artifact_snapshot, output_dir=output_dir
+    )
+    if moved_artifacts:
+        logger.info("Relocated %d auxiliary artifacts to %s", len(moved_artifacts), output_dir)
+
     # Print final summary
     logger.info("\n" + "=" * 70)
     logger.info("CASE STUDY 3 COMPLETED")
@@ -676,12 +687,20 @@ Examples:
         help="Output directory for results (default: results/case3)",
     )
     parser.add_argument(
+        "--log-dir",
+        default="logs/case3",
+        help="Directory for case3 execution logs (default: logs/case3)",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print what would be run without executing",
     )
 
     args = parser.parse_args()
+    pre_run_snapshot = snapshot_default_artifacts()
+    log_file = configure_case_file_logger(logger, args.log_dir, "case3")
+    logger.info("Case3 log file: %s", log_file)
 
     run_case_study_3(
         output_dir=args.output_dir,
@@ -690,6 +709,7 @@ Examples:
         seeds=args.seeds,
         verification_modes=args.modes,
         dry_run=args.dry_run,
+        artifact_snapshot=pre_run_snapshot,
     )
 
 

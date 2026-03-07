@@ -16,9 +16,11 @@ from scripts.case_combo_common import (
     configure_logger,
     default_case4_algorithms,
     default_case4_datasets,
+    relocate_new_default_artifacts,
     run_quantization_matrix,
     run_sip_matrix,
     save_combined_artifacts,
+    snapshot_default_artifacts,
     timed_run,
 )
 
@@ -41,6 +43,7 @@ def _parse_args() -> argparse.Namespace:
 def main() -> None:
     """Run SIP-V + SIP-Q matrix and save combined artifacts."""
     args = _parse_args()
+    artifact_snapshot = snapshot_default_artifacts()
     logger, log_file = configure_logger("case7_sipv_sipq", args.log_dir, "case7_sipv_sipq")
     logger.info("Case7 log file: %s", log_file)
 
@@ -82,6 +85,11 @@ def main() -> None:
     )
     logger.info("All results saved to: %s", all_results_file)
     logger.info("Summary saved to: %s", summary_file)
+    moved_artifacts = relocate_new_default_artifacts(
+        snapshot=artifact_snapshot, output_dir=args.output_dir
+    )
+    if moved_artifacts:
+        logger.info("Relocated %d auxiliary artifacts to %s", len(moved_artifacts), args.output_dir)
 
 
 if __name__ == "__main__":

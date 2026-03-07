@@ -18,6 +18,7 @@ T = TypeVar("T")
 if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from scripts.artifact_relocation import relocate_new_default_artifacts, snapshot_default_artifacts
 from scripts.case4_sip_q import (
     SEEDS,
     SUPERVISED_ALGOS,
@@ -33,6 +34,20 @@ from smart_inference_ai_fusion.utils.verification_config import (
     VerificationMode,
     set_verification_config,
 )
+
+__all__ = [
+    "SEEDS",
+    "configure_logger",
+    "configure_verification_runtime",
+    "default_case4_algorithms",
+    "default_case4_datasets",
+    "relocate_new_default_artifacts",
+    "run_quantization_matrix",
+    "run_sip_matrix",
+    "save_combined_artifacts",
+    "snapshot_default_artifacts",
+    "timed_run",
+]
 
 
 def timestamp() -> str:

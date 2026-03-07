@@ -35,6 +35,8 @@ from typing import Dict, List, Optional, Tuple, Type, Union
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from scripts.artifact_relocation import relocate_new_default_artifacts, snapshot_default_artifacts
+from scripts.file_logger import configure_case_file_logger
 from smart_inference_ai_fusion.core.base_model import BaseModel
 from smart_inference_ai_fusion.experiments.common import (
     run_impact_analysis,
@@ -235,6 +237,7 @@ def run_case_study_2(
     paradigms: Optional[List[str]] = None,
     dry_run: bool = False,
     impact_mode: bool = False,
+    artifact_snapshot: Optional[dict[str, set[Path]]] = None,
 ) -> dict:
     """Run Case Study 2: Paradigm Comparison.
 
@@ -336,6 +339,8 @@ def run_case_study_2(
 
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
+    if artifact_snapshot is None:
+        artifact_snapshot = snapshot_default_artifacts()
 
     # Track results
     all_results = []
@@ -425,6 +430,12 @@ def run_case_study_2(
         json.dump(summary, f, indent=2, default=str)
     logger.info(f"Summary saved to: {summary_file}")
 
+    moved_artifacts = relocate_new_default_artifacts(
+        snapshot=artifact_snapshot, output_dir=output_dir
+    )
+    if moved_artifacts:
+        logger.info("Relocated %d auxiliary artifacts to %s", len(moved_artifacts), output_dir)
+
     # Print final summary
     logger.info("\n" + "=" * 70)
     logger.info("CASE STUDY 2 COMPLETED")
@@ -506,6 +517,11 @@ Examples:
         help="Output directory for results (default: results/case2)",
     )
     parser.add_argument(
+        "--log-dir",
+        default="logs/case2",
+        help="Directory for case2 execution logs (default: logs/case2)",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print what would be run without executing",
@@ -517,6 +533,9 @@ Examples:
     )
 
     args = parser.parse_args()
+    pre_run_snapshot = snapshot_default_artifacts()
+    log_file = configure_case_file_logger(logger, args.log_dir, "case2")
+    logger.info("Case2 log file: %s", log_file)
 
     run_case_study_2(
         output_dir=args.output_dir,
@@ -526,6 +545,7 @@ Examples:
         paradigms=args.paradigms,
         dry_run=args.dry_run,
         impact_mode=args.impact_analysis,
+        artifact_snapshot=pre_run_snapshot,
     )
 
 

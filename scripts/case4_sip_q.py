@@ -17,6 +17,8 @@ from typing import Any
 if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from scripts.artifact_relocation import relocate_new_default_artifacts, snapshot_default_artifacts
+from scripts.file_logger import configure_case_file_logger
 from scripts.results_io import load_json_records
 from smart_inference_ai_fusion.core.base_model import BaseModel
 from smart_inference_ai_fusion.experiments.quantization_experiment import QuantizationExperiment
@@ -210,21 +212,6 @@ def _run_dataset_group(
     return results
 
 
-def _configure_file_logger(log_dir: str, stamp: str) -> Path:
-    # Keep a single active file handler even when main() runs multiple times in-process.
-    for handler in list(logger.handlers):
-        if isinstance(handler, logging.FileHandler):
-            handler.close()
-            logger.removeHandler(handler)
-    os.makedirs(log_dir, exist_ok=True)
-    log_file = Path(log_dir) / f"case4_{stamp}.log"
-    file_handler = logging.FileHandler(log_file, encoding="utf-8")
-    file_handler.setLevel(logging.INFO)
-    file_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
-    logger.addHandler(file_handler)
-    return log_file
-
-
 def run_case_study_4(
     output_dir: str = "results/case4",
     *,
@@ -374,8 +361,8 @@ def run_case_study_4(
 def main() -> None:
     """Run Case 4 experiments from CLI."""
     args = _parse_args()
-    stamp = _timestamp()
-    log_file = _configure_file_logger(args.log_dir, stamp)
+    artifact_snapshot = snapshot_default_artifacts()
+    log_file = configure_case_file_logger(logger, args.log_dir, "case4")
     logger.info("Case4 log file: %s", log_file)
     run_case_study_4(
         output_dir=args.output_dir,
@@ -388,6 +375,11 @@ def main() -> None:
         resume=args.resume,
         dry_run=args.dry_run,
     )
+    moved_artifacts = relocate_new_default_artifacts(
+        snapshot=artifact_snapshot, output_dir=args.output_dir
+    )
+    if moved_artifacts:
+        logger.info("Relocated %d auxiliary artifacts to %s", len(moved_artifacts), args.output_dir)
 
 
 if __name__ == "__main__":
