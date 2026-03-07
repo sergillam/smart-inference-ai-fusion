@@ -28,6 +28,7 @@ from typing import Dict, List, Optional, Tuple, Type
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from scripts.artifact_relocation import relocate_new_default_artifacts, snapshot_default_artifacts
+from scripts.file_logger import configure_case_file_logger
 from smart_inference_ai_fusion.core.base_model import BaseModel
 from smart_inference_ai_fusion.experiments.common import (
     run_impact_analysis,
@@ -366,6 +367,11 @@ Examples:
         help="Output directory for results (default: results/case1)",
     )
     parser.add_argument(
+        "--log-dir",
+        default="logs/case1",
+        help="Directory for case1 execution logs (default: logs/case1)",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Print what would be run without executing",
@@ -377,6 +383,9 @@ Examples:
     )
 
     args = parser.parse_args()
+    pre_run_snapshot = snapshot_default_artifacts()
+    log_file = configure_case_file_logger(logger, args.log_dir, "case1")
+    logger.info("Case1 log file: %s", log_file)
 
     run_case_study_1(
         output_dir=args.output_dir,
@@ -386,6 +395,15 @@ Examples:
         dry_run=args.dry_run,
         impact_mode=args.impact_analysis,
     )
+    moved_after_main = relocate_new_default_artifacts(
+        snapshot=pre_run_snapshot, output_dir=args.output_dir
+    )
+    if moved_after_main:
+        logger.info(
+            "Main relocation moved %d additional artifacts to %s",
+            len(moved_after_main),
+            args.output_dir,
+        )
 
 
 if __name__ == "__main__":
