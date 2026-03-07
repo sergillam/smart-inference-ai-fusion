@@ -24,6 +24,9 @@ def relocate_new_default_artifacts(
 ) -> list[tuple[Path, Path]]:
     """Move new files generated in default roots into output_dir."""
     output_root = Path(output_dir).resolve()
+    # Keep a consistent output layout across all case scripts.
+    (output_root / "results").mkdir(parents=True, exist_ok=True)
+    (output_root / "logs").mkdir(parents=True, exist_ok=True)
     roots = {"results": Path("results"), "logs": Path("logs")}
     moved: list[tuple[Path, Path]] = []
 
