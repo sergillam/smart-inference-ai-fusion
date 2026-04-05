@@ -27,7 +27,10 @@ from scripts.case4_sip_q import (
     UNSUPERVISED_DATASETS,
     run_case_study_4,
 )
-from smart_inference_ai_fusion.experiments.common import run_standard_experiment
+from smart_inference_ai_fusion.experiments.common import (
+    run_impact_analysis,
+    run_standard_experiment,
+)
 from smart_inference_ai_fusion.utils.verification_config import (
     SolverChoice,
     VerificationConfig,
@@ -113,6 +116,7 @@ def run_sip_matrix(
     seeds: list[int] | None = None,
     verification_enabled: bool = False,
     solver: str = "z3",
+    impact_mode: bool = True,
 ) -> list[dict[str, Any]]:
     """Run SIP matrix (with or without SIP-V verification) for selected configs."""
     seed_list = seeds or SEEDS
@@ -130,6 +134,7 @@ def run_sip_matrix(
                 paradigm="supervised",
                 verification_enabled=verification_enabled,
                 solver=solver,
+                impact_mode=impact_mode,
             )
         )
         records.extend(
@@ -142,6 +147,7 @@ def run_sip_matrix(
                 paradigm="unsupervised",
                 verification_enabled=verification_enabled,
                 solver=solver,
+                impact_mode=impact_mode,
             )
         )
     return records
@@ -157,6 +163,7 @@ def _run_sip_group(
     paradigm: str,
     verification_enabled: bool,
     solver: str,
+    impact_mode: bool = True,
 ) -> list[dict[str, Any]]:
     """Run SIP/SIP-V experiments for a dataset/algorithm group."""
     group_records: list[dict[str, Any]] = []
@@ -170,27 +177,56 @@ def _run_sip_group(
             if "random_state" in params:
                 params["random_state"] = seed
             try:
-                baseline, inference = run_standard_experiment(
-                    model_class=model_class,
-                    model_name=algo_key,
-                    dataset_source=source,
-                    dataset_name=dataset_name,
-                    model_params=params,
-                    seed=seed,
-                )
-                group_records.append(
-                    {
-                        "status": "success",
-                        "dataset": dataset_label,
-                        "algorithm": algo_key,
-                        "seed": seed,
-                        "paradigm": paradigm,
-                        "verification_enabled": verification_enabled,
-                        "solver": solver if verification_enabled else None,
-                        "baseline_metrics": baseline,
-                        "inference_metrics": inference,
-                    }
-                )
+                if impact_mode:
+                    impact_results = run_impact_analysis(
+                        model_class=model_class,
+                        model_name=algo_key,
+                        dataset_source=source,
+                        dataset_name=dataset_name,
+                        model_params=params,
+                        seed=seed,
+                    )
+                    group_records.append(
+                        {
+                            "status": "success",
+                            "dataset": dataset_label,
+                            "algorithm": algo_key,
+                            "seed": seed,
+                            "paradigm": paradigm,
+                            "verification_enabled": verification_enabled,
+                            "solver": solver if verification_enabled else None,
+                            "baseline_metrics": impact_results["experiments"]["baseline"],
+                            "inference_metrics": impact_results["experiments"]["all_combined"],
+                            "impact_analysis": impact_results["impact_analysis"],
+                            "isolated_experiments": {
+                                "data_only": impact_results["experiments"]["data_only"],
+                                "label_only": impact_results["experiments"]["label_only"],
+                                "param_only": impact_results["experiments"]["param_only"],
+                            },
+                        }
+                    )
+                else:
+                    baseline, inference = run_standard_experiment(
+                        model_class=model_class,
+                        model_name=algo_key,
+                        dataset_source=source,
+                        dataset_name=dataset_name,
+                        model_params=params,
+                        seed=seed,
+                    )
+                    group_records.append(
+                        {
+                            "status": "success",
+                            "dataset": dataset_label,
+                            "algorithm": algo_key,
+                            "seed": seed,
+                            "paradigm": paradigm,
+                            "verification_enabled": verification_enabled,
+                            "solver": solver if verification_enabled else None,
+                            "baseline_metrics": baseline,
+                            "inference_metrics": inference,
+                        }
+                    )
             except (ValueError, TypeError, RuntimeError, AttributeError) as exc:  # pragma: no cover
                 group_records.append(
                     {
@@ -288,12 +324,12 @@ def save_combined_artifacts(
 
 def default_case4_datasets() -> list[str]:
     """Return default dataset labels used by case4."""
-    return ["Wine", "Digits", "MakeBlobs", "MakeMoons"]
+    return ["Wine", "MakeBlobs", "MakeMoons"]
 
 
 def default_case4_algorithms() -> list[str]:
     """Return default algorithm keys used by case4."""
-    return ["KNN", "DT", "MLP", "MBK", "GMM", "AC"]
+    return ["KNN", "DT", "MLP", "MBK"]
 
 
 def timed_run(fn: Callable[..., T], *args: Any, **kwargs: Any) -> tuple[T, float]:

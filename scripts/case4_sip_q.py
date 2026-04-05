@@ -71,10 +71,8 @@ def _timestamp() -> str:
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Case Study 4: SIP-Q Quantization")
-    parser.add_argument(
-        "--datasets", nargs="+", default=["Wine", "Digits", "MakeBlobs", "MakeMoons"]
-    )
-    parser.add_argument("--algorithms", nargs="+", default=["KNN", "DT", "MLP", "MBK", "GMM", "AC"])
+    parser.add_argument("--datasets", nargs="+", default=["Wine", "MakeBlobs", "MakeMoons"])
+    parser.add_argument("--algorithms", nargs="+", default=["KNN", "DT", "MLP", "MBK"])
     parser.add_argument("--bits", nargs="+", type=int, default=[8, 16, 32])
     parser.add_argument("--seeds", nargs="+", type=int, default=SEEDS)
     parser.add_argument("--method", default="uniform")
@@ -225,8 +223,8 @@ def run_case_study_4(
     dry_run: bool = False,
 ) -> dict[str, Any]:
     """Run Case Study 4 and persist full results + summary."""
-    selected_datasets = set(datasets or ["Wine", "Digits", "MakeBlobs", "MakeMoons"])
-    selected_algorithms = set(algorithms or ["KNN", "DT", "MLP", "MBK", "GMM", "AC"])
+    selected_datasets = set(datasets or ["Wine", "MakeBlobs", "MakeMoons"])
+    selected_algorithms = set(algorithms or ["KNN", "DT", "MLP", "MBK"])
     selected_bits = bits or [8, 16, 32]
     seed_list = seeds or SEEDS
 
