@@ -20,7 +20,7 @@ As bases foram escolhidas pelo seu caráter de missão crítica e alta dimension
 * **IEEE-CIS Fraud Detection (Finanças):**
   * *Domínio:* Detecção de transações fraudulentas em e-commerce (altamente desbalanceado).
   * *Aquisição:* Kaggle API (`kaggle competitions download -c ieee-fraud-detection`).
-  * *Pré-processamento:* *Feature Selection* estrita (reter apenas as 30 a 50 variáveis mais importantes para evitar explosão de estados no Z3), *One-Hot Encoding* para categorias pequenas, *Hashing* para grandes e preenchimento de nulos.
+  * *Pré-processamento:* *Feature Selection* estrita (reter apenas as 30 a 50 variáveis mais importantes para evitar explosão de estados no Z3), *One-Hot Encoding* para categorias pequenas, *Hashing* para grandes e preenchimento de nulos.sim
 
 ## 2. Algoritmos e Parametrização Fixa
 A hiperparametrização será **estática**. A variação provirá estritamente das *seeds* de inicialização para evitar variáveis de confusão.
