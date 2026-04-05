@@ -380,8 +380,9 @@ Examples:
     )
     parser.add_argument(
         "--impact-analysis",
-        action="store_true",
-        help="Run P2 impact analysis mode (isolated perturbation effects)",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Run impact analysis mode with isolated perturbation effects (default: enabled). Use --no-impact-analysis to disable.",
     )
 
     args = parser.parse_args()

@@ -37,6 +37,12 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", default="results/case8_sip_sipv_sipq")
     parser.add_argument("--log-dir", default="logs/case8_sip_sipv_sipq")
     parser.add_argument("--resume", action="store_true")
+    parser.add_argument(
+        "--impact-analysis",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Run impact analysis with isolated perturbation effects (default: enabled).",
+    )
     return parser.parse_args()
 
 
@@ -68,6 +74,7 @@ def main() -> None:
         seeds=args.seeds,
         verification_enabled=True,
         solver=args.solver,
+        impact_mode=args.impact_analysis,
     )
     all_results_file, summary_file = save_combined_artifacts(
         output_dir=args.output_dir,
