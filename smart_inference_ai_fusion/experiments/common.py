@@ -54,6 +54,8 @@ from smart_inference_ai_fusion.verification.utils import build_class_balance_met
 # Target columns for known CSV datasets
 CSV_DATASET_TARGET_COLUMNS = {
     CSVDatasetName.TITANIC: "Survived",
+    CSVDatasetName.WIDS_ICU: "diabetes_mellitus",
+    CSVDatasetName.IEEE_FRAUD: "isFraud",
 }
 
 
