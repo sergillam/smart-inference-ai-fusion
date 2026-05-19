@@ -14,6 +14,7 @@ These duplicates improve readability and maintainability of each solver implemen
 # pylint: disable=too-many-positional-arguments,implicit-str-concat
 
 import logging
+import resource
 import time
 from typing import Any, Dict, List, Optional
 
@@ -352,6 +353,22 @@ class CVC5Verifier(FormalVerifier):
         try:
             # Reset solver state
             self.solver.resetAssertions()
+            solve_time_ns = 0
+            original_check_sat = self.solver.checkSat
+            timing_patch_applied = False
+
+            def timed_check_sat(*args, **kwargs):
+                nonlocal solve_time_ns
+                t0 = time.perf_counter_ns()
+                result = original_check_sat(*args, **kwargs)
+                solve_time_ns += time.perf_counter_ns() - t0
+                return result
+
+            try:
+                self.solver.checkSat = timed_check_sat
+                timing_patch_applied = True
+            except AttributeError:
+                timing_patch_applied = False
 
             satisfied_constraints = []
             violated_constraints = []
@@ -406,6 +423,9 @@ class CVC5Verifier(FormalVerifier):
                 message = f"CVC5 verified all {len(satisfied_constraints)} constraints successfully"
 
             execution_time = time.time() - start_time
+            peak_ram_mb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0
+            solve_time_ms = solve_time_ns / 1e6
+            translation_time_ms = max(0.0, execution_time * 1000.0 - solve_time_ms)
 
             result = VerificationResult(
                 status=status,
@@ -420,6 +440,11 @@ class CVC5Verifier(FormalVerifier):
                     "cvc5_version": self._get_cvc5_version(),
                     "logic_used": "QF_NRA",
                     "timeout_ms": 300000,
+                    "translation_time_ms": translation_time_ms,
+                    "solve_time_ms": solve_time_ms,
+                    "peak_ram_mb": peak_ram_mb,
+                    "num_constraints": len(input_data.constraints),
+                    "num_vars": None,
                 },
             )
 
@@ -545,6 +570,12 @@ class CVC5Verifier(FormalVerifier):
                     "error_handling": error_result,
                 },
             )
+        finally:
+            try:
+                if timing_patch_applied:
+                    self.solver.checkSat = original_check_sat
+            except (AttributeError, UnboundLocalError):
+                pass
 
     def _verify_constraint(
         self, constraint_type: str, constraint_value: Any, input_data: VerificationInput
