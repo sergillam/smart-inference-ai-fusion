@@ -22,8 +22,10 @@ from smart_inference_ai_fusion.quantization.evaluation.benchmark import (
 )
 from smart_inference_ai_fusion.quantization.evaluation.metrics import (
     compute_clustering_metrics,
+    compute_decision_flip_rate,
     compute_quantization_mse,
     compute_supervised_metrics,
+    compute_wasserstein_distance_1d,
 )
 from smart_inference_ai_fusion.quantization.model.weight_quantizer import WeightQuantizer
 from smart_inference_ai_fusion.utils.types import (
@@ -32,7 +34,11 @@ from smart_inference_ai_fusion.utils.types import (
     SklearnDatasetName,
 )
 
-CSV_DATASET_TARGET_COLUMNS = {CSVDatasetName.TITANIC: "Survived"}
+CSV_DATASET_TARGET_COLUMNS = {
+    CSVDatasetName.TITANIC: "Survived",
+    CSVDatasetName.WIDS_ICU: "diabetes_mellitus",
+    CSVDatasetName.IEEE_FRAUD: "isFraud",
+}
 
 
 class QuantizationExperiment:
@@ -169,6 +175,11 @@ class QuantizationExperiment:
 
         y_pred_quantized = np.asarray(common["quantized_model"].predict(common["x_test_input"]))
         metrics = compute_supervised_metrics(y_test, y_pred_baseline, y_pred_quantized)
+        wasserstein_distance = self._compute_probability_wasserstein(
+            baseline_model=baseline_model,
+            quantized_model=common["quantized_model"],
+            x_test=common["x_test_input"],
+        )
         quantized_time_ms = benchmark_inference(
             common["quantized_model"].predict, common["x_test_input"]
         )
@@ -207,7 +218,13 @@ class QuantizationExperiment:
                 (common["data_mse"] + common["model_mse"]) / (2 if mode == "hybrid" else 1)
             ),
             seed=seed,
-            metadata=self._build_metadata(mode, execution_id, bit_width),
+            metadata={
+                **self._build_metadata(mode, execution_id, bit_width),
+                "decision_flip_rate": compute_decision_flip_rate(
+                    y_pred_baseline, y_pred_quantized
+                ),
+                "wasserstein_distance": wasserstein_distance,
+            },
         )
 
     def _run_unsupervised_mode(
@@ -512,6 +529,34 @@ class QuantizationExperiment:
         if value is None:
             return None
         return float(value)
+
+    @staticmethod
+    def _compute_probability_wasserstein(
+        *, baseline_model: BaseModel, quantized_model: BaseModel, x_test: np.ndarray
+    ) -> float | None:
+        baseline_estimator = getattr(baseline_model, "model", None)
+        quantized_estimator = getattr(quantized_model, "model", None)
+        if baseline_estimator is None or quantized_estimator is None:
+            return None
+        if not hasattr(baseline_estimator, "predict_proba"):
+            return None
+        if not hasattr(quantized_estimator, "predict_proba"):
+            return None
+
+        baseline_proba = np.asarray(baseline_estimator.predict_proba(x_test))
+        quantized_proba = np.asarray(quantized_estimator.predict_proba(x_test))
+        if baseline_proba.ndim != 2 or quantized_proba.ndim != 2:
+            return None
+        if baseline_proba.shape != quantized_proba.shape:
+            return None
+
+        if baseline_proba.shape[1] == 1:
+            baseline_scores = baseline_proba[:, 0]
+            quantized_scores = quantized_proba[:, 0]
+        else:
+            baseline_scores = baseline_proba[:, 1]
+            quantized_scores = quantized_proba[:, 1]
+        return compute_wasserstein_distance_1d(baseline_scores, quantized_scores)
 
     @staticmethod
     def _estimate_model_memory_bytes(model: BaseModel) -> int:
