@@ -14,6 +14,7 @@ These duplicates improve readability and maintainability of each solver implemen
 # pylint: disable=logging-fstring-interpolation
 
 import logging
+import resource
 import time
 from typing import Any, Dict, List
 
@@ -424,6 +425,22 @@ class Z3Verifier(FormalVerifier):
             # Reinicializar solver para verificação limpa
             self.solver.reset()
             self._init_z3()
+            solve_time_ns = 0
+            original_check = self.solver.check
+            timing_patch_applied = False
+
+            def timed_check(*args, **kwargs):
+                nonlocal solve_time_ns
+                t0 = time.perf_counter_ns()
+                result = original_check(*args, **kwargs)
+                solve_time_ns += time.perf_counter_ns() - t0
+                return result
+
+            try:
+                self.solver.check = timed_check
+                timing_patch_applied = True
+            except AttributeError:
+                timing_patch_applied = False
 
             # Processar cada constraint
             constraints_checked = []
@@ -478,6 +495,9 @@ class Z3Verifier(FormalVerifier):
 
             # Determinar status geral
             execution_time = time.time() - start_time
+            peak_ram_mb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0
+            solve_time_ms = solve_time_ns / 1e6
+            translation_time_ms = max(0.0, execution_time * 1000.0 - solve_time_ms)
 
             # REPORTING DETALHADO SEMPRE ATIVO PARA VERIFICAÇÃO
             self._report_verification_details(
@@ -506,7 +526,14 @@ class Z3Verifier(FormalVerifier):
                 constraints_checked=constraints_checked,
                 constraints_satisfied=constraints_satisfied,
                 constraints_violated=constraints_violated,
-                details=solver_details,
+                details={
+                    **solver_details,
+                    "translation_time_ms": translation_time_ms,
+                    "solve_time_ms": solve_time_ms,
+                    "peak_ram_mb": peak_ram_mb,
+                    "num_constraints": len(constraints_checked),
+                    "num_vars": None,
+                },
             )
 
         except (RuntimeError, ValueError, TypeError, AttributeError) as e:
@@ -528,6 +555,12 @@ class Z3Verifier(FormalVerifier):
                 message=error_result.get("message", f"Z3 verification error: {str(e)}"),
                 details={"error": str(e), "error_handling": error_result},
             )
+        finally:
+            try:
+                if timing_patch_applied:
+                    self.solver.check = original_check
+            except (AttributeError, UnboundLocalError):
+                pass
 
     def _verify_constraint_with_details(
         self, constraint_type: str, constraint_data: Any, input_data: VerificationInput
