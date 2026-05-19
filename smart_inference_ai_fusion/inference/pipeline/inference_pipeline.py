@@ -404,6 +404,7 @@ class InferencePipeline:
             )
 
             result = verifier.verify(verification_input)
+            details = result.details or {}
 
             return {
                 "status": result.status.value,
@@ -412,7 +413,12 @@ class InferencePipeline:
                 "constraints_checked": result.constraints_checked or [],
                 "constraints_satisfied": result.constraints_satisfied or [],
                 "constraints_violated": result.constraints_violated or [],
-                "details": result.details or {},
+                "translation_time_ms": details.get("translation_time_ms"),
+                "solve_time_ms": details.get("solve_time_ms"),
+                "peak_ram_mb": details.get("peak_ram_mb"),
+                "num_constraints": details.get("num_constraints", len(result.constraints_checked or [])),
+                "num_vars": details.get("num_vars"),
+                "details": details,
             }
 
         except Exception as e:
