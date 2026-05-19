@@ -27,7 +27,7 @@ class CSVDatasetLoader(BaseDataset):
         self,
         file_path: CSVDatasetName,
         target_column: str,
-        test_size: float = 0.2,
+        test_size: float = 0.3,
         random_state: int = 42,
     ):
         """Initializes the CSVDatasetLoader.
@@ -68,5 +68,9 @@ class CSVDatasetLoader(BaseDataset):
         y_data = y.values.astype(np.int64)
 
         return train_test_split(
-            X_data, y_data, test_size=self.test_size, random_state=self.random_state
+            X_data,
+            y_data,
+            test_size=self.test_size,
+            random_state=self.random_state,
+            stratify=y_data,
         )
